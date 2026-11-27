@@ -10,8 +10,6 @@ import app.lensly.core.vault.VaultSession
  * An unlock takes [unlockEpoch] before it starts and hands it to [adopt] when it finishes. If the vault was locked
  * in between, the late session is closed and never kept, so a lock always wins.
  *
- * [decoyShown] keeps what a decoy session shows for settings of the real vault. It is opened with each session and cleared on lock.
- *
  * [attach] makes the state that an app keeps for each open session. The shared cover keeps none, so it defaults to nothing.
  */
 class VaultHolder(
@@ -22,16 +20,8 @@ class VaultHolder(
     private var attachment: SessionAttachment? = null
     private var epoch = 0L
 
-    /** What a decoy session shows for the real vault's settings. Empty in a real session. */
-    val decoyShown = DecoyShown()
-
-    /**
-     * The tries left before erase to warn with, as [Vault.triesBeforeErase] says. A decoy session counts its own wrong tries against the
-     * erase count it shows, but never past the real one, which the vault erases at. A shown count above the real one warns early, and one
-     * below it never erases at the shown count (see [DecoyShown]).
-     */
-    suspend fun triesBeforeErase(): Int? =
-        vault.triesBeforeErase(decoyShown.failureEraseAfter.takeIf { openSession()?.isDecoy == true })
+    /** The tries left before erase to warn with, as [Vault.triesBeforeErase] says. */
+    suspend fun triesBeforeErase(): Int? = vault.triesBeforeErase()
 
     /** The open session, or null while the vault is locked. */
     @Synchronized
@@ -58,7 +48,6 @@ class VaultHolder(
         session?.close()
         attachment?.wipe()
         session = opened
-        decoyShown.open(opened)
         attachment = attach(opened)
         return true
     }
@@ -71,7 +60,6 @@ class VaultHolder(
         session = null
         attachment?.wipe()
         attachment = null
-        decoyShown.clear()
     }
 }
 

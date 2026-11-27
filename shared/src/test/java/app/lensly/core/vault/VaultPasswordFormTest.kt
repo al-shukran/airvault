@@ -66,7 +66,7 @@ class VaultPasswordFormTest {
         storeFromRawText(typed = ASCII, stored = ASCII, raw = APP_NFD)
 
         val session = unlocked(APP_NFD)
-        assertFalse(session.isDecoy)
+        assertEquals(0, session.side)
         session.close()
     }
 
@@ -115,28 +115,27 @@ class VaultPasswordFormTest {
     }
 
     @Test
-    fun theDuressPasswordOpensTheDecoyInEitherForm() {
-        create(APP_NFC)
-        setDuress(APP_NFC, DURESS_NFD)
-
+    fun theDuressPasswordPromotesTheDecoyInEitherForm() {
         for (typed in listOf(DURESS_NFC, DURESS_NFD)) {
-            val decoy = unlocked(typed)
-            assertTrue(decoy.isDecoy)
-            decoy.close()
+            create(APP_NFC)
+            setDuress(APP_NFC, DURESS_NFD)
+
+            val promoted = unlocked(typed)
+            assertEquals(1, promoted.side)
+            promoted.close()
+            vault.wipe()
         }
-        assertFalse(unlocked(APP_NFD).isDecoy)
     }
 
     @Test
     fun aDecoyMadeByTheOldVersionFromRawNfdTextStillOpensWithThatText() {
         create(APP_NFC)
         setDuress(APP_NFC, DURESS_NFC)
-        storeFromRawText(typed = DURESS_NFC, stored = DURESS_NFC, raw = DURESS_NFD)
+        storeFromRawText(typed = DURESS_NFC, stored = DURESS_NFC, raw = DURESS_NFD, key = decoyKey)
 
-        val decoy = unlocked(DURESS_NFD)
-        assertTrue(decoy.isDecoy)
-        decoy.close()
-        assertFalse(unlocked(APP_NFD).isDecoy)
+        val promoted = unlocked(DURESS_NFD)
+        assertEquals(1, promoted.side)
+        promoted.close()
     }
 
     @Test
@@ -145,14 +144,14 @@ class VaultPasswordFormTest {
         create(ASCII)
         storeFromRawText(typed = ASCII, stored = ASCII, raw = APP_NFD)
         setDuress(APP_NFD, DURESS_NFC)
-        storeFromRawText(typed = DURESS_NFC, stored = DURESS_NFC, raw = APP_NFC)
+        storeFromRawText(typed = DURESS_NFC, stored = DURESS_NFC, raw = APP_NFC, key = decoyKey)
 
         val real = unlocked(APP_NFD)
-        assertFalse(real.isDecoy, "the typed NFD text opens the real slot")
+        assertEquals(0, real.side, "the typed NFD text opens the real slot")
         real.close()
-        val decoy = unlocked(APP_NFC)
-        assertTrue(decoy.isDecoy, "the NFC text opens the decoy slot")
-        decoy.close()
+        val promoted = unlocked(APP_NFC)
+        assertEquals(1, promoted.side, "the NFC text opens the decoy slot, which is promoted")
+        promoted.close()
     }
 
     @Test
@@ -204,7 +203,7 @@ class VaultPasswordFormTest {
 
         assertEquals(CreateResult.PolicyRejected(PolicyReason.WEAK_SCORE), runBlocking { vault.rekey(real, DURESS_NFD.toCharArray()) })
         real.close()
-        assertTrue(unlocked(DURESS_NFC).isDecoy)
+        assertEquals(1, unlocked(DURESS_NFC).also { it.close() }.side)
     }
 
     @Test
@@ -241,12 +240,12 @@ class VaultPasswordFormTest {
     fun aNewPasswordInNfcThatIsTheRawNfdTextOfAnOldDecoyPasswordIsRefused() {
         create(APP_NFC)
         setDuress(APP_NFC, DURESS_NFC)
-        storeFromRawText(typed = DURESS_NFC, stored = DURESS_NFC, raw = DURESS_NFD)
+        storeFromRawText(typed = DURESS_NFC, stored = DURESS_NFC, raw = DURESS_NFD, key = decoyKey)
         val real = unlocked(APP_NFC)
 
         assertEquals(CreateResult.PolicyRejected(PolicyReason.WEAK_SCORE), runBlocking { vault.rekey(real, DURESS_NFC.toCharArray()) })
         real.close()
-        assertTrue(unlocked(DURESS_NFD).isDecoy)
+        assertEquals(1, unlocked(DURESS_NFD).also { it.close() }.side)
     }
 
     @Test
@@ -297,8 +296,16 @@ class VaultPasswordFormTest {
         return kdfRuns.runs
     }
 
+    /** The key of the decoy that the last [duress] made. A Duress Password unlock promotes the decoy, so a test that re-seals its slot needs the key. */
+    private var decoyKey = ByteArray(0)
+
     private fun duress(session: VaultSession, password: String): DuressResult =
-        runBlocking { vault.setDuress(session, password.toCharArray()) { decoy -> decoy.createWallet() } }
+        runBlocking {
+            vault.setDuress(session, password.toCharArray()) { decoy ->
+                decoy.createWallet()
+                decoyKey = decoy.copyOfVaultKey()
+            }
+        }
 
     /** Sets the Duress Password from the real vault, which [realPassword] opens. */
     private fun setDuress(realPassword: String, password: String) {
@@ -317,10 +324,8 @@ class VaultPasswordFormTest {
      * Seals the slot that [typed] opens again under the key of the raw text [raw], which is what 1.2.0 did with a password typed as [raw].
      * [stored] is the form the slot is sealed under now. The slot keeps its vault key, so the wallets stay.
      */
-    private fun storeFromRawText(typed: String, stored: String, raw: String) {
-        val session = unlocked(typed)
-        val vaultKey = session.copyOfVaultKey()
-        session.close()
+    private fun storeFromRawText(typed: String, stored: String, raw: String, key: ByteArray? = null) {
+        val vaultKey = key ?: unlocked(typed).let { session -> session.copyOfVaultKey().also { session.close() } }
         val header = VaultHeader.decode(layout.header.readBytes().copyOf(VaultHeader.FIELDS_BYTES))
         val contents = VaultKeyFile.decode(layout.vaultKey.readBytes())
         val index = VaultKeyFile.ownerIndex(contents, vaultKey)

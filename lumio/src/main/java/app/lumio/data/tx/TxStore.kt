@@ -9,6 +9,7 @@ import app.lumio.data.db.TxTermRow
 import app.lumio.data.net.NetworkId
 import java.math.BigInteger
 import java.security.GeneralSecurityException
+import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -58,6 +59,26 @@ class TxStore(private val dao: TxDao, private val keys: TxKeys) {
     suspend fun removeAccounts(accounts: Collection<String>) {
         val txIds = accounts.flatMap { account -> dao.rowsOf(accountKeyOf(account)).onEach { dao.removeRow(it.txId, it.accountKey) }.map { it.txId } }
         txIds.distinctBy { it.asList() }.filterNot { dao.hasRow(it) }.forEach { dao.writeComment(it, COMMENT_KEY, comment = null, terms = emptyList()) }
+    }
+
+    /**
+     * Deletes every row and comment that does not open under [keys], then the terms that name nothing. The rows of a vault that a Duress Password unlock
+     * replaced are sealed under a key that no session holds, and their plain columns (network, time, amount, asset, direction, status) would stay readable
+     * in the database. Run once when the vault opens, as the cache and the scan queue are (see `Cache.purgeUnreadable`). A row that opens but does not
+     * decode is kept: only a row that no session can open is the old vault's. The log is then truncated, so it holds no copy of the pages that held the
+     * deleted rows, and this runs last of the purges for that reason. A truncated log is emptied, not erased: the file system may keep its freed blocks
+     * until they are reused, as it does for every shredded file.
+     */
+    suspend fun purgeUnreadable() {
+        var kept = 0
+        while (true) {
+            val page = dao.rowsPage(PURGE_PAGE, kept)
+            if (page.isEmpty()) break
+            for (row in page) if (!opens(row)) dao.removeRow(row.txId, row.accountKey) else kept++
+        }
+        for (row in dao.comments()) if (!opensComment(row)) dao.writeComment(row.txId, COMMENT_KEY, comment = null, terms = emptyList())
+        dao.deleteOrphanTerms(COMMENT_KEY)
+        truncateLog { dao.truncateLog(SimpleSQLiteQuery("PRAGMA wal_checkpoint(TRUNCATE)")) }
     }
 
     /** The counterparties of the account's transactions that are not spam: the addresses the account has dealt with. */
@@ -198,6 +219,20 @@ class TxStore(private val dao: TxDao, private val keys: TxKeys) {
         }
     }
 
+    /** True when the payload of [row] opens under the key, whatever it holds. */
+    private fun opens(row: TxRow): Boolean = opensUnderKey(rowAad(row.txId, row.accountKey), row.payload)
+
+    private fun opensComment(row: TxComment): Boolean = opensUnderKey(commentAad(row.txId), row.text)
+
+    private fun opensUnderKey(aad: ByteArray, sealed: ByteArray): Boolean = try {
+        Aead.open(keys.encKey, aad, sealed)
+        true
+    } catch (e: GeneralSecurityException) {
+        false
+    } catch (e: IllegalArgumentException) {
+        false
+    }
+
     private fun openComment(row: TxComment): TxNote? {
         val plain = try {
             Aead.open(keys.encKey, commentAad(row.txId), row.text)
@@ -236,12 +271,26 @@ class TxStore(private val dao: TxDao, private val keys: TxKeys) {
         private const val ACCOUNT_LABEL = "account"
         private const val ASSET_LABEL = "asset"
         private const val TERM_LABEL = "term"
+        private const val PURGE_PAGE = 200
+        private const val CHECKPOINT_TRIES = 3
+        private const val CHECKPOINT_RETRY_MS = 50L
 
         /** The key that a comment's terms are filed under. No keyed hash is all zeros, so it never names a row. */
         private val COMMENT_KEY = ByteArray(32)
         private val ROW_AAD = "lumio-tx-row-v1".toByteArray(Charsets.UTF_8)
         private val COMMENT_AAD = "lumio-tx-comment-v1".toByteArray(Charsets.UTF_8)
         private val json = Json
+
+        /**
+         * Runs [checkpoint], which returns the busy column of `wal_checkpoint(TRUNCATE)`: non-zero when a reader kept the log from being truncated. It
+         * runs again, up to [CHECKPOINT_TRIES] times in all, after a short wait for the reader to finish.
+         */
+        internal suspend fun truncateLog(checkpoint: suspend () -> Int) {
+            repeat(CHECKPOINT_TRIES) { attempt ->
+                if (checkpoint() == 0) return
+                if (attempt < CHECKPOINT_TRIES - 1) delay(CHECKPOINT_RETRY_MS)
+            }
+        }
 
         /** The confirmations at which a transaction on [net] is final: 6 on Bitcoin, and 64 on an EVM network, as the design sets them. */
         internal fun finalityOf(net: NetworkId): Long = if (net.isBtc) 6L else 64L

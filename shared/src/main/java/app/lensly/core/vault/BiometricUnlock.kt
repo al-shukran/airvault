@@ -61,8 +61,7 @@ interface BiometricCrypto {
  * invalidated, or when the vault is wiped. The password always works, and it is never replaced.
  *
  * The Vault Key is the secret the password opens. It is copied only to seal it and to unlock, and each copy is zeroed after use. A Duress
- * Password session never turns biometric unlock on or off, because the file wraps the real vault's key. It shows biometric unlock as off,
- * because the Decoy Vault has none of its own (see [isOn] with a session).
+ * Password unlock promotes the Decoy Vault and removes the sealed key with the old vault's other files, so biometric unlock is then off.
  */
 class BiometricUnlock internal constructor(
     private val file: File,
@@ -76,26 +75,20 @@ class BiometricUnlock internal constructor(
     /** True while biometric unlock is on for the real vault. */
     fun isOn(): Boolean = file.isFile
 
-    /**
-     * True while biometric unlock is on, as [session] shows it. A Duress Password session shows it off whatever the real vault has, so its
-     * settings do not reveal the real vault's setting.
-     */
-    fun isOn(session: VaultSession): Boolean = !session.isDecoy && isOn()
-
     /** True when the device has a strong biometric enrolled, so biometric unlock can be turned on. */
     fun canEnable(): Boolean = crypto.available()
 
     /**
      * Turns biometric unlock on for the real vault that [session] has open. The owner's biometric seals the Vault Key first, and the
-     * setting is on only once that has worked. Returns false, and leaves it off, when the device has no strong biometric, the owner does
-     * not pass, or [session] is a Duress Password session.
+     * setting is on only once that has worked. What is sealed is the Vault Key and the session's side (see [VaultSession.side]). Returns
+     * false, and leaves it off, when the device has no strong biometric or the owner does not pass.
      */
     suspend fun enable(session: VaultSession): Boolean {
-        if (session.isDecoy || !crypto.available()) return false
+        if (!crypto.available()) return false
         if (isOn()) return true
         var plain: ByteArray? = null
         try {
-            plain = session.copyOfVaultKey()
+            plain = session.copyOfVaultKey() + session.side.toByte()
             if (!withContext(Dispatchers.IO) { crypto.createKey() }) return false
             val wrapped = crypto.wrap(plain) ?: run {
                 discardKey()
@@ -115,13 +108,10 @@ class BiometricUnlock internal constructor(
     }
 
     /**
-     * Turns biometric unlock off: the sealed Vault Key and the biometric key are deleted. Returns false, and deletes nothing, when [session]
-     * is a Duress Password session, the same refusal as [enable].
+     * Turns biometric unlock off: the sealed Vault Key and the biometric key are deleted.
      */
-    suspend fun disable(session: VaultSession): Boolean {
-        if (session.isDecoy) return false
+    suspend fun disable() {
         deleteSealedKey()
-        return true
     }
 
     private suspend fun deleteSealedKey() = withContext(NonCancellable + Dispatchers.IO) {
@@ -136,7 +126,7 @@ class BiometricUnlock internal constructor(
      */
     suspend fun unlock(vault: Vault): BiometricOutcome {
         if (!isOn()) return BiometricOutcome.Declined
-        val key = try {
+        val plain = try {
             crypto.unwrap(readWrapped()) ?: return BiometricOutcome.Declined
         } catch (e: CancellationException) {
             throw e
@@ -144,9 +134,13 @@ class BiometricUnlock internal constructor(
             deleteSealedKey()
             return BiometricOutcome.TurnedOff
         }
+        // The Vault Key, then its side. A sealed value of another shape is not this vault's, and turns biometric unlock off.
+        val key = plain.copyOf(minOf(plain.size, KEY_BYTES))
+        val side = plain.getOrNull(KEY_BYTES)?.toInt()
+        plain.fill(0)
         try {
             val session = try {
-                vault.unlockWithVaultKey(key)
+                if (key.size != KEY_BYTES || (side != 0 && side != 1)) null else vault.unlockWithVaultKey(key, side)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -177,6 +171,8 @@ class BiometricUnlock internal constructor(
 
         /** The GCM IV that the Keystore cipher generates. */
         private const val IV_BYTES = 12
+
+        private const val KEY_BYTES = VaultKeyFile.KEY_BYTES
     }
 }
 

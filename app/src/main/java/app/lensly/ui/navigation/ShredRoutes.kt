@@ -54,7 +54,7 @@ internal fun DeleteWalletRoute(navController: NavHostController, holder: VaultHo
  */
 @Composable
 internal fun WipeRoute(navController: NavHostController, holder: VaultHolder) {
-    // A real wipe resets the Hidden Entry Gesture; the decoy's wipe leaves it alone.
+    // The wipe resets the Hidden Entry Gesture.
     val gestures = LocalContext.current.entryGestureHolder()
     val flow = remember { ShredFlow(WipeVaultPorts(holder, gestures)) }
     ShredRoute(

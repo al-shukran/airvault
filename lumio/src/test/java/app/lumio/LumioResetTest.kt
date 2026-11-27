@@ -130,7 +130,7 @@ class LumioResetTest {
         val lock = LockSettingsStore.open(context).also { it.save(LockSettings(AutoLock.AFTER_FIVE_MINUTES)) }
         val gestures = EntryGestureStore.open(context).also { it.save(EntryGesture.PINCH_TRIPLE_TAP) }
         shareReceiveCode()
-        File(layout.photoDir(decoy = false).apply { mkdirs() }, "photo.bin").writeBytes(byteArrayOf(9))
+        File(layout.photoDir(0).apply { mkdirs() }, "photo.bin").writeBytes(byteArrayOf(9))
         assertTrue(databaseFile.isFile)
 
         // The caller closes the database first, as LumioApp does.

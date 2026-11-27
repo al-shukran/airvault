@@ -122,7 +122,6 @@ fun SettingsScreen(
                 divided = false,
             )
             IslandDivider()
-            // The same two rows show in the real vault and in a decoy, so the decoy's Settings look identical.
             SettingsRow(
                 title = "Duress Password",
                 description = "A second password. Enter the Application Password, then the new one twice.",

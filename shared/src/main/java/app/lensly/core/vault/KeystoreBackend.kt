@@ -93,6 +93,9 @@ interface KeystoreBackend {
     /** Removes every key the vault uses on this device. */
     fun deleteAll()
 
+    /** Deletes the key that seals the Vault Key for biometric unlock, if there is one. A backend without one has nothing to delete. */
+    fun deleteBiometricKey() {}
+
     /** The `KeyInfo.securityLevel` that the Keystore reports for [key]. */
     fun securityLevel(key: SecretKey): Int
 
@@ -175,6 +178,8 @@ internal class AndroidKeystoreBackend(
     override fun deletePendingPhotoKey() = VaultKeystore.deletePendingPhotoKey()
 
     override fun deleteAll() = VaultKeystore.deleteAll()
+
+    override fun deleteBiometricKey() = VaultKeystore.deleteBiometricKey()
 
     override fun securityLevel(key: SecretKey): Int = VaultKeystore.securityLevel(key)
 

@@ -13,8 +13,10 @@ import java.io.InputStream
 import java.io.SequenceInputStream
 import java.nio.ByteBuffer
 import java.util.UUID
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import java.util.concurrent.FutureTask
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.withContext
 
@@ -43,7 +45,7 @@ class PhotoStore(
     private var privateKey: ByteArray? = null,
     /** A second store that gets its own sealed copy of everything this one saves, under the same name. Only the cover has one, see [forCover]. */
     private val copyTo: PhotoStore? = null,
-    /** The folder of the other vault's copies, which a delete here shreds too. Only the real vault's gallery has one, see [of]. */
+    /** The folder of the other side's copies, which a delete here shreds too, see [of]. */
     private val twinDirectory: File? = null,
 ) {
 
@@ -96,8 +98,8 @@ class PhotoStore(
     }
 
     /**
-     * Overwrites a saved photo or video, then deletes it. In the real vault this also shreds the Decoy Vault's copy of the same name, so
-     * a deleted cover photo is not left readable under the Duress Password. A decoy's delete never touches the real copy.
+     * Overwrites a saved photo or video, then deletes it. This also shreds the twin copy of the same name in the other side's folder, so a
+     * deleted cover photo is not left readable under the Duress Password.
      */
     fun delete(file: File): Boolean = (twinDirectory?.let { shredFile(File(it, file.name)) } ?: true) && shredFile(file)
 
@@ -168,21 +170,35 @@ class PhotoStore(
         }
 
         /**
-         * The real vault's media folder, or the Decoy Vault's when [decoy] is true. The two folders are kept apart, and each holds files
-         * sealed to its own vault only. A wipe of the vault removes them (see [VaultLayout.photoDir]). Only the gallery is given the
-         * [privateKey]; the cover's store only saves.
+         * Runs [block] on [sealer] and waits for it. Every save and every shred of the cover runs there, one after another, so a block that
+         * lists and shreds photo files sees no save half way, and a photo saved meanwhile waits for the block.
          */
-        fun of(layout: VaultLayout, decoy: Boolean, privateKey: ByteArray? = null): PhotoStore =
-            PhotoStore(layout.photoDir(decoy), layout.photoKeyFile(decoy), privateKey, twinDirectory = if (decoy) null else layout.photoDir(decoy = true))
+        internal fun <T> whileNoSaveRuns(block: () -> T): T {
+            val task = FutureTask(block)
+            sealer.execute(task)
+            try {
+                return task.get()
+            } catch (e: ExecutionException) {
+                throw e.cause ?: e
+            }
+        }
 
         /**
-         * The cover's store. The cover has no session, so it cannot tell which vault the person will open, and it saves every photo and
-         * video twice: sealed to the real vault's key, and sealed to the Decoy Vault's key. Both folders exist with a key file from setup,
+         * The media folder of the vault on [side] (see [app.lensly.core.vault.VaultSession.side]). The two folders are kept apart, and each
+         * holds files sealed to its own vault only. A wipe of the vault removes them (see [VaultLayout.photoDir]). Only the gallery is given
+         * the [privateKey]; the cover's store only saves.
+         */
+        fun of(layout: VaultLayout, side: Int, privateKey: ByteArray? = null): PhotoStore =
+            PhotoStore(layout.photoDir(side), layout.photoKeyFile(side), privateKey, twinDirectory = layout.photoDir(1 - side))
+
+        /**
+         * The cover's store. The cover has no session, so it cannot tell which side the person's vault is on, and it saves every photo and
+         * video twice: sealed to the key of side 0, and sealed to the key of side 1. Both folders exist with a key file from setup,
          * a random placeholder while no decoy exists, so the files and their sizes are the same with or without a Duress Password, and
          * both galleries show what the cover shot. The two copies have the same name. Each vault opens only its own copy.
          */
         fun forCover(layout: VaultLayout): PhotoStore =
-            PhotoStore(layout.photoDir(decoy = false), layout.photoKeyFile(decoy = false), copyTo = of(layout, decoy = true))
+            PhotoStore(layout.photoDir(0), layout.photoKeyFile(0), copyTo = of(layout, side = 1))
     }
 }
 

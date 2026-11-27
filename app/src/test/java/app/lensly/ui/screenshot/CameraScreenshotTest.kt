@@ -82,7 +82,7 @@ class CameraScreenshotTest {
     fun galleryEmpty() = compose.snapshot("gallery_empty", theme = coverTheme) {
         // The gallery opens from the camera while the vault is locked, so it shows no lock icon.
         CompositionLocalProvider(LocalVaultLock provides null) {
-            GalleryScreen(store = PhotoStore.of(VaultLayout.of(RuntimeEnvironment.getApplication()), decoy = false), onBack = {})
+            GalleryScreen(store = PhotoStore.of(VaultLayout.of(RuntimeEnvironment.getApplication()), side = 0), onBack = {})
         }
     }
 }

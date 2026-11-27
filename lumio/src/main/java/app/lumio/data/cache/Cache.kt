@@ -175,28 +175,16 @@ class Cache(
         dao.put(KvRow(k = name, v = Aead.seal(keys.enc, aad(name, policy), value), policy = policy, atMs = clock.nowMs()))
     }
 
-    /**
-     * Deletes the least recently used immutable entries that open under [keys] until the stored bytes fit under the cap. The database is shared with
-     * the other vault, whose entries this session cannot read, so it never deletes one: a Decoy Vault must not cost the real vault its cache. Those
-     * entries go when the real vault next opens ([purgeUnreadable]). It looks at no more than [MAX_FOREIGN] of them per call; past that the cache may
-     * stay over its cap in a Decoy Vault session, which is cheaper than walking every row of the real vault.
-     */
+    /** Deletes the least recently used immutable entries until the stored bytes fit under the cap. */
     private suspend fun evictImmutable() {
         var total = dao.totalBytes(IMMUTABLE)
-        var foreign = 0
         while (total > immutableCapBytes) {
-            // Every row before the offset is foreign: the ones that opened were deleted.
-            val page = dao.oldestKeys(IMMUTABLE, MAX_FOREIGN, foreign)
+            val page = dao.oldestKeys(IMMUTABLE, EVICT_BATCH, 0)
             if (page.isEmpty()) return
             for (name in page) {
-                val row = dao.get(name)
-                if (row == null || opens(row)) {
-                    dao.delete(name)
-                    total -= row?.v?.size ?: 0
-                    if (total <= immutableCapBytes) return
-                } else if (++foreign >= MAX_FOREIGN) {
-                    return
-                }
+                total -= dao.get(name)?.v?.size ?: 0
+                dao.delete(name)
+                if (total <= immutableCapBytes) return
             }
         }
     }
@@ -221,7 +209,7 @@ class Cache(
     private companion object {
         const val IMMUTABLE = 0
         const val LAST_KNOWN = 1
-        const val MAX_FOREIGN = 256
+        const val EVICT_BATCH = 256
         const val HMAC = "HmacSHA256"
         val AAD_PREFIX = "lumio-cache-v1".toByteArray(Charsets.UTF_8)
     }

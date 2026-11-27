@@ -10,7 +10,7 @@ import javax.crypto.spec.SecretKeySpec
 
 /**
  * On-disk layout under `noBackupFilesDir/data/`:
- * `header.bin`, `unlock.bin`, `failures.bin`, `failures.bak`, `spare.bin`, `wipe.bin` (only while an erase is under way), `records/`
+ * `header.bin`, `unlock.bin`, `failures.bin`, `failures.bak`, `spare.bin`, `wipe.bin` (only while an erase is under way), `promote.bin` (only while a promotion's cleanup is pending), `records/`
  * (records that belong to one vault as a whole, such as settings), `review-pool/` (the Review Records of every wallet, in equal-size files outside the wallet
  * folders, see [ReviewPool]), and `items/<id>/` holding the key file and the other records.
  *
@@ -103,23 +103,31 @@ class VaultLayout(
     /** The file of record [name] of wallet [walletId]. See [WalletFolder.fileNameOf]. */
     fun walletRecordFile(walletId: String, name: String): File = File(walletDir(walletId), WalletFolder.fileNameOf(name))
 
-    /** The media folder of the real vault (`0`), or of the Decoy Vault (`1`). The two are kept apart. */
-    fun photoDir(decoy: Boolean): File = File(photos, if (decoy) "1" else "0")
+    /** The media folder of side [side] (0 or 1). A vault keeps the side it was made on, and the other side is its twin's. The two are kept apart. */
+    fun photoDir(side: Int): File = File(photos, side.toString())
 
     /**
      * Makes both media folders. They exist from setup, so the folder listing does not show whether a Decoy Vault was made.
      */
     fun makePhotoFolders() {
-        photoDir(decoy = false).mkdirs()
-        photoDir(decoy = true).mkdirs()
+        photoDir(0).mkdirs()
+        photoDir(1).mkdirs()
     }
 
     /**
-     * The public key that the photos of the real vault, or of the Decoy Vault, are sealed to. It is a plain file beside the photo folders,
-     * so the cover can seal without a session. Until the Decoy Vault has a key of its own, its file holds [placeholderPhotoKey], so the
-     * folder shows the same files whether or not a decoy exists.
+     * The public key that the photos of side [side] are sealed to. It is a plain file beside the photo folders, so the cover can seal
+     * without a session. Until the vault of the side has a key of its own, its file holds [placeholderPhotoKey] or a key nobody holds
+     * any more, so the folder shows the same files whether or not a Decoy Vault exists.
      */
-    fun photoKeyFile(decoy: Boolean): File = File(photos, if (decoy) "1.bin" else "0.bin")
+    fun photoKeyFile(side: Int): File = File(photos, "$side.bin")
+
+    /**
+     * Written before an unlock replaces `unlock.bin` to promote the Decoy Vault (see [Vault.unlock]), holding the SHA-256 of the new file,
+     * and removed once the old vault's files are gone. A crash between the marker and the replace is recovered by the next unlock: the new
+     * file waits in a temp file beside `unlock.bin` (named `unlock.bin.<random>.tmp`) and is renamed into place, or, when the commit never
+     * got as far as the failure state, the marker and the temp file are removed.
+     */
+    val promotionMarker = File(root, "promote.bin")
 
     /**
      * The private half of the photo key pair that photos taken before the first setup are sealed to, wrapped under a Keystore key (see
@@ -150,10 +158,30 @@ class VaultLayout(
 /** Random bytes of public key size, in the place of a key file that no key of its own has filled yet. */
 internal fun placeholderPhotoKey(): ByteArray = ByteArray(MediaEnvelope.KEY_BYTES).also { SecureRandom().nextBytes(it) }
 
-/** Which vault a slot holds. The role is stored inside the sealed slot, so the file does not show it. */
+/**
+ * Which vault a slot holds, and on which side it sits. The role is stored inside the sealed slot, so the file does not show it. The side
+ * (0 or 1) picks the vault's section of the wallet pad and its photo folder, and stays with the vault for good: when a Duress Password
+ * promotes the Decoy Vault, the decoy keeps its side and becomes the real vault there, so no photo or pad data moves. A vault's decoy
+ * sits on the other side. Roles 1 and 2 are the first real vault and its decoy.
+ */
 internal object VaultRole {
-    const val REAL: Byte = 1
-    const val DECOY: Byte = 2
+    const val REAL_SIDE_0: Byte = 1
+    const val DECOY_SIDE_1: Byte = 2
+    const val REAL_SIDE_1: Byte = 3
+    const val DECOY_SIDE_0: Byte = 4
+
+    fun isValid(role: Byte): Boolean = role in REAL_SIDE_0..DECOY_SIDE_0
+
+    fun isDecoy(role: Byte): Boolean = role == DECOY_SIDE_1 || role == DECOY_SIDE_0
+
+    /** The side of the vault that [role] names. */
+    fun sideOf(role: Byte): Int = if (role == REAL_SIDE_0 || role == DECOY_SIDE_0) 0 else 1
+
+    /** The role of the real vault on [side]. */
+    fun real(side: Int): Byte = if (side == 0) REAL_SIDE_0 else REAL_SIDE_1
+
+    /** The role of the decoy on [side]. */
+    fun decoy(side: Int): Byte = if (side == 0) DECOY_SIDE_0 else DECOY_SIDE_1
 }
 
 /**

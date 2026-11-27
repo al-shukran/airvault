@@ -36,13 +36,13 @@ class PhotoFileNamesTest {
         session.close()
         layout.makePhotoFolders()
         val privateKey = MediaEnvelope.newPrivateKey()
-        layout.photoKeyFile(decoy = false).writeBytes(MediaEnvelope.publicKeyOf(privateKey))
-        layout.photoKeyFile(decoy = true).writeBytes(MediaEnvelope.publicKeyOf(MediaEnvelope.newPrivateKey()))
-        val store = PhotoStore.of(layout, decoy = false, privateKey = privateKey)
+        layout.photoKeyFile(0).writeBytes(MediaEnvelope.publicKeyOf(privateKey))
+        layout.photoKeyFile(1).writeBytes(MediaEnvelope.publicKeyOf(MediaEnvelope.newPrivateKey()))
+        val store = PhotoStore.of(layout, side = 0, privateKey = privateKey)
         assertTrue(store.savePhoto(Random(1).nextBytes(300), nowMs = 1_234_567_890_123L))
         val recording = folder.newFile("recording.mp4").apply { writeBytes(Random(2).nextBytes(300)) }
         assertTrue(store.saveVideo(recording, nowMs = 1_234_567_891_000L))
-        assertEquals(2, layout.photoDir(decoy = false).listFiles().orEmpty().size, "the media must be on disk for the check to mean anything")
+        assertEquals(2, layout.photoDir(0).listFiles().orEmpty().size, "the media must be on disk for the check to mean anything")
         val walletFiles = layout.walletDir(wallet).listFiles().orEmpty().size
         assertEquals(WalletFolder.NAMES.size + 1, walletFiles, "every record and the key file exist")
 
@@ -62,7 +62,7 @@ class PhotoFileNamesTest {
             }
             assertFalse(TIMESTAMP.containsMatchIn(name), "\"$name\" carries a time")
         }
-        assertTrue(layout.photoDir(decoy = true).isDirectory, "both media folders exist from setup")
+        assertTrue(layout.photoDir(1).isDirectory, "both media folders exist from setup")
     }
 
     private companion object {

@@ -74,7 +74,7 @@ class ScanQueue(private val rows: () -> ScanRows?) {
 
     /**
      * Removes job [id] once it has finished, and returns whether it did. A job that the open vault's key does not open is not removed: it belongs to
-     * another session, as a real job does while the decoy is open, and the decoy must not delete it.
+     * another session, and this one must not delete it.
      */
     suspend fun complete(id: Long): Boolean {
         val open = rows() ?: return false

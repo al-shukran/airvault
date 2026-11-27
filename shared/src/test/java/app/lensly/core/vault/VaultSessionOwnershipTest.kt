@@ -30,12 +30,12 @@ class VaultSessionOwnershipTest {
     }
 
     @Test
-    fun aSessionIsTheRealVaultUnlessItSaysItIsTheDecoy() {
+    fun aSessionKnowsItsSide() {
         val real = open(realKey)
         val decoy = open(decoyKey, decoy = true)
 
-        assertFalse(real.isDecoy)
-        assertTrue(decoy.isDecoy)
+        assertEquals(0, real.side)
+        assertEquals(1, decoy.side)
         real.close()
         decoy.close()
     }
@@ -106,5 +106,5 @@ class VaultSessionOwnershipTest {
     }
 
     private fun open(key: ByteArray, decoy: Boolean = false): VaultSession =
-        VaultSession(layout, keys, key.copyOf(), isDecoy = decoy)
+        VaultSession(layout, keys, key.copyOf(), side = if (decoy) 1 else 0)
 }

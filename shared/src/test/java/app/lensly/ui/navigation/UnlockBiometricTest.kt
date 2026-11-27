@@ -105,7 +105,7 @@ class UnlockBiometricTest {
         compose.waitUntil(timeoutMillis = 5_000) { route() == HOME }
 
         assertEquals(1, biometric.prompts)
-        assertTrue(!assertNotNull(holder.openSession()).isDecoy)
+        assertEquals(0, assertNotNull(holder.openSession()).side)
     }
 
     @Test

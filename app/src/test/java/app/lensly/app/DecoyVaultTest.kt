@@ -18,7 +18,7 @@ class DecoyVaultTest {
     val tmp = TemporaryFolder()
 
     private fun decoy(folder: String, seed: Int): VaultSession =
-        VaultSession(VaultLayout(File(tmp.root, folder)), keys, ByteArray(32) { (it * seed + 5).toByte() }, isDecoy = true)
+        VaultSession(VaultLayout(File(tmp.root, folder)), keys, ByteArray(32) { (it * seed + 5).toByte() }, side = 1)
 
     /** The seed words of the one wallet [session] holds after the populate step ran. */
     private fun populatedWords(session: VaultSession): List<String> {

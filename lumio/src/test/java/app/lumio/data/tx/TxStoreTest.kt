@@ -1,11 +1,13 @@
 package app.lumio.data.tx
 
+import app.lensly.core.vault.Aead
 import app.lensly.core.vault.MemoryKeystore
 import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lumio.data.ETH
 import app.lumio.data.containsBytes
 import app.lumio.data.db.LumioDatabase
+import app.lumio.data.db.TxRow
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import java.io.File
@@ -275,5 +277,91 @@ class TxStoreTest {
         listOf(hashOf(1), bob, carol, "Rent for March", "Paid the landlord").forEach { secret ->
             assertFalse(bytes.containsBytes(secret.toByteArray()), "$secret must not be in the file in clear")
         }
+    }
+
+    @Test
+    fun purgeUnreadableDeletesTheRowsCommentsAndTermsOfAnotherKeyAndKeepsItsOwn() = runBlocking {
+        // Rows and a comment that an older vault key sealed, as a replaced vault leaves them in the shared database.
+        val older = TxStore(database.txs(), keys(seed = 2))
+        older.put(listOf(rows[0], rows[1]))
+        older.setComment(rows[0].id, "old note", 1L)
+        store.put(listOf(rows[2]))
+        store.setComment(rows[2].id, "own note", 2L)
+        assertEquals(3, rowsIn("tx"))
+
+        store.purgeUnreadable()
+
+        assertEquals(1, rowsIn("tx"), "only the open key's row is left")
+        assertEquals(1, rowsIn("tx_comment"), "only the open key's comment is left")
+        assertEquals(0, rowsIn("tx_term WHERE txId NOT IN (SELECT txId FROM tx UNION SELECT txId FROM tx_comment)"), "no term names a deleted row")
+        assertEquals(listOf(3), store.page(TxQuery(), 0, 10).numbers())
+        assertEquals(listOf(rows[2].id), store.comments().map { it.txId })
+        assertEquals(true, rowsIn("tx_term") > 0, "the own row's terms are kept")
+    }
+
+    @Test
+    fun purgeUnreadableWalksPastTheRowsItKeepsAndDeletesThoseBetween() = runBlocking {
+        val older = TxStore(database.txs(), keys(seed = 2))
+        // More rows than one page, of two keys.
+        val many = (1..450).map { tx(it, it * 10L, BigInteger.ONE) }
+        older.put(many.filter { it.timestampMs % 20L == 0L })
+        store.put(many.filter { it.timestampMs % 20L != 0L })
+
+        store.purgeUnreadable()
+
+        assertEquals(225, rowsIn("tx"))
+        assertEquals(225, store.count(TxQuery(includeSpam = true)))
+    }
+
+    @Test
+    fun purgeUnreadableKeepsARowThatOpensButDoesNotDecode() = runBlocking {
+        store.put(listOf(rows[0]))
+        val row = database.txs().rowsPage(1, 0).single()
+        // Sealed under the open key and the row's own name, but the payload is not a transaction.
+        val damaged = TxRow(
+            row.txId, row.accountKey, row.assetKey, row.network, row.timestampMs, row.amountKey, row.feeKey, row.assetSymbol, row.direction,
+            row.status, row.spam, row.settled,
+            Aead.seal(keys().encKey, "lumio-tx-row-v1".toByteArray() + row.txId + row.accountKey, "{not a transaction".toByteArray()),
+        )
+        database.txs().insertRow(damaged)
+
+        store.purgeUnreadable()
+
+        assertEquals(1, rowsIn("tx"), "only a row that no session opens is the old vault's")
+    }
+
+    @Test
+    fun purgeUnreadableLeavesNoPlainColumnOfADeletedRowInTheDatabaseOrItsLog() = runBlocking {
+        val older = TxStore(database.txs(), keys(seed = 2))
+        older.put(listOf(tx(1, 1_000L, oneEth, asset = TxAsset(null, "REMNANTSYM", "Remnant Coin", 18))))
+        store.put(listOf(rows[2]))
+        val marker = "REMNANTSYM".toByteArray()
+        val files = listOf(File(tmp.root, "tx.db"), File(tmp.root, "tx.db-wal"))
+        assertEquals(true, files.any { it.exists() && it.readBytes().containsBytes(marker) }, "the symbol is in the files before the purge")
+
+        store.purgeUnreadable()
+
+        files.filter { it.exists() }.forEach { assertFalse(it.readBytes().containsBytes(marker), "${it.name} still holds the deleted row") }
+    }
+
+    @Test
+    fun theLogIsTruncatedAgainWhileAReaderKeepsItBusyAndGivesUpAfterThreeTries() = runBlocking {
+        var runs = 0
+        TxStore.truncateLog { if (++runs < 3) 1 else 0 }
+        assertEquals(3, runs, "a busy log is truncated again until it is free")
+
+        runs = 0
+        TxStore.truncateLog { runs++; 1 }
+        assertEquals(3, runs, "a log that stays busy is tried three times, no more")
+
+        runs = 0
+        TxStore.truncateLog { runs++; 0 }
+        assertEquals(1, runs, "a log that is free is truncated once")
+    }
+
+    /** The number of rows that the raw SQL [from] names, whatever key they are sealed under. */
+    private fun rowsIn(from: String): Int = database.openHelper.readableDatabase.query("SELECT COUNT(*) FROM $from").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getInt(0)
     }
 }

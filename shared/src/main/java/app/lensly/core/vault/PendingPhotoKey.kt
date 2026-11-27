@@ -35,7 +35,7 @@ internal object PendingPhotoKey {
                     val sealed = keystoreCall { Aead.sealWithKeystore(keys.createPendingPhotoKey(), AAD, privateKey) }
                     layout.makePhotoFolders()
                     writeAtomically(layout.pendingKeyFile, sealed)
-                    writeAtomically(layout.photoKeyFile(decoy = false), MediaEnvelope.publicKeyOf(privateKey))
+                    writeAtomically(layout.photoKeyFile(side = 0), MediaEnvelope.publicKeyOf(privateKey))
                 } finally {
                     privateKey.fill(0)
                 }
@@ -48,10 +48,10 @@ internal object PendingPhotoKey {
     }
 
     private fun ensureDecoyPlaceholder(layout: VaultLayout) {
-        if (layout.photoKeyFile(decoy = true).isFile) return
+        if (layout.photoKeyFile(side = 1).isFile) return
         try {
             layout.makePhotoFolders()
-            writeAtomically(layout.photoKeyFile(decoy = true), placeholderPhotoKey())
+            writeAtomically(layout.photoKeyFile(side = 1), placeholderPhotoKey())
         } catch (e: IOException) {
             // The save that follows fails, as with no pair.
         }
@@ -70,9 +70,9 @@ internal object PendingPhotoKey {
     /** Erases the pending pair, the photos sealed to it, and the public half they were sealed to. */
     internal fun erase(layout: VaultLayout, keys: KeystoreBackend) {
         synchronized(lock) {
-            layout.photoDir(decoy = false).walkTopDown().filter { it.isFile }.forEach(::shred)
-            layout.photoDir(decoy = false).deleteRecursively()
-            layout.photoKeyFile(decoy = false).delete()
+            layout.photoDir(side = 0).walkTopDown().filter { it.isFile }.forEach(::shred)
+            layout.photoDir(side = 0).deleteRecursively()
+            layout.photoKeyFile(side = 0).delete()
             discard(layout, keys)
         }
     }
@@ -93,7 +93,7 @@ internal object PendingPhotoKey {
             val wrapKey = keystoreCall { keys.pendingPhotoKey() } ?: return null
             val privateKey = keystoreCall { Aead.openWithKeystore(wrapKey, AAD, layout.pendingKeyFile.readBytes()) }
             val matches = privateKey.size == MediaEnvelope.KEY_BYTES &&
-                MediaEnvelope.publicKeyOf(privateKey).contentEquals(layout.photoKeyFile(decoy = false).readBytes())
+                MediaEnvelope.publicKeyOf(privateKey).contentEquals(layout.photoKeyFile(side = 0).readBytes())
             if (matches) {
                 privateKey
             } else {

@@ -233,16 +233,14 @@ class VaultFormatV4Test {
         val real = withDecoy.unlocked(APP)
         withDecoy.setDuress(real)
         real.close()
-        val decoy = withDecoy.unlocked(DURESS)
-        // The decoy writes its photo key on this first unlock, and the shown wrong-try limits once the owner changes them.
-        decoy.putVaultRecord(VaultRecordNames.DECOY_SHOWN, byteArrayOf(1))
-        decoy.putVaultRecord("settings", byteArrayOf(2))
-
         assertEquals(recordFiles(plain), recordFiles(withDecoy))
         assertEquals(2 * VaultRecordNames.KNOWN.size, recordFiles(withDecoy))
 
-        runBlocking { withDecoy.vault.wipeDecoy(decoy) }
-        decoy.close()
+        // Promoting the decoy retires the old vault's files into spares, so the folder holds as many files as before.
+        val promoted = withDecoy.unlocked(DURESS)
+        promoted.putVaultRecord("settings", byteArrayOf(2))
+        runBlocking { withDecoy.vault.awaitCleanupForTesting() }
+        promoted.close()
         assertEquals(recordFiles(plain), recordFiles(withDecoy))
     }
 
@@ -391,7 +389,7 @@ class VaultFormatV4Test {
         session.close()
         // The software layer opens under the password, and the hardware layer was sealed under another key.
         val elsewhere = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
-        val slot = slotWithRole(rig, APP, vaultKey, role = VaultRole.REAL, hardwareKey = elsewhere)
+        val slot = slotWithRole(rig, APP, vaultKey, role = VaultRole.REAL_SIDE_0, hardwareKey = elsewhere)
         rig.clock.advance(FailureDelay.LEARNING_CAP_MS)
         rig.replaceKeyFile(VaultKeyFile.encode(listOf(slot, VaultKeyFile.randomSlot(SecureRandom())), SecureRandom()))
 
@@ -566,7 +564,7 @@ class VaultFormatV4Test {
         assertEquals(1, rig.vault.failureCountForTesting())
 
         rig.stateUnreadable = true
-        val opened = assertNotNull(runBlocking { rig.vault.unlockWithVaultKey(vaultKey) })
+        val opened = assertNotNull(runBlocking { rig.vault.unlockWithVaultKey(vaultKey, 0) })
         opened.close()
         rig.stateUnreadable = false
 
@@ -583,7 +581,7 @@ class VaultFormatV4Test {
         rig.layout.vaultKey.writeBytes(rig.layout.vaultKey.readBytes().copyOf(VaultKeyFile.FILE_BYTES - 1))
 
         rig.stateUnreadable = true
-        assertNull(runBlocking { rig.vault.unlockWithVaultKey(vaultKey) })
+        assertNull(runBlocking { rig.vault.unlockWithVaultKey(vaultKey, 0) })
 
         assertFalse(rig.layout.exists())
         assertEquals(1, rig.erased)
@@ -601,7 +599,7 @@ class VaultFormatV4Test {
         assertEquals(UnlockResult.Rejected, rig.attempt(WRONG))
         rig.layout.vaultKey.writeBytes(older)
 
-        assertNull(runBlocking { rig.vault.unlockWithVaultKey(vaultKey) })
+        assertNull(runBlocking { rig.vault.unlockWithVaultKey(vaultKey, 0) })
 
         assertFalse(rig.layout.exists())
         assertEquals(1, rig.erased)

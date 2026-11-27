@@ -41,7 +41,7 @@ class VaultDuressTest {
 
         val session = unlocked(unlockAfterDelay(APP))
 
-        assertFalse(session.isDecoy)
+        assertEquals(0, session.side)
         assertEquals(emptyList<String>(), session.listWallets())
         session.close()
     }
@@ -60,48 +60,6 @@ class VaultDuressTest {
 
         assertRejected(attempt(DURESS))
         unlocked(unlockAfterDelay(APP)).close()
-    }
-
-    @Test
-    fun theDuressPasswordOpensTheDecoyVaultWithItsOwnWallet() {
-        createVault()
-        val real = unlocked(attempt(APP))
-        val realWallet = real.createWallet()
-        assertEquals(DuressResult.Enabled, setDuress(real))
-        real.close()
-
-        val decoy = unlocked(unlockAfterDelay(DURESS))
-        assertTrue(decoy.isDecoy)
-        assertEquals(1, decoy.listWallets().size)
-        assertFalse(decoy.listWallets().contains(realWallet))
-        decoy.close()
-
-        val reopened = unlocked(unlockAfterDelay(APP))
-        assertFalse(reopened.isDecoy)
-        assertEquals(listOf(realWallet), reopened.listWallets())
-        reopened.close()
-    }
-
-    @Test
-    fun theTwoVaultsCannotReadEachOthersWallets() {
-        createVault()
-        val real = unlocked(attempt(APP))
-        val realWallet = real.createWallet()
-        real.putRecord(realWallet, "secret", byteArrayOf(1, 2, 3))
-        assertEquals(DuressResult.Enabled, setDuress(real))
-        real.close()
-
-        val decoy = unlocked(unlockAfterDelay(DURESS))
-        val decoyWallet = decoy.listWallets().single()
-        decoy.putRecord(decoyWallet, "secret", byteArrayOf(9))
-        assertFailsWith<VaultException> { decoy.getRecord(realWallet, "secret") }
-        assertFailsWith<VaultException> { decoy.putRecord(realWallet, "secret", byteArrayOf(0)) }
-        decoy.deleteWallet(realWallet)
-        decoy.close()
-
-        val reopened = unlocked(unlockAfterDelay(APP))
-        assertContentEquals(byteArrayOf(1, 2, 3), reopened.getRecord(realWallet, "secret"))
-        reopened.close()
     }
 
     @Test
@@ -316,12 +274,13 @@ class VaultDuressTest {
 
         assertRejected(unlockAfterDelay(APP))
         val reopened = unlocked(unlockAfterDelay(OTHER))
-        assertFalse(reopened.isDecoy)
+        assertEquals(0, reopened.side)
         reopened.close()
-        val decoy = unlocked(unlockAfterDelay(DURESS))
-        assertTrue(decoy.isDecoy)
-        assertEquals(1, decoy.listWallets().size)
-        decoy.close()
+        // The Duress Password still opens the decoy, which the unlock promotes.
+        val promoted = unlocked(unlockAfterDelay(DURESS))
+        assertEquals(1, promoted.side)
+        assertEquals(1, promoted.listWallets().size)
+        promoted.close()
     }
 
     @Test
@@ -338,108 +297,7 @@ class VaultDuressTest {
         real.close()
 
         val reopened = unlocked(unlockAfterDelay(APP))
-        assertFalse(reopened.isDecoy)
-        reopened.close()
-    }
-
-    @Test
-    fun aDecoyChangesItsOwnEntryPasswordAndNotTheRealOne() {
-        createVault()
-        val real = unlocked(attempt(APP))
-        real.createWallet()
-        assertEquals(DuressResult.Enabled, setDuress(real))
-        real.close()
-
-        val decoy = unlocked(unlockAfterDelay(DURESS))
-        assertEquals(CreateResult.Created, runBlocking { vault.rekey(decoy, OTHER.toCharArray()) })
-        decoy.close()
-
-        // The change above counted as a wrong try, and the wrong Duress Password just now as a second: the wait is past the learning cap.
-        assertRejected(afterTheFullWait(DURESS))
-        val moved = unlocked(afterTheFullWait(OTHER))
-        assertTrue(moved.isDecoy)
-        assertEquals(1, moved.listWallets().size)
-        moved.close()
-        unlocked(afterTheFullWait(APP)).close()
-    }
-
-    @Test
-    fun aDecoyAskedToTakeTheAppPasswordAsItsOwnKeepsItsOldPasswordAndAnswersAsForAnyOther() {
-        createVault()
-        val real = unlocked(attempt(APP))
-        assertEquals(DuressResult.Enabled, setDuress(real))
-        real.close()
-
-        val decoy = unlocked(unlockAfterDelay(DURESS))
-        // The answer is the same as for any other password, so it never says that this one is the real App Password.
-        clock.advance(FailureDelay.LEARNING_CAP_MS)
-        assertEquals(CreateResult.Created, runBlocking { vault.rekey(decoy, APP.toCharArray()) })
-        decoy.close()
-
-        // Nothing was written: the Duress Password still opens the decoy, and the App Password still opens the real vault only.
-        assertTrue(unlocked(unlockAfterDelay(DURESS)).also { it.close() }.isDecoy)
-        assertFalse(unlocked(unlockAfterDelay(APP)).also { it.close() }.isDecoy)
-    }
-
-    @Test
-    fun aDecoySettingItsDuressPasswordChangesNothingAndAnswersAsTheRealVaultDoes() {
-        createVault()
-        val real = unlocked(attempt(APP))
-        assertEquals(DuressResult.Enabled, setDuress(real))
-        real.close()
-
-        val decoy = unlocked(unlockAfterDelay(DURESS))
-        val wallet = decoy.listWallets().single()
-        val filesBefore = fileContents()
-        // The decoy's own password is the decoy's "App Password": refused, as the real vault refuses its own. Any other strong password,
-        // the real App Password included, is accepted without a look at the real slot.
-        assertEquals(DuressResult.SameAsAppPassword, runBlocking { vault.setDuress(decoy, DURESS.toCharArray()) { } })
-        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(decoy, OTHER.toCharArray()) { } })
-        assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(decoy, APP.toCharArray()) { } })
-        assertTrue(runBlocking { vault.setDuress(decoy, "short".toCharArray()) { } } is DuressResult.PolicyRejected)
-        assertEquals(filesBefore, fileContents(), "A decoy session writes nothing, whatever the answer.")
-        decoy.close()
-
-        assertRejected(unlockAfterDelay(OTHER))
-        val same = unlocked(unlockAfterDelay(DURESS))
-        assertTrue(same.isDecoy)
-        assertEquals(listOf(wallet), same.listWallets())
-        same.close()
-    }
-
-    @Test
-    fun aDecoyRefusesItsOwnPasswordInEitherUnicodeFormAsTheRealVaultDoes() {
-        createVault()
-        val real = unlocked(attempt(APP))
-        assertEquals(DuressResult.Enabled, setDuress(real, password = DURESS_NFC))
-        real.close()
-
-        val decoy = unlocked(unlockAfterDelay(DURESS_NFD))
-        val filesBefore = fileContents()
-        assertEquals(DuressResult.SameAsAppPassword, runBlocking { vault.setDuress(decoy, DURESS_NFC.toCharArray()) { } })
-        assertEquals(DuressResult.SameAsAppPassword, runBlocking { vault.setDuress(decoy, DURESS_NFD.toCharArray()) { } })
-        assertEquals(filesBefore, fileContents())
-        decoy.close()
-    }
-
-    @Test
-    fun aDecoyRemovingItsDuressPasswordChangesNothing() {
-        createVault()
-        val real = unlocked(attempt(APP))
-        val realWallet = real.createWallet()
-        assertEquals(DuressResult.Enabled, setDuress(real))
-        real.close()
-
-        val decoy = unlocked(unlockAfterDelay(DURESS))
-        val decoyWallet = decoy.listWallets().single()
-        runBlocking { vault.removeDuress(decoy) }
-        decoy.close()
-
-        val sameDecoy = unlocked(unlockAfterDelay(DURESS))
-        assertEquals(listOf(decoyWallet), sameDecoy.listWallets())
-        sameDecoy.close()
-        val reopened = unlocked(unlockAfterDelay(APP))
-        assertEquals(listOf(realWallet), reopened.listWallets())
+        assertEquals(0, reopened.side)
         reopened.close()
     }
 
@@ -458,34 +316,7 @@ class VaultDuressTest {
             FailureCapResult.Rejected,
             runBlocking { vault.setFailureLimits(DURESS.toCharArray(), 10_000L) },
         )
-        // The App Password typed into the decoy is not the decoy's password either.
-        assertEquals(
-            FailureCapResult.Rejected,
-            runBlocking { vault.setFailureLimits(APP.toCharArray(), 10_000L, inDecoy = true) },
-        )
         assertEquals(30_000L, runBlocking { vault.failureDelayCapMs() })
-    }
-
-    @Test
-    fun aDecoyCapChangeAppearsToSaveButNeverReachesTheRealCap() {
-        createVault()
-        assertEquals(FailureCapResult.Saved, runBlocking { vault.setFailureLimits(APP.toCharArray(), 30_000L) })
-        val real = unlocked(attempt(APP))
-        assertEquals(DuressResult.Enabled, setDuress(real))
-        real.close()
-
-        val decoy = unlocked(unlockAfterDelay(DURESS))
-        // The decoy's own password is accepted, so the change looks saved, but the real cap stays where it was.
-        assertEquals(
-            FailureCapResult.Saved,
-            runBlocking { vault.setFailureLimits(DURESS.toCharArray(), 10_000L, inDecoy = true) },
-        )
-        decoy.close()
-        assertEquals(30_000L, runBlocking { vault.failureDelayCapMs() })
-
-        // The real App Password still saves a real change.
-        assertEquals(FailureCapResult.Saved, runBlocking { vault.setFailureLimits(APP.toCharArray(), 10_000L) })
-        assertEquals(10_000L, runBlocking { vault.failureDelayCapMs() })
     }
 
     @Test
@@ -509,25 +340,22 @@ class VaultDuressTest {
         createVault()
         val real = unlocked(attempt(APP))
         real.createWallet()
-        assertEquals(DuressResult.Enabled, setDuress(real, wallets = 2))
+        val decoy = setDuressKeepingKey(real, wallets = 2)
+        assertEquals(DuressResult.Enabled, decoy.result)
         assertEquals(WALLET_SLOT_STEP, walletFolders())
 
-        val decoy = unlocked(unlockAfterDelay(DURESS))
-        val gone = decoy.listWallets()
-        val decoyKey = decoy.copyOfVaultKey()
-        decoy.close()
         runBlocking { vault.removeDuress(real) }
         real.close()
 
         assertEquals(WALLET_SLOT_STEP, walletFolders())
         // The folders stay, but the wallets they held no longer open and no session lists them.
-        gone.forEach { id ->
-            assertFalse(ownsWallet(keys, layout,decoyKey, id))
+        decoy.wallets.forEach { id ->
+            assertFalse(ownsWallet(keys, layout, decoy.key, id))
             assertTrue(layout.walletKeyFile(id).isFile)
         }
-        decoyKey.fill(0)
+        decoy.key.fill(0)
         val reopened = unlocked(unlockAfterDelay(APP))
-        gone.forEach { id -> assertFalse(reopened.listWallets().contains(id)) }
+        decoy.wallets.forEach { id -> assertFalse(reopened.listWallets().contains(id)) }
         reopened.close()
     }
 
@@ -536,45 +364,22 @@ class VaultDuressTest {
         createVault()
         val real = unlocked(attempt(APP))
         real.createWallet()
-        assertEquals(DuressResult.Enabled, setDuress(real, password = DURESS, wallets = 1))
-        val oldDecoy = unlocked(unlockAfterDelay(DURESS))
-        val oldWallet = oldDecoy.listWallets().single()
-        val oldDecoyKey = oldDecoy.copyOfVaultKey()
-        oldDecoy.close()
+        val old = setDuressKeepingKey(real, password = DURESS, wallets = 1)
+        assertEquals(DuressResult.Enabled, old.result)
         assertEquals(DuressResult.Enabled, setDuress(real, password = DURESS_TWO, wallets = 2))
         real.close()
 
         assertRejected(unlockAfterDelay(DURESS))
         // The old decoy's folder stays, but its wallet no longer opens.
-        assertFalse(ownsWallet(keys, layout,oldDecoyKey, oldWallet))
-        oldDecoyKey.fill(0)
-        val decoy = unlocked(unlockAfterDelay(DURESS_TWO))
-        assertEquals(2, decoy.listWallets().size)
-        assertFalse(decoy.listWallets().contains(oldWallet))
-        decoy.close()
+        assertFalse(ownsWallet(keys, layout, old.key, old.wallets.single()))
+        old.key.fill(0)
+        // The new decoy is what the Duress Password opens, after it is promoted.
+        val promoted = unlocked(unlockAfterDelay(DURESS_TWO))
+        assertEquals(2, promoted.listWallets().size)
+        assertFalse(promoted.listWallets().contains(old.wallets.single()))
+        promoted.close()
         // The real wallet and the new decoy's two wallets fill three slots; the rest stay unused.
         assertEquals(WALLET_SLOT_STEP, walletFolders())
-    }
-
-    @Test
-    fun theDecoyCannotReachTheRealSettings() {
-        createVault()
-        val real = unlocked(attempt(APP))
-        assertEquals(DuressResult.Enabled, setDuress(real))
-        real.close()
-
-        val decoy = unlocked(unlockAfterDelay(DURESS))
-        decoy.putVaultRecord("settings", byteArrayOf(1, 2, 3))
-        decoy.close()
-
-        val reopened = unlocked(unlockAfterDelay(APP))
-        assertNull(reopened.getVaultRecord("settings"))
-        reopened.putVaultRecord("settings", byteArrayOf(9))
-        reopened.close()
-
-        val decoyAgain = unlocked(unlockAfterDelay(DURESS))
-        assertContentEquals(byteArrayOf(1, 2, 3), decoyAgain.getVaultRecord("settings"))
-        decoyAgain.close()
     }
 
     @Test
@@ -591,24 +396,7 @@ class VaultDuressTest {
     }
 
     @Test
-    fun aDuressUnlockDoesNotChangeTheRealVaultKeyFile() {
-        createVault()
-        val real = unlocked(attempt(APP))
-        assertEquals(DuressResult.Enabled, setDuress(real))
-        real.close()
-        val keyFileBefore = layout.vaultKey.readBytes()
-        val headerBefore = layout.header.readBytes()
-
-        val decoy = unlocked(unlockAfterDelay(DURESS))
-        decoy.createWallet()
-        decoy.close()
-
-        assertContentEquals(keyFileBefore, layout.vaultKey.readBytes())
-        assertContentEquals(headerBefore, layout.header.readBytes())
-    }
-
-    @Test
-    fun theFailureDelayIsSharedByBothPasswords() {
+    fun theFailureDelayIsSharedByBothPasswordsAndADuressOpenClearsTheCount() {
         createVault()
         val real = unlocked(attempt(APP))
         assertEquals(DuressResult.Enabled, setDuress(real))
@@ -620,11 +408,11 @@ class VaultDuressTest {
         assertEquals(1, vault.failureCountForTesting())
 
         clock.advance(FailureDelay.LEARNING_CAP_MS)
-        val decoy = unlocked(attempt(DURESS))
-        assertTrue(decoy.isDecoy)
-        decoy.close()
-        // The decoy open keeps the real vault's count of one, so it does not clear the streak.
-        assertEquals(1, vault.failureCountForTesting())
+        val promoted = unlocked(attempt(DURESS))
+        assertEquals(1, promoted.side)
+        promoted.close()
+        // The promoted vault is the vault now, so its right password clears the count as any right password does.
+        assertEquals(0, vault.failureCountForTesting())
     }
 
     @Test
@@ -637,41 +425,6 @@ class VaultDuressTest {
         real.close()
 
         assertRejected(unlockAfterDelay(WRONG))
-    }
-
-    @Test
-    fun aWipeFromTheDecoyLeavesTheRealVaultAndItsWalletsAlone() {
-        createVault()
-        val real = unlocked(attempt(APP))
-        val realWallet = real.createWallet()
-        real.putRecord(realWallet, "secret", byteArrayOf(1, 2, 3))
-        assertEquals(DuressResult.Enabled, setDuress(real))
-        real.close()
-
-        val decoy = unlocked(unlockAfterDelay(DURESS))
-        val decoyWallet = decoy.listWallets().single()
-        decoy.putRecord(decoyWallet, "secret", byteArrayOf(9))
-        val shapeBefore = fileShape()
-
-        vault.wipeDecoy(decoy)
-        decoy.close()
-
-        // The files keep their names and sizes, so the store cannot show that a wipe happened.
-        assertEquals(shapeBefore, fileShape())
-        assertTrue(vault.exists())
-
-        // The Duress Password still opens a decoy, but it is empty. A refusal would tell an attacker that a decoy existed.
-        val emptied = unlocked(unlockAfterDelay(DURESS))
-        assertTrue(emptied.isDecoy)
-        assertEquals(emptyList<String>(), emptied.listWallets())
-        assertFailsWith<VaultException> { emptied.getRecord(decoyWallet, "secret") }
-        emptied.close()
-
-        val reopened = unlocked(unlockAfterDelay(APP))
-        assertFalse(reopened.isDecoy)
-        assertEquals(listOf(realWallet), reopened.listWallets())
-        assertContentEquals(byteArrayOf(1, 2, 3), reopened.getRecord(realWallet, "secret"))
-        reopened.close()
     }
 
     @Test
@@ -691,70 +444,18 @@ class VaultDuressTest {
     }
 
     @Test
-    fun aDecoyWipeRemovesOnlyTheDecoysPhotos() {
-        createVault()
-        val real = unlocked(attempt(APP))
-        assertEquals(DuressResult.Enabled, setDuress(real))
-        real.close()
-        val realPhoto = savePhoto(decoy = false)
-        val decoyPhoto = savePhoto(decoy = true)
-
-        val decoy = unlocked(unlockAfterDelay(DURESS))
-        vault.wipeDecoy(decoy)
-        decoy.close()
-
-        assertTrue(realPhoto.exists())
-        assertFalse(decoyPhoto.exists())
-    }
-
-    @Test
     fun removingTheDuressPasswordRemovesTheDecoysPhotos() {
         createVault()
         val real = unlocked(attempt(APP))
         assertEquals(DuressResult.Enabled, setDuress(real))
-        val realPhoto = savePhoto(decoy = false)
-        val decoyPhoto = savePhoto(decoy = true)
+        val realPhoto = savePhoto(side = 0)
+        val decoyPhoto = savePhoto(side = 1)
 
         runBlocking { vault.removeDuress(real) }
         real.close()
 
         assertTrue(realPhoto.exists())
         assertFalse(decoyPhoto.exists())
-    }
-
-    @Test
-    fun aDecoyOpenKeepsTheRealVaultsWrongTryCount() {
-        createVault()
-        val real = unlocked(attempt(APP))
-        assertEquals(DuressResult.Enabled, setDuress(real))
-        real.close()
-        assertRejected(afterTheFullWait(WRONG))
-        assertRejected(afterTheFullWait(WRONG))
-
-        val decoy = unlocked(afterTheFullWait(DURESS))
-
-        assertTrue(decoy.isDecoy)
-        decoy.close()
-        assertEquals(2, vault.failureCountForTesting())
-    }
-
-    @Test
-    fun theTriesLeftWarningIsHiddenAfterADecoyOpenAndReturnsAtTheNextWrongTry() {
-        createVault()
-        val real = unlocked(attempt(APP))
-        assertEquals(DuressResult.Enabled, setDuress(real))
-        real.close()
-        assertEquals(FailureCapResult.Saved, runBlocking { vault.setFailureLimits(APP.toCharArray(), null, wipeAfter = 4) })
-        assertRejected(afterTheFullWait(WRONG))
-        assertRejected(afterTheFullWait(WRONG))
-        assertEquals(2, triesLeft())
-
-        unlocked(afterTheFullWait(DURESS)).close()
-        assertNull(triesLeft())
-
-        assertRejected(afterTheFullWait(WRONG))
-        assertEquals(3, vault.failureCountForTesting())
-        assertEquals(1, triesLeft())
     }
 
     @Test
@@ -769,9 +470,9 @@ class VaultDuressTest {
         assertNull(triesLeft())
     }
 
-    /** A photo in the real vault's or the Decoy Vault's folder, as the camera or the gallery would keep it. */
-    private fun savePhoto(decoy: Boolean): File =
-        File(layout.photoDir(decoy).apply { mkdirs() }, "IMG_1.jpg").apply { writeBytes(ByteArray(1)) }
+    /** A photo in the media folder of [side], as the camera or the gallery would keep it. */
+    private fun savePhoto(side: Int): File =
+        File(layout.photoDir(side).apply { mkdirs() }, "IMG_1.jpg").apply { writeBytes(ByteArray(1)) }
 
     private fun createVault() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
@@ -802,6 +503,23 @@ class VaultDuressTest {
         vault.setDuress(session, password.toCharArray()) { decoy ->
             repeat(wallets) { decoy.createWallet() }
         }
+    }
+
+    /** What [setDuressKeepingKey] found: the result, and the decoy's key and wallet ids as [populate] saw them. */
+    private class KeptDecoy(val result: DuressResult, val key: ByteArray, val wallets: List<String>)
+
+    /** Sets the Duress Password with [wallets] decoy wallets, and keeps the decoy's key and wallet ids. The caller zeroes the key. */
+    private fun setDuressKeepingKey(session: VaultSession, password: String = DURESS, wallets: Int = 1): KeptDecoy {
+        var key = ByteArray(0)
+        var ids = emptyList<String>()
+        val result = runBlocking {
+            vault.setDuress(session, password.toCharArray()) { decoy ->
+                repeat(wallets) { decoy.createWallet() }
+                key = decoy.copyOfVaultKey()
+                ids = decoy.listWallets()
+            }
+        }
+        return KeptDecoy(result, key, ids)
     }
 
     /** Like [setDuress], with [arm] run once the decoy is populated, so the next save of the failure state is the decoy's commit. */

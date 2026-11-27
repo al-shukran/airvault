@@ -38,12 +38,6 @@ internal fun NavGraphBuilder.deviceProtectionRoutes(navController: NavHostContro
     }
 }
 
-/**
- * Whether turning the switch on opens the App Password step. A Decoy Vault seals no Biometric Unlock, so there turning it on does nothing,
- * as turning it off does nothing. The step would take the real password on screen, and an observer could learn that a real vault exists.
- */
-internal fun turningOnOpensPasswordStep(session: VaultSession): Boolean = !session.isDecoy
-
 /** The App Password step of turning Biometric Unlock on. Either outcome returns to the page, which reads the switch again. */
 @Composable
 private fun DeviceProtectionEnableRoute(navController: NavHostController, holder: VaultHolder) {

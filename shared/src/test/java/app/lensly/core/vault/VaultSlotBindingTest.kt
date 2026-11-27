@@ -36,7 +36,7 @@ class VaultSlotBindingTest {
     fun theAppPasswordOpensTheRealVault() {
         val session = unlocked(APP)
 
-        assertFalse(session.isDecoy)
+        assertEquals(0, session.side)
         session.close()
     }
 
@@ -95,7 +95,7 @@ class VaultSlotBindingTest {
         session.close()
         patchByte(layout.vaultKey, index = 4, value = 2)
 
-        assertEquals(null, runBlocking { vault.unlockWithVaultKey(vaultKey) })
+        assertEquals(null, runBlocking { vault.unlockWithVaultKey(vaultKey, 0) })
         assertFalse(layout.exists())
     }
 
