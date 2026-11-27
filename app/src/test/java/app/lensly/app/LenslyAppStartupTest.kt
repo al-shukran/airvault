@@ -31,26 +31,28 @@ class LenslyAppStartupTest {
 
     @Test
     fun startingTheAppDoesNotWaitForAShredOfALargeLeftoverVideo() {
-        val layout = VaultLayout.of(RuntimeEnvironment.getApplication())
+        val app = RuntimeEnvironment.getApplication() as LenslyApp
         val release = CountDownLatch(1)
         val running = CountDownLatch(1)
+        // A shred that is still overwriting when onCreate returns stands for a leftover of hundreds of megabytes.
+        app.startupShredAction = { running.countDown(); release.await(10, TimeUnit.SECONDS) }
 
-        // A shred that is still overwriting when this returns stands for a leftover of hundreds of megabytes.
-        val job = shredRecordingInBackground(layout, shred = { running.countDown(); release.await() })
+        app.onCreate()
 
         assertTrue(running.await(5, TimeUnit.SECONDS))
-        assertTrue(job.isActive)
+        assertTrue(app.startupShred!!.isActive)
         release.countDown()
-        runBlocking { job.join() }
+        runBlocking { app.startupShred!!.join() }
     }
 
     @Test
     fun aFailedShredDoesNotCrashTheApp() {
-        val layout = VaultLayout.of(RuntimeEnvironment.getApplication())
-
-        val job = shredRecordingInBackground(layout, shred = { throw IllegalStateException("no disk") })
+        val job = shredRecordingInBackground { throw IllegalStateException("no disk") }
         runBlocking { job.join() }
-
         assertTrue(job.isCompleted)
+
+        val outOfMemory = shredRecordingInBackground { throw OutOfMemoryError() }
+        runBlocking { outOfMemory.join() }
+        assertTrue(outOfMemory.isCompleted)
     }
 }

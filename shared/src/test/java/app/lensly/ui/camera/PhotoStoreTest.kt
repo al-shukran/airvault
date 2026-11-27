@@ -9,6 +9,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -130,5 +132,36 @@ class PhotoStoreTest {
         assertTrue(store.delete(store.list().single().file))
 
         assertTrue(store.list().isEmpty())
+    }
+
+    @Test
+    fun aRecordingStartsOnlyAfterTheScratchFileIsShredded() {
+        val order = mutableListOf<String>()
+        val caller = Thread.currentThread()
+        var shredThread: Thread? = null
+
+        val started = runBlocking {
+            shredThenStart(
+                shred = { shredThread = Thread.currentThread(); order += "shred"; true },
+                shredContext = Dispatchers.IO,
+                start = { order += "start"; true },
+            )
+        }
+
+        assertTrue(started)
+        assertEquals(listOf("shred", "start"), order)
+        assertTrue(shredThread !== caller)
+    }
+
+    @Test
+    fun aRecordingDoesNotStartWhenTheLeftoverCannotBeDeleted() {
+        var startCalled = false
+
+        val started = runBlocking {
+            shredThenStart(shred = { false }, shredContext = Dispatchers.IO, start = { startCalled = true; true })
+        }
+
+        assertFalse(started)
+        assertFalse(startCalled)
     }
 }

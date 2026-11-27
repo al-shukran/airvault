@@ -1,5 +1,6 @@
 package app.lumio
 
+import app.lensly.app.EntryGestureHolder
 import app.lensly.app.EntryGestureStore
 import app.lensly.app.VaultHolder
 import app.lensly.core.vault.CreateResult
@@ -54,10 +55,11 @@ class LumioResetTest {
     // choices go, as on Reset Lumio.
     private val vault: Vault by lazy {
         Vault(layout, MemoryKeystore(), clock, KDF, onErased = {
-            eraseAfterVaultErase(holder, closeDatabase, lumioDatabaseFile(layout), receiveShares, LockSettingsStore.open(context))
+            eraseAfterVaultErase(holder, closeDatabase, lumioDatabaseFile(layout), receiveShares, LockSettingsStore.open(context), gestures)
         })
     }
     private val holder: VaultHolder by lazy { VaultHolder(vault) }
+    private val gestures by lazy { EntryGestureHolder(EntryGestureStore.open(context)) }
 
     @Test
     fun theDatabaseSitsInsideTheVaultFolderSoAnyEraseRemovesIt() {
@@ -101,6 +103,21 @@ class LumioResetTest {
         assertFalse(vault.exists())
         assertFalse(receiveShares.exists())
         assertTrue(context.getSharedPreferences(LockSettingsStore.FILE, 0).all.isEmpty())
+    }
+
+    @Test
+    fun aWrongPasswordEraseResetsTheEntryGestureToTheDefault() = runBlocking {
+        assertEquals(CreateResult.Created, vault.create(PASSWORD.toCharArray()))
+        assertEquals(FailureCapResult.Saved, vault.setFailureLimits(PASSWORD.toCharArray(), null, WIPE_AFTER))
+        assertTrue(gestures.save(EntryGesture.PINCH_TRIPLE_TAP))
+        open()
+
+        repeat(WIPE_AFTER - 1) { assertEquals(UnlockResult.Rejected, wrongTry()) }
+        assertEquals(EntryGesture.PINCH_TRIPLE_TAP, gestures.current)
+        assertEquals(UnlockResult.Erased, wrongTry())
+
+        assertEquals(EntryGesture.DEFAULT, gestures.current)
+        assertEquals(EntryGesture.DEFAULT, EntryGestureStore.open(context).load())
     }
 
     @Test

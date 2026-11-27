@@ -7,14 +7,12 @@ import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.SandboxedParser
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
-import app.lensly.ui.camera.EntryGesture
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 /**
  * Application object. It owns the single [VaultHolder], so an open vault is shared by every screen. Screens never close the vault
@@ -39,34 +37,28 @@ class LenslyApp : Application(), CoverApplication {
         logBackupExclusion()
         // A video that an interrupted recording left in the cache is plain, so it goes at the start, whether or not a vault exists.
         // A large one takes seconds, so it goes in the background. A new recording waits for it (see [VaultLayout.shredRecording]).
-        startupShred = shredRecordingInBackground(VaultLayout.of(this))
+        val layout = VaultLayout.of(this)
+        startupShred = shredRecordingInBackground { startupShredAction(layout) }
     }
 
     /** The shred that the start of the app began, for tests to wait on. */
     internal var startupShred: Job? = null
+
+    /** What the startup shred does, replaceable in tests. */
+    internal var startupShredAction: (VaultLayout) -> Unit = { it.shredRecordingAtStartup() }
 }
 
-/** Shreds the leftover recording of [layout] on [dispatcher], and returns at once. A failed shred never crashes the app. */
+/** Runs [shred] on [dispatcher], and returns at once. A failed shred, an Error too, never crashes the app. */
 internal fun shredRecordingInBackground(
-    layout: VaultLayout,
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
-    shred: () -> Unit = { layout.shredRecordingAtStartup() },
+    shred: () -> Unit,
 ): Job = CoroutineScope(SupervisorJob() + dispatcher).launch {
     try {
         shred()
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         // The shred is best effort, and the next start tries again.
     }
 }
 
 /** The app-wide parser of scanned input, which runs in the Parser Sandbox. */
 fun Context.requestParser(): RequestParser = (applicationContext as LenslyApp).requestParser
-
-/**
- * What runs after the vault erases itself, on its last allowed wrong try or on a vault it cannot verify: the Hidden Entry Gesture goes back to
- * the default, as after a Wipe, so the camera never shows that a hidden area existed. A removal that fails is replaced by a write of the
- * default, since a gesture that cannot be proven reset must not be kept.
- */
-internal fun eraseGestureAfterVaultErase(gestures: EntryGestureHolder): () -> Unit = {
-    runBlocking { if (!gestures.reset()) gestures.save(EntryGesture.DEFAULT) }
-}

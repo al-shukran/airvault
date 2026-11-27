@@ -352,7 +352,7 @@ class LumioApp : Application(), CoverApplication {
 
     /** The vault erased itself after a wrong try or an unverifiable file, so its folder is gone, with the database in it. See [eraseAfterVaultErase]. */
     private fun onVaultErased() {
-        eraseAfterVaultErase(vaultHolder, ::closeDatabase, databaseFile(), receiveShareDir(this), lockSettings)
+        eraseAfterVaultErase(vaultHolder, ::closeDatabase, databaseFile(), receiveShareDir(this), lockSettings, entryGestureHolder)
     }
 
     @Synchronized
