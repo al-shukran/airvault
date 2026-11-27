@@ -108,6 +108,36 @@ class GuardTest(unittest.TestCase):
         ):
             self.assertEqual(guard.changes(BASE, head(), [path]), [f"{path} changed"])
 
+    def test_what_decides_whether_the_gate_runs_is_guarded(self):
+        # The -PdesignGate switch sits in lumio/build.gradle.kts; the root and settings scripts can reconfigure every Test task (#1462).
+        for path in ("lumio/build.gradle.kts", "build.gradle.kts", "settings.gradle.kts"):
+            self.assertEqual(guard.changes(BASE, head(), [path]), [f"{path} changed"])
+
+    def test_the_screenshot_tests_the_gate_runs_are_guarded(self):
+        # A test class (or a fixture it uses) can write build/design-gate/<screen>.json itself, so every screenshot test is as sensitive as the gate.
+        for path in (
+            "lumio/src/test/java/app/lumio/ui/screenshot/HomeScreenshotTest.kt",
+            "lumio/src/test/java/app/lumio/ui/screenshot/HomeMockFixture.kt",
+            "lumio/src/test/java/app/lumio/ui/kit/ClearAirKitScreenshotTest.kt",
+            "lumio/src/test/java/app/lumio/ui/network/ProfilePanelScreenshotTest.kt",
+            "lumio/src/test/java/app/lumio/ui/tokens/AddTokenScreenshotTest.kt",
+        ):
+            self.assertEqual(guard.changes(BASE, head(), [path]), [f"{path} changed"])
+
+    def test_a_test_that_renders_no_screen_is_free(self):
+        for path in ("lumio/src/test/java/app/lumio/ui/kit/CopyActionTest.kt", "lumio/src/main/java/app/lumio/ui/home/HomeScreen.kt", "app/build.gradle.kts"):
+            self.assertEqual(guard.changes(BASE, head(), [path]), [], path)
+
+    def test_every_registered_test_class_is_guarded(self):
+        # A row whose class sits where the guard does not look would reopen the hole: each class must be in a guarded path.
+        import json
+        root = HERE.parents[1]
+        reg = json.loads((root / "design/registry.json").read_text())
+        for cls in sorted({row["test"] for row in reg["screens"].values()}):
+            path = "lumio/src/test/java/" + cls.replace(".", "/") + ".kt"
+            self.assertTrue((root / path).exists(), path)
+            self.assertEqual(guard.changes(BASE, head(), [path]), [f"{path} changed"])
+
     def test_other_workflows_and_ci_scripts_are_free(self):
         for path in (".github/workflows/nightly.yml", "scripts/ci/shards.txt", "scripts/ci/README.md"):
             self.assertEqual(guard.changes(BASE, head(), [path]), [])

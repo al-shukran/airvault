@@ -23,18 +23,26 @@ RELAXING = ("masks", "exclusions")  # a screen row's lists that switch a region 
 NEW_ROW_KEYS = {"frame", "theme", "test", "insetBottom"}
 RATCHET = ("findings", "regionBoxes", "extra")  # a known violation's baseline (scripts/design/check-results.py): the fields per element, the box of each region and the count of extra texts; free to shrink, never to grow
 # The gate's frames and code, and what runs it: the workflow that makes `design` and `design_guard` part of pr-ok, the one that re-runs the guard
-# on a label change, the lane, the check of those guards and the hook that swaps the golden for the gate's render.
+# on a label change, the lane, the check of those guards, the hook that swaps the golden for the gate's render (all of ui/screenshot/, fixtures
+# included), and the Gradle scripts that decide whether the -PdesignGate switch reaches the test JVM.
 GUARDED_PATHS = (
     "design/frames/",
     "scripts/design/",
     "lumio/src/test/java/app/lumio/ui/design/",
-    "lumio/src/test/java/app/lumio/ui/screenshot/LumioSnapshot.kt",
+    "lumio/src/test/java/app/lumio/ui/screenshot/",
+    "lumio/build.gradle.kts",
+    "build.gradle.kts",
+    "settings.gradle.kts",
     "tools/design-frames/render.py",
     ".github/workflows/pr-fast.yml",
     ".github/workflows/design-guard-rerun.yml",
     "scripts/ci/run-partition.sh",
     "scripts/ci/check-workflow-guards.sh",
 )
+
+
+# A screenshot test class can write lumio/build/design-gate/<screen>.json itself, so any of them, wherever it sits, is as sensitive as the gate.
+SCREENSHOT_TESTS = ("lumio/src/test/", "ScreenshotTest.kt")
 
 
 def run(*cmd):
@@ -68,7 +76,7 @@ def baseline_shrinks(old, new):
 
 def changes(base, head, changed_files):
     """The guarded changes between two registries, as readable lines."""
-    out = [f"{f} changed" for f in changed_files if f.startswith(GUARDED_PATHS)]
+    out = [f"{f} changed" for f in changed_files if f.startswith(GUARDED_PATHS) or (f.startswith(SCREENSHOT_TESTS[0]) and f.endswith(SCREENSHOT_TESTS[1]))]
     for key in sorted((set(base) | set(head)) - {"screens", *LISTS}):
         if base.get(key) != head.get(key):
             out.append(f"design/registry.json: {key} changed")
