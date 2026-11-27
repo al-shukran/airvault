@@ -20,6 +20,12 @@ master starts no run, so push a commit to start the gate.
 4. The dependency cache, and `resolve` on a miss.
 5. `manifest`, `compile`, `unit`, `fuzz`.
 
+A pull request that changes no Kotlin or Android build input skips steps 4 and 5 (and the Java and Gradle setup before them) at step
+level; `pr-ok` itself always runs. `gradle-needed.sh <base-sha>` decides: Gradle runs when any changed file is under
+a Gradle module directory, is a `.kt`, `.kts` or `.java` file, is under `gradle/`, `build-logic/` or `buildSrc/`, or is `gradlew*`,
+`gradle.properties` or a root settings or build file. Docs, changelog fragments, `scripts/` and `.github/` do not run Gradle. A push
+to master, a failed diff and an empty list run it. Nightly runs everything.
+
 | Step | Runs | Where |
 |---|---|---|
 | `resolve` | `./gradlew resolveAll`, the only online step; retried when a repository is unreachable | `ci.yml` and nightly `build`, on a dependency-cache miss |
