@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import app.lensly.core.vault.CreateResult
 import app.lensly.core.vault.DuressResult
+import app.lensly.core.vault.FailureCapResult
+import app.lensly.core.vault.FailureDelay
 import app.lensly.core.vault.FakeClock
 import app.lensly.core.vault.KdfParams
 import app.lensly.core.vault.MemoryKeystore
@@ -27,7 +29,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 
-/** Wipe and the Hidden Entry Gesture: a real wipe resets it, and a wipe from the Decoy Vault leaves it alone. */
+/** The Hidden Entry Gesture goes back to the default after a real wipe, a wipe from the Decoy Vault, and an erase the vault runs by itself. */
 @RunWith(RobolectricTestRunner::class)
 class WipeGestureTest {
 
@@ -66,7 +68,7 @@ class WipeGestureTest {
     }
 
     @Test
-    fun aWipeFromTheDecoyLeavesTheEntryGestureAsItWas() = runBlocking<Unit> {
+    fun aWipeFromTheDecoyResetsTheEntryGestureLikeARealWipeAndLeavesTheRealVaultAlone() = runBlocking<Unit> {
         create()
         val real = unlocked(APP)
         val realWallet = real.createWallet()
@@ -78,8 +80,8 @@ class WipeGestureTest {
 
         assertEquals(ShredOutcome.ERASED, WipeVaultPorts(holder, gestures).erase())
 
-        assertEquals(EntryGesture.PINCH_TRIPLE_TAP, gestures.current)
-        assertEquals(EntryGesture.PINCH_TRIPLE_TAP, EntryGestureStore(prefs).load())
+        assertEquals(EntryGesture.DEFAULT, gestures.current)
+        assertEquals(EntryGesture.DEFAULT, EntryGestureStore(prefs).load())
         assertTrue(vault.exists())
 
         val reopened = unlocked(APP)
@@ -101,6 +103,44 @@ class WipeGestureTest {
         assertFalse(vault.exists())
         assertEquals(EntryGesture.PINCH_TRIPLE_TAP, refusingGestures.current)
         assertEquals(EntryGesture.PINCH_TRIPLE_TAP, EntryGestureStore(prefs).load())
+    }
+
+    @Test
+    fun theVaultErasingItselfResetsTheEntryGestureToTheDefault() = runBlocking<Unit> {
+        val selfErasing = Vault(VaultLayout(File(tmp.root, "self")), keys, clock, KDF, onErased = eraseGestureAfterVaultErase(gestures))
+        assertEquals(CreateResult.Created, selfErasing.create(APP.toCharArray()))
+        assertEquals(FailureCapResult.Saved, selfErasing.setFailureLimits(APP.toCharArray(), null, 3))
+        assertTrue(gestures.save(EntryGesture.PINCH_TRIPLE_TAP))
+
+        repeat(2) {
+            clock.advance(FailureDelay.MAX_CAP_MS + 1)
+            assertTrue(selfErasing.unlock("Zx8#Vb2!Nm5\$Qw7%Ld4".toCharArray()) is UnlockResult.Rejected)
+        }
+        assertEquals(EntryGesture.PINCH_TRIPLE_TAP, gestures.current)
+        clock.advance(FailureDelay.MAX_CAP_MS + 1)
+        assertEquals(UnlockResult.Erased, selfErasing.unlock("Zx8#Vb2!Nm5\$Qw7%Ld4".toCharArray()))
+
+        assertEquals(EntryGesture.DEFAULT, gestures.current)
+        assertEquals(EntryGesture.DEFAULT, EntryGestureStore(prefs).load())
+    }
+
+    @Test
+    fun theVaultErasingItselfStillResetsTheGestureWhenTheRemovalIsRefused() = runBlocking<Unit> {
+        val refusing = EntryGestureHolder(EntryGestureStore(RemovalRefusingPrefs(prefs)))
+        val selfErasing = Vault(VaultLayout(File(tmp.root, "self")), keys, clock, KDF, onErased = eraseGestureAfterVaultErase(refusing))
+        assertEquals(CreateResult.Created, selfErasing.create(APP.toCharArray()))
+        assertEquals(FailureCapResult.Saved, selfErasing.setFailureLimits(APP.toCharArray(), null, 3))
+        assertTrue(refusing.save(EntryGesture.PINCH_TRIPLE_TAP))
+
+        repeat(2) {
+            clock.advance(FailureDelay.MAX_CAP_MS + 1)
+            assertTrue(selfErasing.unlock("Zx8#Vb2!Nm5\$Qw7%Ld4".toCharArray()) is UnlockResult.Rejected)
+        }
+        clock.advance(FailureDelay.MAX_CAP_MS + 1)
+        assertEquals(UnlockResult.Erased, selfErasing.unlock("Zx8#Vb2!Nm5\$Qw7%Ld4".toCharArray()))
+
+        assertEquals(EntryGesture.DEFAULT, refusing.current)
+        assertEquals(EntryGesture.DEFAULT, EntryGestureStore(prefs).load())
     }
 
     private fun create() {

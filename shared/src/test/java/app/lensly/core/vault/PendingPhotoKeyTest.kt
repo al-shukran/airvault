@@ -72,6 +72,16 @@ class PendingPhotoKeyTest {
     }
 
     @Test
+    fun aShotBeforeSetupIsSavedToBothVaultsBecauseTheDecoyHasAPlaceholderKey() {
+        PendingPhotoKey.ensure(layout, keys)
+
+        assertTrue(PhotoStore.forCover(layout).savePhoto(Random(6).nextBytes(300), nowMs = 1_000L))
+
+        assertEquals(1, layout.photoDir(decoy = false).listFiles().orEmpty().size)
+        assertEquals(1, layout.photoDir(decoy = true).listFiles().orEmpty().size)
+    }
+
+    @Test
     fun noPendingPrivateKeyIsLeftAfterTheVaultIsCreated() {
         shoot(Random(4).nextBytes(300))
         val pending = pendingPrivateKey()

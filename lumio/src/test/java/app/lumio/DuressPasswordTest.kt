@@ -147,21 +147,23 @@ class DuressPasswordTest {
     }
 
     @Test
-    fun aDecoySessionSetsItsOwnPasswordAndNeverTheRealOne() = runBlocking {
+    fun aDecoySessionSetsNothingAndAnswersAsTheRealVaultDoes() = runBlocking {
         create()
         assertEquals(PasswordChange.Changed, setLumioDuressPassword(holder, REAL, DURESS, DURESS))
         holder.lock()
         holder.adopt(unlocked(unlockAfterDelay(DURESS)), holder.unlockEpoch())
 
-        // In the decoy, the current password is the duress one. The real password is refused as a new one, as a weak password is.
+        // In the decoy, the current password is the duress one. A decoy holds no Duress Password of its own, so every strong new password,
+        // the real App Password included, gets the same answer, and the answer never says whether that password is the real one.
         assertEquals(PasswordChange.WrongCurrent, setLumioDuressPassword(holder, REAL, OTHER, OTHER))
-        assertIs<PasswordChange.NewPassword>(setLumioDuressPassword(holder, DURESS, REAL, REAL))
+        assertEquals(PasswordChange.Changed, setLumioDuressPassword(holder, DURESS, REAL, REAL))
         assertEquals(PasswordChange.Changed, setLumioDuressPassword(holder, DURESS, OTHER, OTHER))
         holder.lock()
 
-        assertEquals(UnlockResult.Rejected, unlockAfterDelay(DURESS), "The old duress password opens nothing.")
-        assertTrue(unlocked(unlockAfterDelay(OTHER)).also { it.close() }.isDecoy)
+        assertTrue(unlocked(unlockAfterDelay(DURESS)).also { it.close() }.isDecoy, "The duress password still opens the decoy.")
+        assertEquals(UnlockResult.Rejected, unlockAfterDelay(OTHER), "No password set from the decoy opens anything.")
         val real = unlocked(unlockAfterDelay(REAL))
+        assertFalse(real.isDecoy, "The real password still opens the real vault only.")
         assertEquals(listOf("Demo"), PairedWallets.list(real).map { it.name }, "The real wallets are untouched.")
         real.close()
     }

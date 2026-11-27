@@ -18,10 +18,12 @@ internal object PendingPhotoKey {
 
     /**
      * Makes the pair when no vault exists and no usable pair does. It is best effort: when no pair can be made, no public key is left to
-     * seal to, so the save that follows fails, as it did before.
+     * seal to, so the save that follows fails, as it did before. It also makes sure the Decoy Vault's key file exists, with a placeholder,
+     * because the cover saves every shot to both vaults and a save whose second copy cannot be made fails as a whole.
      */
     fun ensure(layout: VaultLayout, keys: KeystoreBackend) {
         synchronized(lock) {
+            ensureDecoyPlaceholder(layout)
             if (!layout.isBeforeSetup()) return
             read(layout, keys)?.let { existing ->
                 existing.fill(0)
@@ -42,6 +44,16 @@ internal object PendingPhotoKey {
             } catch (e: IOException) {
                 // Same as above.
             }
+        }
+    }
+
+    private fun ensureDecoyPlaceholder(layout: VaultLayout) {
+        if (layout.photoKeyFile(decoy = true).isFile) return
+        try {
+            layout.makePhotoFolders()
+            writeAtomically(layout.photoKeyFile(decoy = true), placeholderPhotoKey())
+        } catch (e: IOException) {
+            // The save that follows fails, as with no pair.
         }
     }
 
