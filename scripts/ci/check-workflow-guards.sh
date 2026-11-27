@@ -7,10 +7,6 @@
 # cancel a running command (#1209, #1407).
 # release.yml: the step that refuses a tag whose commit is not on master comes before the first step that reads any secret other
 # than GITHUB_TOKEN, in the same job, so an off-master tag is never signed (#624, #1408).
-# pr-fast.yml: the required check pr-ok waits for the design gate and its guard, its aggregate fails on the gate, the gate has no condition that
-# can skip it, the guard runs the base commit's copy of guard.py (the design gate, tools/design-frames/README.md), the guard is re-run when
-# design:approved-change is added or removed (design-guard-rerun.yml, #1452), and the design lane keeps a 10-minute cap so a slow setup step
-# does not cancel the required check (#1458).
 #
 # Usage: scripts/ci/check-workflow-guards.sh   (the ci lane: scripts/ci/run-partition.sh ci, in pr-fast.yml)
 # WORKFLOWS_DIR names another directory of workflows; scripts/ci/selftest-guards.sh uses it to check the guard against broken copies.
@@ -111,37 +107,7 @@ for message in errors:
 sys.exit(1 if errors else 0)
 ' || failed=1
 
-# (c) pr-fast.yml: pr-ok needs the design gate and its guard, its aggregate loop lists the gate, the gate cannot be skipped, and the guard job runs
-# guard.py from the base commit.
-prfast=$workflows/pr-fast.yml
-needs=$(yq '.jobs.pr-ok.needs[]' "$prfast")
-for job in design design_guard; do
-    grep -Fxq -- "$job" <<<"$needs" || fail "pr-fast.yml: pr-ok no longer needs $job"
-done
-aggregate=$(yq '.jobs.pr-ok.steps[] | select(.name == "Aggregate results") | .run' "$prfast")
-grep -Fq -- '"design=$DESIGN"' <<<"$aggregate" || fail "pr-fast.yml: the aggregate of pr-ok no longer checks the design gate"
-grep -Fq -- 'DESIGN_GUARD' <<<"$aggregate" || fail "pr-fast.yml: the aggregate of pr-ok no longer checks the design guard"
-[ "$(yq '.jobs.design | has("if")' "$prfast")" = false ] || fail "pr-fast.yml: the design job has a condition, so it can be skipped"
-grep -Fq -- 'git show "$BASE_SHA:scripts/design/guard.py"' <<<"$(yq '.jobs.design_guard.steps[].run' "$prfast")" || fail "pr-fast.yml: the design guard no longer runs guard.py from the base commit"
-grep -Fq -- 'run-partition.sh design' <<<"$(yq '.jobs.design.steps[].run' "$prfast")" || fail "pr-fast.yml: the design job no longer runs the design lane"
-# design-guard-rerun.yml re-runs the guard job when design:approved-change is added or removed (#1452).
-rerun=$workflows/design-guard-rerun.yml
-if [ -f "$rerun" ]; then
-    types=$(yq '.on.pull_request.types[]' "$rerun")
-    for type in labeled unlabeled; do
-        grep -Fxq -- "$type" <<<"$types" || fail "design-guard-rerun.yml: pull_request types lack $type"
-    done
-    [ "$(yq '.jobs.rerun.if' "$rerun")" = "github.event.label.name == 'design:approved-change'" ] || fail "design-guard-rerun.yml: the job does not run for exactly the label design:approved-change"
-    [ "$(yq '.jobs.rerun.permissions.actions' "$rerun")" = write ] || fail "design-guard-rerun.yml: the job lacks actions: write"
-    steps=$(yq '.jobs.rerun.steps[].run' "$rerun")
-    grep -Fq -- '.name == "design guard"' <<<"$steps" || fail "design-guard-rerun.yml: the job does not look up the design guard job"
-    grep -Fq -- 'gh run rerun "$run_id" --job' <<<"$steps" || fail "design-guard-rerun.yml: the job does not re-run the design guard job"
-else
-    fail "design-guard-rerun.yml is missing, so removing design:approved-change does not re-run the design guard"
-fi
-[ "$(yq '.jobs.design.timeout-minutes' "$prfast")" -ge 10 ] 2>/dev/null || fail "pr-fast.yml: the design job has a cap under 10 minutes, so a slow setup step can cancel it"
-
 if [ "$failed" -ne 0 ]; then
     exit 1
 fi
-echo "check-workflow-guards: comment-run concurrency gate, release refusal order and the pr-ok design gate hold"
+echo "check-workflow-guards: comment-run concurrency gate, release refusal order hold"

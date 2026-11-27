@@ -14,7 +14,7 @@ class ClockOfTest {
         assertEquals("19:32", clockOf(at, ZoneId.of("Asia/Kolkata")))
     }
 
-    /** The test JVM runs in UTC on every host (lumio/build.gradle.kts), so the design gate renders 14:02 on a Mac in any zone as CI does. */
+    /** The test JVM runs in UTC on every host (lumio/build.gradle.kts), so a screen renders 14:02 on a Mac in any zone as CI does. */
     @Test
     fun theTestJvmRunsInUtcSoARenderDoesNotDependOnTheHost() {
         assertEquals("14:02", clockOf(at))

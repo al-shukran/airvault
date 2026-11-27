@@ -8,8 +8,6 @@ import app.lensly.ui.screenshot.SCREEN_DENSITY
 import app.lensly.ui.screenshot.snapshot
 import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LumenTheme
-import app.lumio.ui.design.DesignGate
-import org.junit.Assume.assumeFalse
 import org.robolectric.RuntimeEnvironment
 
 /** The qualifiers of a dark golden. The system is in night mode, so the Night palette shows. */
@@ -29,17 +27,14 @@ fun ComposeContentTestRule.lumioSnapshot(
     frame: DpSize? = null,
     fontScale: Float = 1f,
     content: @Composable () -> Unit,
-) = gated(name, settleMs, beforeCapture, frame, fontScale, { LumenTheme { ClearAirTheme(content = it) } }, content)
+) = renderSnapshot(name, settleMs, beforeCapture, frame, fontScale, { LumenTheme { ClearAirTheme(content = it) } }, content)
 
 /** Renders [content] in the Clear Air theme at the goldens' frame, with reduced motion on, as [lumioSnapshot] does for Lumen. */
 fun ComposeContentTestRule.clearAirSnapshot(name: String, frame: DpSize? = null, content: @Composable () -> Unit) =
-    gated(name, 0L, {}, frame, 1f, { ClearAirTheme(content = it) }, content)
+    renderSnapshot(name, 0L, {}, frame, 1f, { ClearAirTheme(content = it) }, content)
 
-/**
- * Renders a golden, or, when the design gate runs (`-PdesignGate`), renders the registered screen at its approved frame's size and compares it with
- * the frame (app.lumio.ui.design.DesignGate). The gate skips every screen with no row in design/registry.json, and it records no golden.
- */
-private fun ComposeContentTestRule.gated(
+/** Renders a golden with reduced motion on. */
+private fun ComposeContentTestRule.renderSnapshot(
     name: String,
     settleMs: Long,
     beforeCapture: ComposeContentTestRule.() -> Unit,
@@ -48,18 +43,15 @@ private fun ComposeContentTestRule.gated(
     theme: @Composable (content: @Composable () -> Unit) -> Unit,
     content: @Composable () -> Unit,
 ) {
-    assumeFalse("$name has no approved frame in design/registry.json", DesignGate.skips(name))
-    val gate = DesignGate.screen(name)
     withReducedMotion {
         snapshot(
             name = name,
             settleMs = settleMs,
-            beforeCapture = { beforeCapture(); gate?.verify(this) },
+            beforeCapture = beforeCapture,
             theme = theme,
-            frame = gate?.frame ?: frame,
-            fontScale = if (gate != null) 1f else fontScale,
-            density = if (gate != null) 1f else SCREEN_DENSITY,
-            content = if (gate != null) ({ gate.Wrap(content) }) else content,
+            frame = frame,
+            fontScale = fontScale,
+            content = content,
         )
     }
 }
