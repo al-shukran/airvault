@@ -6,6 +6,7 @@ import app.lensly.core.parse.BinderTransport
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.SandboxedParser
 import app.lensly.core.vault.Vault
+import kotlinx.coroutines.runBlocking
 
 /**
  * Application object. It owns the single [VaultHolder], so an open vault is shared by every screen. Screens never close the vault
@@ -15,7 +16,7 @@ import app.lensly.core.vault.Vault
 class LenslyApp : Application(), CoverApplication {
     // Opening a vault removes the wallets a crash left unfinished, before any read of the vault.
     override val vaultHolder: VaultHolder by lazy {
-        VaultHolder(Vault(this)) { session ->
+        VaultHolder(Vault(this, onErased = eraseGestureAfterVaultErase(entryGestureHolder))) { session ->
             WalletStore(session).dropIncomplete()
             SessionReads(session)
         }
@@ -33,3 +34,9 @@ class LenslyApp : Application(), CoverApplication {
 
 /** The app-wide parser of scanned input, which runs in the Parser Sandbox. */
 fun Context.requestParser(): RequestParser = (applicationContext as LenslyApp).requestParser
+
+/**
+ * What runs after the vault erases itself, on its last allowed wrong try or on a vault it cannot verify: the Hidden Entry Gesture goes back to
+ * the default, as after a Wipe, so the camera never shows that a hidden area existed.
+ */
+internal fun eraseGestureAfterVaultErase(gestures: EntryGestureHolder): () -> Unit = { runBlocking { gestures.reset() } }

@@ -39,6 +39,8 @@ class PhotoStore(
     val directory: File,
     private val publicKeyFile: File,
     private var privateKey: ByteArray? = null,
+    /** A second store that gets its own sealed copy of everything this one saves. Only the cover has one, see [forCover]. */
+    private val copyTo: PhotoStore? = null,
 ) {
 
     /**
@@ -101,8 +103,17 @@ class PhotoStore(
     private fun reader(file: File): MediaEnvelope.SealedReader? =
         privateKey?.let { MediaEnvelope.SealedReader.open(file, it) }
 
-    /** Seals a record of [kind] and [nowMs], then what [open] reads, into a new file with an opaque name. The file appears only once it is whole. */
+    /**
+     * Saves one file here, and then its copy in [copyTo], which is best effort: the result is this store's. [open] is called once for each.
+     */
     private fun save(kind: Byte, nowMs: Long, open: () -> InputStream): Boolean {
+        val saved = seal(kind, nowMs, open)
+        if (saved) copyTo?.save(kind, nowMs, open)
+        return saved
+    }
+
+    /** Seals a record of [kind] and [nowMs], then what [open] reads, into a new file with an opaque name. The file appears only once it is whole. */
+    private fun seal(kind: Byte, nowMs: Long, open: () -> InputStream): Boolean {
         val publicKey = readPublicKey() ?: return false
         val record = ByteBuffer.allocate(RECORD_BYTES).put(kind).putLong(nowMs).array()
         val target = File(directory, UUID.randomUUID().toString())
@@ -145,12 +156,21 @@ class PhotoStore(
         }
 
         /**
-         * The real vault's media folder, or the Decoy Vault's when [decoy] is true. The two folders are kept apart, so a decoy lists none
-         * of the real vault's photos. A wipe of the vault removes them (see [VaultLayout.photoDir]). Only the gallery is given the
+         * The real vault's media folder, or the Decoy Vault's when [decoy] is true. The two folders are kept apart, and each holds files
+         * sealed to its own vault only. A wipe of the vault removes them (see [VaultLayout.photoDir]). Only the gallery is given the
          * [privateKey]; the cover's store only saves.
          */
         fun of(layout: VaultLayout, decoy: Boolean, privateKey: ByteArray? = null): PhotoStore =
             PhotoStore(layout.photoDir(decoy), layout.photoKeyFile(decoy), privateKey)
+
+        /**
+         * The cover's store. The cover has no session, so it cannot tell which vault the person will open, and it saves every photo and
+         * video twice: sealed to the real vault's key, and sealed to the Decoy Vault's key. Both folders exist with a key file from setup,
+         * a random placeholder while no decoy exists, so the files and their sizes are the same with or without a Duress Password, and
+         * both galleries show what the cover shot. Each vault opens only its own copy.
+         */
+        fun forCover(layout: VaultLayout): PhotoStore =
+            PhotoStore(layout.photoDir(decoy = false), layout.photoKeyFile(decoy = false), copyTo = of(layout, decoy = true))
     }
 }
 
