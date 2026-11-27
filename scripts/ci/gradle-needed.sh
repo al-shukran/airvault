@@ -6,7 +6,8 @@
 #
 # Gradle runs (true) when any changed file is a build input: anything under a Gradle module directory (the first segment of each
 # include() in settings.gradle.kts), any .kt, .kts or .java file, gradle/ (the version catalog, the wrapper, the dependency
-# verification), gradlew and gradlew.bat, gradle.properties, a settings or build gradle file, build-logic/ and buildSrc/. Docs,
+# verification), gradlew and gradlew.bat, gradle.properties, a settings or build gradle file, build-logic/, buildSrc/ and licenses/
+# (the third-party notices that the Gradle build and tests read). Docs,
 # changelog fragments, scripts/ and .github/ are not build inputs. It also runs when the base is empty (a push to master), when the
 # diff fails, or when the list is empty: any doubt runs Gradle. The result is never an error, so the gate cannot fail here.
 set -uo pipefail
@@ -15,7 +16,7 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$root" || exit 0
 
 modules=$(sed -n 's/^include(":\([^:"]*\).*/\1/p' settings.gradle.kts | sort -u | paste -sd'|' -)
-build_input="^(${modules:-app|lumio|shared})/|\.(kt|kts|java)$|^gradle/|^gradlew|^gradle\.properties$|^(settings|build)\.gradle(\.kts)?$|^(build-logic|buildSrc)/"
+build_input="^(${modules:-app|lumio|shared})/|\.(kt|kts|java)$|^gradle/|^gradlew|^gradle\.properties$|^(settings|build)\.gradle(\.kts)?$|^(build-logic|buildSrc)/|^licenses/"
 
 if [ "${1:-}" = "--files" ]; then
     files=$(cat)
