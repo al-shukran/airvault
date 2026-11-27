@@ -7,6 +7,12 @@ import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.SandboxedParser
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultLayout
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Application object. It owns the single [VaultHolder], so an open vault is shared by every screen. Screens never close the vault
@@ -30,7 +36,27 @@ class LenslyApp : Application(), CoverApplication {
         super.onCreate()
         logBackupExclusion()
         // A video that an interrupted recording left in the cache is plain, so it goes at the start, whether or not a vault exists.
-        VaultLayout.of(this).shredRecording()
+        // A large one takes seconds, so it goes in the background. A new recording waits for it (see [VaultLayout.shredRecording]).
+        val layout = VaultLayout.of(this)
+        startupShred = shredRecordingInBackground { startupShredAction(layout) }
+    }
+
+    /** The shred that the start of the app began, for tests to wait on. */
+    internal var startupShred: Job? = null
+
+    /** What the startup shred does, replaceable in tests. */
+    internal var startupShredAction: (VaultLayout) -> Unit = { it.shredRecordingAtStartup() }
+}
+
+/** Runs [shred] on [dispatcher], and returns at once. A failed shred, an Error too, never crashes the app. */
+internal fun shredRecordingInBackground(
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    shred: () -> Unit,
+): Job = CoroutineScope(SupervisorJob() + dispatcher).launch {
+    try {
+        shred()
+    } catch (e: Throwable) {
+        // The shred is best effort, and the next start tries again.
     }
 }
 

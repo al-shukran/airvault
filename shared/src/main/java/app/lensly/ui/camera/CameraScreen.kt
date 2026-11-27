@@ -78,6 +78,7 @@ import app.lensly.ui.components.tapHaptic
 import app.lensly.ui.theme.LenslyPillShape
 import app.lensly.ui.theme.LenslySpacing
 import java.io.File
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -191,6 +192,8 @@ private fun CameraViewfinder(
     var videoSupported by remember { mutableStateOf(false) }
     // When the recording in progress started, or null when none is. Its timer runs while it is set.
     var recordingSince by remember { mutableStateOf<Long?>(null) }
+    // True from the tap that starts a video until the recording has begun, while the scratch file is shredded. Taps wait for it.
+    var startingVideo by remember { mutableStateOf(false) }
     var elapsedMs by remember { mutableLongStateOf(0L) }
     // Each ignored lens switch restarts the brief notice, so a second press shows it again for the full time.
     var flipHints by remember { mutableIntStateOf(0) }
@@ -254,29 +257,43 @@ private fun CameraViewfinder(
     }
 
     fun beginVideo() {
-        // A scratch file that an interrupted recording left behind is shredded before this one starts.
-        shredFile(scratch)
-        val started = controller.startRecording(
-            context = context,
-            file = scratch,
-            executor = ContextCompat.getMainExecutor(context),
-            onFinished = { saved ->
-                recordingSince = null
-                val main = ContextCompat.getMainExecutor(context)
-                PhotoStore.sealer.execute {
-                    if (!saved) shredFile(scratch)
-                    ensurePendingPhotoKey(context)
-                    val kept = saved && store.saveVideo(scratch)
-                    if (!kept) main.execute { showFailure(VIDEO_NOT_SAVED) }
-                }
-            },
-        )
-        if (started) {
-            // The timer starts from zero for this recording, whatever the last one reached.
-            elapsedMs = 0L
-            recordingSince = SystemClock.uptimeMillis()
-        } else {
-            showFailure(VIDEO_NOT_SAVED)
+        startingVideo = true
+        scope.launch {
+            val started = try {
+                // A scratch file that an interrupted recording left behind is shredded before this one starts, off the main thread
+                // and after any shred that the start of the app is still running, so the recording never writes into the file being
+                // shredded. A leftover that cannot be deleted stops the recording.
+                shredThenStart(
+                    shred = { VaultLayout.of(context).shredRecording() },
+                    shredContext = PhotoStore.sealer.asCoroutineDispatcher(),
+                    start = {
+                        controller.startRecording(
+                            context = context,
+                            file = scratch,
+                            executor = ContextCompat.getMainExecutor(context),
+                            onFinished = { saved ->
+                                recordingSince = null
+                                val main = ContextCompat.getMainExecutor(context)
+                                PhotoStore.sealer.execute {
+                                    if (!saved) shredFile(scratch)
+                                    ensurePendingPhotoKey(context)
+                                    val kept = saved && store.saveVideo(scratch)
+                                    if (!kept) main.execute { showFailure(VIDEO_NOT_SAVED) }
+                                }
+                            },
+                        )
+                    },
+                )
+            } finally {
+                startingVideo = false
+            }
+            if (started) {
+                // The timer starts from zero for this recording, whatever the last one reached.
+                elapsedMs = 0L
+                recordingSince = SystemClock.uptimeMillis()
+            } else {
+                showFailure(VIDEO_NOT_SAVED)
+            }
         }
     }
 
@@ -299,14 +316,16 @@ private fun CameraViewfinder(
                     onFailure = { showFailure(PHOTO_NOT_SAVED) },
                 )
                 recordingSince != null -> controller.stopRecording()
-                else -> beginVideo()
+                !startingVideo -> beginVideo()
             }
         }
     }
 
     val onModeChange: (CameraMode) -> Unit = { next ->
-        if (recordingSince != null) controller.stopRecording()
-        mode = next
+        if (!startingVideo) {
+            if (recordingSince != null) controller.stopRecording()
+            mode = next
+        }
     }
 
     Box(
@@ -358,7 +377,7 @@ private fun CameraViewfinder(
                 onFlip = {
                     // Switching lenses rebinds the camera, which would cut a recording short, so the lens waits for the
                     // recording to end. The press still counts toward the hidden gesture, which does not depend on the lens.
-                    if (recordingSince == null) {
+                    if (recordingSince == null && !startingVideo) {
                         lensFacing = if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
                             CameraSelector.LENS_FACING_BACK
                         } else {
