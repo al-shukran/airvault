@@ -344,6 +344,21 @@ class TxStoreTest {
         files.filter { it.exists() }.forEach { assertFalse(it.readBytes().containsBytes(marker), "${it.name} still holds the deleted row") }
     }
 
+    @Test
+    fun theLogIsTruncatedAgainWhileAReaderKeepsItBusyAndGivesUpAfterThreeTries() = runBlocking {
+        var runs = 0
+        TxStore.truncateLog { if (++runs < 3) 1 else 0 }
+        assertEquals(3, runs, "a busy log is truncated again until it is free")
+
+        runs = 0
+        TxStore.truncateLog { runs++; 1 }
+        assertEquals(3, runs, "a log that stays busy is tried three times, no more")
+
+        runs = 0
+        TxStore.truncateLog { runs++; 0 }
+        assertEquals(1, runs, "a log that is free is truncated once")
+    }
+
     /** The number of rows that the raw SQL [from] names, whatever key they are sealed under. */
     private fun rowsIn(from: String): Int = database.openHelper.readableDatabase.query("SELECT COUNT(*) FROM $from").use { cursor ->
         cursor.moveToFirst()
