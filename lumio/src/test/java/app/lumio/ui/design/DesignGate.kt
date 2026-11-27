@@ -471,7 +471,9 @@ internal class Comparison(
         match.used = true
         matched[id] = match
         val d = mutableListOf<Triple<String, String, String>>()
-        compareInk(el, r, el.str("text"), d, variable = true)
+        compareInk(el, r, el.str("text"), d, variable = true, box = match)
+        // A text may wrap to fewer lines than the frame's (shorter words) but not to more: the extra line is in no other check.
+        if (match.lines > el.num("lines").toInt()) d += Triple("lines", el.num("lines").toInt().toString(), match.lines.toString())
         compareStyle(el, match, d)
         row("text", id, label, d, r)
     }
@@ -481,9 +483,11 @@ internal class Comparison(
      * compared on all four edges. A variable is as wide as its words, so only its line (the centre of the ink, up and down) and the edge it is held by
      * (the left edge, the right edge or the centre of the ink) are compared. The rise and fall arrows come from a fallback font, which Chromium on the
      * Mac and Robolectric choose differently: the ink of the arrow is not compared, so a Text that starts with one is compared by its right edge and
-     * its line only, a Text that ends with one by its left edge and its line, and a Text with one inside by its line only.
+     * its line only, a Text that ends with one by its left edge and its line, and a Text with one inside by its line only. A Text that starts with
+     * one and is held at the left or the centre has no ink edge to compare, so the box of its Text ([box], which the arrow's font moves by half a
+     * glyph at most) stands in for it.
      */
-    private fun compareInk(el: JsonObject, r: List<Double>, text: String, d: MutableList<Triple<String, String, String>>, variable: Boolean) {
+    private fun compareInk(el: JsonObject, r: List<Double>, text: String, d: MutableList<Triple<String, String, String>>, variable: Boolean, box: AppText? = null) {
         val seen = inkBox(expected, r)
         val shown = inkBox(actual, r)
         if (seen == null || shown == null) {
@@ -499,7 +503,12 @@ internal class Comparison(
             cmp("ink line", (seen[1] + seen[3]) / 2, (shown[1] + shown[3]) / 2)
             when {
                 arrow && !leading && !trailing -> Unit
-                leading -> if (anchor == "right" || anchor == "all") cmp("ink right", seen[2], shown[2])
+                leading -> when {
+                    anchor == "right" || anchor == "all" -> cmp("ink right", seen[2], shown[2])
+                    box == null -> Unit
+                    anchor == "center" -> cmp("box centre", r[0] + r[2] / 2, box.cx)
+                    else -> cmp("box left", r[0], box.x)
+                }
                 trailing -> if (anchor == "left" || anchor == "all") cmp("ink left", seen[0], shown[0])
                 anchor == "right" -> cmp("ink right", seen[2], shown[2])
                 anchor == "center" -> cmp("ink centre", (seen[0] + seen[2]) / 2, (shown[0] + shown[2]) / 2)

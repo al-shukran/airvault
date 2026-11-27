@@ -109,8 +109,8 @@ class DesignGateCalibrationTest {
     }
 
     private val white = 0xFFFFFF
-    private fun appText(text: String, x: Double, y: Double, w: Double, size: Double = 15.0, color: Int? = 0xFFFFFF) =
-        AppText(text, x, y, w, 12.0, 1, size, 600, null, 0.0, color, 1.0)
+    private fun appText(text: String, x: Double, y: Double, w: Double, size: Double = 15.0, color: Int? = 0xFFFFFF, lines: Int = 1) =
+        AppText(text, x, y, w, 12.0, lines, size, 600, null, 0.0, color, 1.0)
 
     /** The frame: a 30 dp price held at the right edge 90, a 24 dp name at the left edge 10, "Send" at 10, a logo square at 70,50. */
     private fun frame() = page(listOf(60, 12, 30, 8) to white, listOf(10, 42, 24, 8) to white, listOf(10, 72, 24, 8) to white, listOf(70, 50, 20, 20) to 0xF7931A)
@@ -416,5 +416,37 @@ class DesignGateCalibrationTest {
         assertEquals(emptyList<String>(), badge(page(listOf(10, 42, 40, 8) to white), listOf(appText("DEFAULT", 10.0, 40.0, 40.0, size = 11.0))).map { it.label })
         val got = badge(page(listOf(10, 42, 40, 8) to white), listOf(appText("ACTIVE", 10.0, 40.0, 40.0, size = 11.0)))
         assertTrue("a badge that says ACTIVE for DEFAULT must fail: $got", got.any { it.id == "e0" } && got.any { it.id == "extra" })
+    }
+
+    // A change line that starts with a rise or fall arrow (the arrow comes from a fallback font, so its ink is not compared) is held at its left
+    // edge (e0) or its centre (e1); the box of the Text is what says where, whatever the arrow and the words that follow it are.
+    private val arrows: JsonObject = Json.parseToJsonElement(
+        """{"inkThreshold":12,"bandGap":1,"width":100,"height":100,"themes":{"dark":{"bg":[21,19,23],"bands":[],"elements":[
+            {"id":"e0","kind":"text","node":"b","path":"","text":"\u25BC 1.15%","rect":{"x":10,"y":20,"w":40,"h":12},"lines":1,"font":{"family":"x","size":15,"weight":600,"stretch":"100%","lineHeight":null,"letterSpacing":0},"color":[255,255,255,1],"var":"chg","anchor":"left"},
+            {"id":"e1","kind":"text","node":"b","path":"","text":"\u25B2 2.00%","rect":{"x":20,"y":60,"w":40,"h":12},"lines":1,"font":{"family":"x","size":15,"weight":600,"stretch":"100%","lineHeight":null,"letterSpacing":0},"color":[255,255,255,1],"var":"chg","anchor":"center"}
+        ]}}}""",
+    ).jsonObject
+
+    private fun arrows(app: Px, texts: List<AppText>) =
+        Comparison("calibration", arrows, arrows.getValue("themes").jsonObject.getValue("dark").jsonObject, page(listOf(10, 22, 40, 8) to white, listOf(20, 62, 40, 8) to white), app, texts, emptyList(), tol).run().findings
+
+    @Test
+    fun otherWordsAfterAnArrowAtTheSameEdgeOrCentrePass() {
+        val app = page(listOf(10, 22, 30, 8) to white, listOf(15, 62, 50, 8) to white)
+        assertEquals(emptyList<String>(), arrows(app, listOf(appText("\u25B2 9%", 10.0, 20.0, 30.0), appText("\u25BC 12.50%", 15.0, 60.0, 50.0))).map { it.label })
+    }
+
+    @Test
+    fun anArrowTextMovedSideways20DpIsSeen() {
+        val app = page(listOf(30, 22, 40, 8) to white, listOf(40, 62, 40, 8) to white)
+        val got = arrows(app, listOf(appText("\u25BC 1.15%", 30.0, 20.0, 40.0), appText("\u25B2 2.00%", 40.0, 60.0, 40.0)))
+        assertTrue("a left-held arrow text 20 dp to the right must fail: $got", got.any { it.id == "e0" && it.diffs.any { d -> d.first == "box left" } })
+        assertTrue("a centre-held arrow text 20 dp to the right must fail: $got", got.any { it.id == "e1" && it.diffs.any { d -> d.first == "box centre" } })
+    }
+
+    @Test
+    fun aVariableThatWrapsToMoreLinesThanItsFrameIsSeen() {
+        val got = rule(frame(), sameTexts().map { if (it.text == "Bitcoin") appText("Bitcoin", 10.0, 40.0, 30.0, lines = 2) else it })
+        assertTrue("a name on 2 lines for 1 must fail: $got", got.any { it.id == "e1" && it.diffs.any { d -> d.first == "lines" && d.second == "1" && d.third == "2" } })
     }
 }
