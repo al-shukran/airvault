@@ -6,7 +6,9 @@
 # comment-run.yml: the concurrency group keeps the trusted-/run- gate, so a comment that is not a trusted /run- command cannot
 # cancel a running command (#1209, #1407).
 # release.yml: the step that refuses a tag whose commit is not on master comes before the first step that reads any secret other
-# than GITHUB_TOKEN, in the same job, so an off-master tag is never signed (#624, #1408).
+# than GITHUB_TOKEN, in the same job, so an off-master tag is never signed (#624, #1408). Every job that reads a signing secret
+# also has environment: release (whose tag rules keep a branch workflow from reading the secrets), contents: read as its only
+# permission, no Gradle, and the secrets of one app only (#1493, GitHub advisory on repository-level signing secrets).
 #
 # Usage: scripts/ci/check-workflow-guards.sh   (the ci lane: scripts/ci/run-partition.sh ci, in pr-fast.yml)
 # WORKFLOWS_DIR names another directory of workflows; scripts/ci/selftest-guards.sh uses it to check the guard against broken copies.
@@ -68,9 +70,13 @@ release.yml secrets.LUMIO_KEYSTORE_PASS
 #  - Names are compared NFKC-normalised and case-folded, so a long s or a full-width letter cannot spell secrets past the check.
 #  - The first step that mentions the secrets context comes after the refusal, in the same job. Job-level env, a job-level secrets: key,
 #    and workflow-level text count as before step 0.
-#  - The workflow and each job have only the keys name, on, permissions, concurrency, jobs / name, runs-on, timeout-minutes, steps, so
-#    no defaults.run.shell, defaults.run.working-directory or env (BASH_ENV, PATH, GIT_DIR) reaches the refusal step. That also means
-#    no job-level if or continue-on-error that could run the job after the refusal fails.
+#  - The workflow and each job have only the keys name, on, permissions, concurrency, jobs / name, needs, if, runs-on, timeout-minutes,
+#    environment, permissions, outputs, steps, so no defaults.run.shell, defaults.run.working-directory or env (BASH_ENV, PATH, GIT_DIR)
+#    reaches the refusal step, and no continue-on-error can let a job pass after its refusal failed. A job-level if is one of JOB_IF
+#    only (the app of the tag, or publish after a sign job succeeded); the refusal is a step of the same job, so it still runs.
+#  - A job that reads a secret has environment exactly "release", permissions exactly contents: read (no id-token, no attestations,
+#    no write), no mention of gradle anywhere in it, and secrets of one app only (LENSLY_ or LUMIO_), so a poisoned build step never
+#    shares a runner with a key, and a Lensly release never exposes the Lumio key.
 #  - Every step after the refusal has only the keys name, id, run, env, uses and with, so no if (in any letter case), continue-on-error
 #    or timeout-minutes can make a step run, or keep running, after the refusal failed. The one exception is the keystore cleanup
 #    step: name "Delete the decoded keystore", only name, if and run, with if exactly "always()", which reads no secret.
@@ -100,7 +106,14 @@ ERROR = re.compile(r"echo \"::error::(?:[^\"$`\\!]|\$GITHUB_REF_NAME|\$GITHUB_SH
 TAIL = ["exit 1", "fi"]
 CHECKOUT = re.compile(r"actions/checkout@[0-9a-f]{40}")
 WORKFLOW_KEYS = {"name", "on", "permissions", "concurrency", "jobs"}
-JOB_KEYS = {"name", "runs-on", "timeout-minutes", "steps"}
+JOB_KEYS = {"name", "needs", "if", "runs-on", "timeout-minutes", "environment", "permissions", "outputs", "steps"}
+# The only job-level if expressions: the sign job of the tagged app, and publish once one of them succeeded.
+JOB_IF = {
+    "startsWith(github.ref_name, 'lensly-v')",
+    "startsWith(github.ref_name, 'lumio-v')",
+    "${{ !cancelled() && (needs.sign_lensly.result == 'success' || needs.sign_lumio.result == 'success') }}",
+}
+SECRET_OF_APP = re.compile(r"secrets\.([a-z]+)_")
 STEP_KEYS = {"name", "id", "run", "env", "uses", "with"}
 CLEANUP = "Delete the decoded keystore"
 errors = []
@@ -210,6 +223,18 @@ def check_release(doc):
             errors.append("release.yml job %s has keys outside %s (defaults and env change how the refusal step runs): %s" % (name, sorted(JOB_KEYS), sorted(set(job) - JOB_KEYS)))
         if refuse is not None and not all(early_ok(step) for step in steps[:refuse]):
             errors.append("release.yml job %s runs a step other than the SHA-pinned checkout (persist-credentials false, fetch-depth 0) before the refusal" % name)
+        if job.get("if") is not None and job["if"] not in JOB_IF:
+            errors.append("release.yml job %s has an if that is not one of the expressions listed in JOB_IF in check-workflow-guards.sh: %s" % (name, job["if"]))
+        if reads_secret(job):
+            if job.get("environment") != "release":
+                errors.append("release.yml job %s reads a signing secret without environment: release (a workflow on any branch could read repository-level secrets; the environment's tag rules cannot be reached from a branch)" % name)
+            if job.get("permissions") != {"contents": "read"}:
+                errors.append("release.yml job %s reads a signing secret but its permissions are not exactly contents: read (no id-token, attestations or write)" % name)
+            if any("gradle" in fold(text) for text in strings(job)):
+                errors.append("release.yml job %s reads a signing secret and runs Gradle (build dependencies would share a runner with the key)" % name)
+            apps = {m for text in strings(job) for m in SECRET_OF_APP.findall(fold(text))}
+            if len(apps) > 1:
+                errors.append("release.yml job %s reads the secrets of more than one app (%s)" % (name, ", ".join(sorted(apps))))
         if reads_secret({k: v for k, v in job.items() if k != "steps"}):
             errors.append("release.yml job %s reads a secret outside its steps (job env, secrets:, a reusable workflow), before any step can refuse" % name)
         elif secret is not None and refuse is None:
@@ -262,4 +287,4 @@ PY
 if [ "$failed" -ne 0 ]; then
     exit 1
 fi
-echo "check-workflow-guards: comment-run concurrency gate, release refusal order hold"
+echo "check-workflow-guards: comment-run concurrency gate, release refusal order and signing environment hold"
