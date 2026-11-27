@@ -801,13 +801,9 @@ class Vault constructor(
             // so opening the decoy never lowers the real vault's streak. A right password whose hardware step is cut short keeps its counted
             // try (FailureDelay threat 15).
             // A hardware key that is gone for good, or a slot that holds no vault key and role, cannot be repaired: the vault is erased.
-            val unwrapped = try {
-                withHardwareAuth {
-                    val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
-                    unwrapOpened(key, opened.single().second)
-                }
-            } catch (e: VaultKeyInvalidatedException) {
-                null
+            val unwrapped = withHardwareAuth {
+                val key = keystore(HARDWARE_FAILURE) { keys.hardwareKey() }
+                unwrapOpened(key, opened.single().second)
             }
             if (unwrapped == null) {
                 eraseLocked()
@@ -821,6 +817,10 @@ class Vault constructor(
             }
             handedKey = softKey
             return Checked.Opened(OpenedSlot(softKey, vaultKey, role, store, success))
+        } catch (e: VaultKeyInvalidatedException) {
+            // A key that is gone for good, whichever step finds it, leaves a vault that no password opens.
+            eraseLocked()
+            return Checked.Erased
         } finally {
             if (handedKey !== typedKey) Arrays.fill(typedKey, 0)
             if (nfcKey != null && handedKey !== nfcKey) Arrays.fill(nfcKey, 0)
