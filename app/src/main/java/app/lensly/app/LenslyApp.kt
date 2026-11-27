@@ -6,6 +6,7 @@ import app.lensly.core.parse.BinderTransport
 import app.lensly.core.parse.RequestParser
 import app.lensly.core.parse.SandboxedParser
 import app.lensly.core.vault.Vault
+import app.lensly.ui.camera.EntryGesture
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -37,6 +38,9 @@ fun Context.requestParser(): RequestParser = (applicationContext as LenslyApp).r
 
 /**
  * What runs after the vault erases itself, on its last allowed wrong try or on a vault it cannot verify: the Hidden Entry Gesture goes back to
- * the default, as after a Wipe, so the camera never shows that a hidden area existed.
+ * the default, as after a Wipe, so the camera never shows that a hidden area existed. A removal that fails is replaced by a write of the
+ * default, since a gesture that cannot be proven reset must not be kept.
  */
-internal fun eraseGestureAfterVaultErase(gestures: EntryGestureHolder): () -> Unit = { runBlocking { gestures.reset() } }
+internal fun eraseGestureAfterVaultErase(gestures: EntryGestureHolder): () -> Unit = {
+    runBlocking { if (!gestures.reset()) gestures.save(EntryGesture.DEFAULT) }
+}

@@ -124,6 +124,25 @@ class WipeGestureTest {
         assertEquals(EntryGesture.DEFAULT, EntryGestureStore(prefs).load())
     }
 
+    @Test
+    fun theVaultErasingItselfStillResetsTheGestureWhenTheRemovalIsRefused() = runBlocking<Unit> {
+        val refusing = EntryGestureHolder(EntryGestureStore(RemovalRefusingPrefs(prefs)))
+        val selfErasing = Vault(VaultLayout(File(tmp.root, "self")), keys, clock, KDF, onErased = eraseGestureAfterVaultErase(refusing))
+        assertEquals(CreateResult.Created, selfErasing.create(APP.toCharArray()))
+        assertEquals(FailureCapResult.Saved, selfErasing.setFailureLimits(APP.toCharArray(), null, 3))
+        assertTrue(refusing.save(EntryGesture.PINCH_TRIPLE_TAP))
+
+        repeat(2) {
+            clock.advance(FailureDelay.MAX_CAP_MS + 1)
+            assertTrue(selfErasing.unlock("Zx8#Vb2!Nm5\$Qw7%Ld4".toCharArray()) is UnlockResult.Rejected)
+        }
+        clock.advance(FailureDelay.MAX_CAP_MS + 1)
+        assertEquals(UnlockResult.Erased, selfErasing.unlock("Zx8#Vb2!Nm5\$Qw7%Ld4".toCharArray()))
+
+        assertEquals(EntryGesture.DEFAULT, refusing.current)
+        assertEquals(EntryGesture.DEFAULT, EntryGestureStore(prefs).load())
+    }
+
     private fun create() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
     }

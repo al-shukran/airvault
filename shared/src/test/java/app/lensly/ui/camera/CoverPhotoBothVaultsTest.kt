@@ -6,6 +6,7 @@ import java.io.File
 import kotlin.random.Random
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -66,6 +67,56 @@ class CoverPhotoBothVaultsTest {
         assertEquals(sizes(with), sizes(without))
         assertEquals(1, sizes(without).second.size)
     }
+
+    @Test
+    fun theTwoCopiesOfACoverPhotoHaveTheSameName() {
+        val layout = layout(withDecoy = true)
+
+        PhotoStore.forCover(layout).savePhoto(photo.copyOf(), nowMs = 1_000L)
+
+        assertEquals(names(layout, decoy = false), names(layout, decoy = true))
+        assertEquals(1, names(layout, decoy = false).size)
+    }
+
+    @Test
+    fun deletingACoverPhotoInTheRealGalleryAlsoShredsTheDecoyCopy() {
+        val layout = layout(withDecoy = true)
+        PhotoStore.forCover(layout).savePhoto(photo.copyOf(), nowMs = 1_000L)
+        val real = PhotoStore.of(layout, decoy = false, privateKey = realKey.copyOf())
+
+        assertTrue(real.delete(real.list().single().file))
+
+        assertTrue(names(layout, decoy = false).isEmpty())
+        assertTrue(names(layout, decoy = true).isEmpty())
+    }
+
+    @Test
+    fun deletingACoverPhotoInTheDecoyGalleryKeepsTheRealCopy() {
+        val layout = layout(withDecoy = true)
+        PhotoStore.forCover(layout).savePhoto(photo.copyOf(), nowMs = 1_000L)
+        val decoy = PhotoStore.of(layout, decoy = true, privateKey = decoyKey.copyOf())
+
+        assertTrue(decoy.delete(decoy.list().single().file))
+
+        assertEquals(1, names(layout, decoy = false).size)
+        assertTrue(names(layout, decoy = true).isEmpty())
+        val real = PhotoStore.of(layout, decoy = false, privateKey = realKey.copyOf())
+        assertContentEquals(photo, real.photoBytes(real.list().single().file))
+    }
+
+    @Test
+    fun aCoverPhotoWhoseDecoyCopyCannotBeMadeIsNotSavedAtAll() {
+        val layout = layout(withDecoy = true)
+        layout.photoKeyFile(decoy = true).delete()
+
+        assertFalse(PhotoStore.forCover(layout).savePhoto(photo.copyOf(), nowMs = 1_000L))
+
+        assertTrue(layout.photoDir(decoy = false).listFiles().orEmpty().isEmpty())
+        assertTrue(layout.photoDir(decoy = true).listFiles().orEmpty().isEmpty())
+    }
+
+    private fun names(layout: VaultLayout, decoy: Boolean): List<String> =
+        layout.photoDir(decoy).listFiles().orEmpty().map { it.name }.sorted()
 
     private fun sizes(layout: VaultLayout): Pair<List<Long>, List<Long>> =
         listOf(false, true).map { decoy -> layout.photoDir(decoy).listFiles().orEmpty().map { it.length() }.sorted() }
