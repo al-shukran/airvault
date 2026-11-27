@@ -81,10 +81,10 @@ private fun l1Agent(source: String, connectionId: String, extra: String = "") =
         """"primaryType":"Agent","domain":{"chainId":1337,"name":"Exchange","verifyingContract":"$ZERO","version":"1"},""" +
         """"message":{"source":"$source","connectionId":"$connectionId"$extra}}"""
 
-/** A user-signed Hyperliquid action on the HyperliquidSignTransaction domain of chain 421614, as its SDK builds it. */
-private fun userSigned(primaryType: String, fields: String, message: String, version: String = "1") =
+/** A user-signed Hyperliquid action on the HyperliquidSignTransaction domain of [chainId] (421614 as its SDK builds it), as its SDK builds it. */
+private fun userSigned(primaryType: String, fields: String, message: String, version: String = "1", chainId: Long = 421614) =
     """{"types":{"$primaryType":[$fields],"EIP712Domain":[$DOMAIN_TYPES]},"primaryType":"$primaryType",""" +
-        """"domain":{"name":"HyperliquidSignTransaction","version":"$version","chainId":421614,"verifyingContract":"$ZERO"},""" +
+        """"domain":{"name":"HyperliquidSignTransaction","version":"$version","chainId":$chainId,"verifyingContract":"$ZERO"},""" +
         """"message":{$message}}"""
 
 private const val TRANSFER_FIELDS = """{"name":"hyperliquidChain","type":"string"},{"name":"destination","type":"string"},""" +
@@ -668,6 +668,41 @@ class OffChainSignatureReviewTest {
             .replace("\"domain\":{\"chainId\":1337,", "\"domain\":{\"chainId\":1337,\"salt\":\"0x${"11".repeat(32)}\",")
 
         assertEquals("domain has an unknown member salt", refusedReason(json, 1337L))
+    }
+
+    @Test
+    fun hyperliquidUserSignedActionsAreLabelledOnArbitrumOneAndArbitrumSepoliaButOnNoOtherChain() {
+        for (chainId in listOf(42161L, 421614L)) {
+            val usdSend = USD_SEND.replace("\"chainId\":421614", "\"chainId\":$chainId")
+            val review = reviewed(usdSend, ARBITRUM)
+            assertEquals("Hyperliquid Testnet", rowsOf(review).single { it.label == "Network" }.value.text(), "chain $chainId")
+            assertTrue(HL_CAUTION in cautionTexts(review), "chain $chainId has the Hyperliquid caution")
+            noteOf(review, HYPERLIQUID_L1_LABEL, HL_NOTE)
+            val destination = review.sections.single { it.heading == "Message" }.rows.single { it.label == "destination (string)" }
+            assertEquals(DisplayValue.Address(ChainId("eip155:$chainId"), AGENT_CHECKSUM), destination.value, "chain $chainId")
+
+            val mainnet = reviewed(spotSend(AGENT).replace("\"chainId\":421614", "\"chainId\":$chainId"), ARBITRUM)
+            assertEquals("Hyperliquid Mainnet", rowsOf(mainnet).single { it.label == "Network" }.value.text(), "chain $chainId")
+
+            val systemSend = reviewed(spotSend(HYPE_SYSTEM).replace("\"chainId\":421614", "\"chainId\":$chainId"), ARBITRUM)
+            assertEquals("Move to HyperEVM", systemSend.title, "chain $chainId")
+
+            val multiSig = userSigned(
+                "HyperliquidTransaction:SendMultiSig",
+                """{"name":"hyperliquidChain","type":"string"},{"name":"multiSigActionHash","type":"bytes32"},{"name":"nonce","type":"uint64"}""",
+                """"hyperliquidChain":"Mainnet","multiSigActionHash":"$DUMMY_CONNECTION_ID","nonce":1687816341423,""" +
+                    """"type":"sendMultiSig","signatureChainId":"0x${chainId.toString(16)}"""",
+                chainId = chainId,
+            )
+            noteOf(reviewed(multiSig, ARBITRUM), HASHED_LABEL, HASHED_NOTE)
+        }
+        // The L1 domain stays on chain 1337.
+        noteOf(reviewed(l1Agent("a", DUMMY_CONNECTION_ID), ARBITRUM), HYPERLIQUID_L1_LABEL, HL_NOTE)
+        // A domain that claims Hyperliquid on any other chain is not the trusted domain: it is refused, not labelled.
+        for (chainId in listOf(1L, 1337L, 421615L)) {
+            val other = USD_SEND.replace("\"chainId\":421614", "\"chainId\":$chainId")
+            assertEquals("a type name with a colon is read only in a labelled off-chain domain", refusedReason(other, ARBITRUM), "chain $chainId")
+        }
     }
 
     @Test

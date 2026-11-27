@@ -1,0 +1,1 @@
+The review of a Hyperliquid action signed on Arbitrum One now shows the Hyperliquid label, its acknowledgement, the Mainnet or Testnet row, the note that a multi-sig action is hashed, and the address rows, the same as on Arbitrum Sepolia.

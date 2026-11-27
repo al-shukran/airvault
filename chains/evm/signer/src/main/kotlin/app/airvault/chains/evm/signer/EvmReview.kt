@@ -304,6 +304,10 @@ class EvmReviewBuilder(
         private fun nativeTransaction(tx: UnsignedTx, to: String): Pair<String, List<SummaryPart>> {
             targetRow("To", to)
             valueRow(tx.value, always = true)
+            // A token's system address takes no native coin: HyperCore may not credit it, and it may be lost. Only HYPE's own address moves HYPE.
+            if (isHyperEvm(chainId) && isSystemAddress(to) && !isHypeSystemAddress(to)) {
+                warnings += Warning(Danger.DANGER, CODE_SYSTEM_DESTINATION, NATIVE_SYSTEM_DESTINATION_TEXT, FieldPath("evm.to"), ACK_SYSTEM_DESTINATION)
+            }
             val title = if (isHyperEvm(chainId) && isHypeSystemAddress(to)) MOVE_TO_HYPERCORE else "Native Transfer"
             return title to listOf(sendOf(tx.value, network?.nativeDecimals, network?.nativeSymbol, sender, to))
         }
@@ -323,12 +327,24 @@ class EvmReviewBuilder(
             part.warnings.forEach { warnings += it.toWarning("evm.data") }
             if (part.unregistered) warnings += registryWarning(TOKEN_UNREGISTERED, FieldPath("evm.to"))
             // The bridge title needs the token's own system address. Any other transfer to a system address keeps its plain title and is warned.
-            val systemTo = (call as? ContractCall.Transfer)?.to?.lowercase()?.takeIf { isHyperEvm(chainId) && isSystemAddress(it) }
-            val moves = systemTo != null && systemTo == hyperCoreSystemAddressOf(chainId, to)
-            if (systemTo != null && !moves) {
-                warnings += Warning(Danger.DANGER, CODE_SYSTEM_DESTINATION, SYSTEM_DESTINATION_TEXT, FieldPath("evm.data"), ACK_SYSTEM_DESTINATION)
-            }
+            val moves = movesToHyperCore(call, to, FieldPath("evm.data"))
             return (if (moves) MOVE_TO_HYPERCORE else part.function) to part.sentence
+        }
+
+        /**
+         * True when [call] on [contract] sends the token to its own system address on HyperEVM, which moves it to HyperCore. A transfer or
+         * transferFrom to any other system address is warned at [field], whether it stands alone or sits in a batch.
+         */
+        private fun movesToHyperCore(call: ContractCall, contract: String, field: FieldPath): Boolean {
+            val recipient = when (call) {
+                is ContractCall.Transfer -> call.to
+                is ContractCall.TransferFrom -> call.to
+                else -> return false
+            }.lowercase()
+            if (!isHyperEvm(chainId) || !isSystemAddress(recipient)) return false
+            if (recipient == hyperCoreSystemAddressOf(chainId, contract)) return true
+            warnings += Warning(Danger.DANGER, CODE_SYSTEM_DESTINATION, SYSTEM_DESTINATION_TEXT, field, ACK_SYSTEM_DESTINATION)
+            return false
         }
 
         /**
@@ -440,6 +456,7 @@ class EvmReviewBuilder(
                         callRows(rows, prefix, index, level, part.function, target, flags + part.params, part.note)
                         part.warnings.forEach { warnings += it.toWarning(prefix) }
                         if (part.unregistered) warnings += registryWarning(TOKEN_UNREGISTERED, FieldPath("$prefix.function"))
+                        movesToHyperCore(lone, contract, FieldPath("$prefix.function"))
                     }
                     else -> when (val gap = whitelisted(contract, inner.calldata, sent)) {
                         is Gap.Approved -> {
@@ -944,6 +961,8 @@ private const val MOVE_TO_HYPEREVM = "Move to HyperEVM"
 private const val CODE_SYSTEM_DESTINATION = "evm.hypercore-system-destination"
 private const val SYSTEM_DESTINATION_TEXT = "This sends tokens to a HyperCore system address that does not belong to this token. HyperCore may not " +
     "credit them, and they may be lost. Check the address before you sign."
+private const val NATIVE_SYSTEM_DESTINATION_TEXT = "This sends HYPE to a HyperCore system address that belongs to a token, not to HYPE. HyperCore may " +
+    "not credit it, and it may be lost. Check the address before you sign."
 private const val ACK_SYSTEM_DESTINATION = "I understand these tokens may be lost."
 
 /** The top label of a transfer that moves an asset from HyperEVM to HyperCore. */

@@ -710,6 +710,55 @@ class EvmReviewTest {
     }
 
     @Test
+    fun anErc20TransferFromToAnotherTokensSystemAddressIsADangerAndToItsOwnIsAMove() {
+        val foreign = ContractCall.TransferFrom(SENDER, TOKEN_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
+        val review = reviewOf(txParsed(HYPEREVM_USDT0_TX, foreign, chainId = 999), builder(HYPEREVM_REGISTRY))
+        assertEquals("transferFrom", review.title)
+        assertEquals(listOf(Danger.DANGER), review.warnings.filter { it.code == "evm.hypercore-system-destination" }.map { it.level })
+
+        val own = ContractCall.TransferFrom(SENDER, USDT0_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!
+        val move = reviewOf(txParsed(HYPEREVM_USDT0_TX, own, chainId = 999), builder(HYPEREVM_REGISTRY))
+        assertEquals("Move to HyperCore", move.title)
+        assertTrue(move.warnings.none { it.code == "evm.hypercore-system-destination" })
+    }
+
+    @Test
+    fun aTransferToAnotherTokensSystemAddressInsideAMulticallIsADangerAndToItsOwnIsNot() {
+        fun batchOf(recipient: String): ParsedRequest {
+            val transfer = ContractCall.Transfer(recipient, BigInteger.valueOf(1_000_000)).encode()!!
+            val call = InnerCall(
+                target = HYPEREVM_USDT0_TX,
+                allowFailure = false,
+                value = null,
+                calldata = transfer,
+                call = ContractCall.decode(transfer),
+                nested = null,
+            )
+            return txParsed(MULTICALL3, encodeMulticall(MulticallShape.AGGREGATE3, deadline = null, calls = listOf(call))!!, chainId = 999)
+        }
+
+        val foreign = reviewOf(batchOf(TOKEN_SYSTEM), builder(HYPEREVM_REGISTRY))
+        val danger = foreign.warnings.single { it.code == "evm.hypercore-system-destination" }
+        assertEquals(Danger.DANGER, danger.level)
+        assertEquals(FieldPath("evm.data.call[0].function"), danger.field)
+
+        val own = reviewOf(batchOf(USDT0_SYSTEM), builder(HYPEREVM_REGISTRY))
+        assertTrue(own.warnings.none { it.code == "evm.hypercore-system-destination" })
+    }
+
+    @Test
+    fun aNativeSendToATokenSystemAddressOnHyperEvmIsADangerButToTheHypeOneIsNot() {
+        val review = reviewOf(txParsed(org.web3j.crypto.Keys.toChecksumAddress(TOKEN_SYSTEM), ByteArray(0), BigInteger.TEN.pow(18), chainId = 999), builder(HYPEREVM_REGISTRY))
+        assertEquals("Native Transfer", review.title)
+        assertEquals(listOf(Danger.DANGER), review.warnings.filter { it.code == "evm.hypercore-system-destination" }.map { it.level })
+
+        val toHype = reviewOf(txParsed(HYPE_SYSTEM, ByteArray(0), BigInteger.TEN.pow(18), chainId = 999), builder(HYPEREVM_REGISTRY))
+        assertTrue(toHype.warnings.none { it.code == "evm.hypercore-system-destination" })
+        val elsewhere = reviewOf(txParsed(org.web3j.crypto.Keys.toChecksumAddress(TOKEN_SYSTEM), ByteArray(0), BigInteger.TEN.pow(18), chainId = 1))
+        assertTrue(elsewhere.warnings.none { it.code == "evm.hypercore-system-destination" })
+    }
+
+    @Test
     fun aSystemAddressTransferOutsideHyperEvmOrAtANearMissAddressIsNotLabelled() {
         assertEquals("Native Transfer", reviewOf(txParsed(HYPE_SYSTEM, ByteArray(0), BigInteger.TEN.pow(18), chainId = 1)).title)
         val tokenCall = ContractCall.Transfer(TOKEN_SYSTEM, BigInteger.valueOf(1_000_000)).encode()!!

@@ -12,8 +12,11 @@ private val SDK_DOMAIN_MEMBERS = setOf("name", "version", "chainId", "verifyingC
 /** The keys of the documented AsterDex master-account msg, in the documented order (V3 futures doc, "Supported Signing Algorithms"). */
 private val ASTER_MASTER_MSG_KEYS = listOf("childAddress", "name", "nonce", "user", "childSignature")
 
+/** The chains whose HyperliquidSignTransaction domain is labelled: Arbitrum One and Arbitrum Sepolia. */
+private val HYPERLIQUID_USER_SIGNED_CHAINS = listOf(42161L, 421614L)
+
 /**
- * The primary types that Hyperliquid's user-signed actions sign on the domain of chain 421614. hyperliquid-python-sdk, hyperliquid/utils/signing.py:
+ * The primary types that Hyperliquid's user-signed actions sign on the HyperliquidSignTransaction domain. hyperliquid-python-sdk, hyperliquid/utils/signing.py:
  * each action helper calls sign_user_signed_action, and that sets signatureChainId to 0x66eee.
  */
 private val HYPERLIQUID_USER_SIGNED = setOf(
@@ -117,12 +120,15 @@ val OFF_CHAIN_DOMAINS: List<OffChainDomain> = listOf(
     // Hyperliquid L1 action, the phantom agent of source "a" or "b", primary type Agent. hyperliquid-python-sdk,
     // hyperliquid/utils/signing.py, l1_payload.
     OffChainDomain("Exchange", "1", 1337, ZERO_ADDRESS, "Hyperliquid", setOf("Agent"), hashedActionTypes = setOf("Agent")),
-    // Hyperliquid user-signed actions. signing.py, user_signed_payload; sign_user_signed_action sets signatureChainId to 0x66eee (421614).
+    // Hyperliquid user-signed actions. signing.py, user_signed_payload. The domain chain is the signatureChainId of the action: the SDK sets
+    // 0x66eee (421614), and Hyperliquid's own app signs at the chain of the connected wallet, Arbitrum One (42161). No other chain is labelled.
+) + HYPERLIQUID_USER_SIGNED_CHAINS.map { chainId ->
     OffChainDomain(
-        "HyperliquidSignTransaction", "1", 421614, ZERO_ADDRESS, "Hyperliquid", HYPERLIQUID_USER_SIGNED,
+        "HyperliquidSignTransaction", "1", chainId, ZERO_ADDRESS, "Hyperliquid", HYPERLIQUID_USER_SIGNED,
         hashedActionTypes = setOf("HyperliquidTransaction:SendMultiSig"), stringAddressMembers = setOf("destination", "builder", "fromSubAccount"),
         agentApprovalType = "HyperliquidTransaction:ApproveAgent",
-    ),
+    )
+} + listOf(
     // AsterDex agent approval, registerAndApproveAgent, for an EVM user. github.com/asterdex/api-docs, V3 futures doc,
     // "Register and Approve Agent"; its primaryType is Message, and its msg names the agent with agentAddress. The only documented msg that is
     // not an approval is the master-account one below. The demo, demo/aster-code.py, signs other primary types on this domain too, with layouts
