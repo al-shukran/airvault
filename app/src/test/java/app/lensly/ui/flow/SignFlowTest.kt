@@ -3,6 +3,7 @@ package app.lensly.ui.flow
 import app.airvault.chains.evm.evmManifest
 import app.airvault.chains.evm.signer.EvmRequestBody
 import app.airvault.chains.evm.signer.EvmSigner
+import app.airvault.chains.evm.signer.MULTICALL3_ADDRESS
 import app.airvault.chains.evm.signer.UnsignedTx
 import app.airvault.core.model.AppId
 import app.airvault.core.model.Approval
@@ -220,13 +221,13 @@ private fun singleKeyRequest(address: ByteArray): UR {
 }
 
 /** A ur:eth-sign-request for a typed transaction on account 0, the way a wallet sends it. */
-private fun transactionRequest(data: String): UR {
+private fun transactionRequest(data: String, to: String = RECIPIENT): UR {
     val tx = TransactionEncoder.encode(
         RawTransaction.createTransaction(
             MONAD_TESTNET,
             BigInteger.valueOf(7),
             BigInteger.valueOf(21_000),
-            RECIPIENT,
+            to,
             BigInteger.ZERO,
             data,
             BigInteger.valueOf(1_500_000_000L),
@@ -472,11 +473,12 @@ class SignFlowTest {
         assertEquals(512, assertIs<SignStep.Refused>(flow.state.value).rows.count { it.depth == 1 })
     }
 
+    /** A batch is read only on a contract known to run it, so this one goes to Multicall3, the contract whose shape it has. */
     @Test
     fun aRouterSizedMulticallOfAboutSixKiBIsScannedInFramesAndReviewed() {
         val flow = SignFlow(FakePorts(), WALLET_ID)
         val transfer = "a9059cbb" + addressWordOf(RECIPIENT) + hexWordOf(1_500_000)
-        scan(flow, framesOf(transactionRequest(aggregate3DataOf(List(24) { transfer }, RECIPIENT)), FRAGMENT))
+        scan(flow, framesOf(transactionRequest(aggregate3DataOf(List(24) { transfer }, RECIPIENT), to = MULTICALL3_ADDRESS), FRAGMENT))
         assertIs<SignStep.AppReview>(flow.state.value)
     }
 

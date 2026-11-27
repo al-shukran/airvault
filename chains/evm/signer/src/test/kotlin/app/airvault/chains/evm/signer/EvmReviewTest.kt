@@ -42,6 +42,7 @@ private const val USDC_LOWER = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
 private const val SPENDER = "0x1111111111111111111111111111111111111111"
 private const val NFT = "0x2222222222222222222222222222222222222222"
 private const val MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11"
+private const val FAKE_BATCH = "0x00000000000000000000000000000000DeaDBeef"
 private const val SENDER = "0x3333333333333333333333333333333333333333"
 private const val APPROVE_SELECTOR = "0x095ea7b3"
 private const val UNLIMITED_WARNING = "Unlimited approval: this contract can spend all your USDC"
@@ -761,31 +762,64 @@ class EvmReviewTest {
 
     @Test
     fun aNestedBatchIsListedOneLevelDownAndItsUnlimitedApprovalIsWarned() {
-        val approveBytes = ContractCall.Approve(SPENDER, MAX_UINT256).encode()!!
-        val approve = InnerCall(
-            target = null,
-            allowFailure = null,
-            value = null,
-            calldata = approveBytes,
-            call = ContractCall.decode(approveBytes),
-            nested = null,
-        )
-        val nestedBytes = encodeMulticall(MulticallShape.BYTES_ARRAY, deadline = null, calls = listOf(approve))!!
-        // The outer call is a Multicall3 call to USDC whose calldata is a batch of its own, so the approval sits two levels down.
-        val outer = InnerCall(
-            target = USDC,
-            allowFailure = false,
-            value = null,
-            calldata = nestedBytes,
-            call = null,
-            nested = Multicall(deadline = null, calls = listOf(approve)),
-        )
-        val batch = encodeMulticall(MulticallShape.AGGREGATE3, deadline = null, calls = listOf(outer))!!
+        val outer = nestedMulticall3Batch(MULTICALL3)
 
-        val review = reviewOf(txParsed(MULTICALL3, batch))
+        val review = reviewOf(txParsed(MULTICALL3, outer))
 
         assertEquals(SPENDER, review.sections.single { it.heading == "Calls" }.rows.single { it.label == "spender" }.value.text())
         assertEquals(UNLIMITED_WARNING, review.warnings.single { it.code == "evm.unlimited-approval" }.message)
+    }
+
+    @Test
+    fun aNestedBatchOnAContractNotKnownToRunItIsRefusedAsAnUnknownCall() {
+        val refused = refusalOf(txParsed(MULTICALL3, nestedMulticall3Batch(FAKE_BATCH)))
+
+        assertEquals("Unknown Contract Call", refused.reason)
+    }
+
+    @Test
+    fun aBatchOnAContractNotKnownToRunItIsRefusedAsAnUnknownCall() {
+        val refused = refusalOf(txParsed(FAKE_BATCH, aggregate3ValueTransfer(), value = ONE_ETH))
+
+        assertEquals("Unknown Contract Call", refused.reason)
+    }
+
+    @Test
+    fun aBatchOnAContractNotKnownToRunItIsDangerUnderTheWarnPolicy() {
+        val review = reviewOf(txParsed(FAKE_BATCH, aggregate3ValueTransfer(), value = ONE_ETH), builder(unknownCalls = UnknownCallPolicy.WARN))
+
+        val unknown = review.warnings.single { it.code == "evm.unknown-call" }
+        assertEquals(Danger.DANGER, unknown.level)
+        assertEquals(ACK_UNKNOWN, unknown.acknowledge)
+        assertTrue(review.sections.none { it.heading == "Calls" })
+    }
+
+    @Test
+    fun aMulticall3BatchOnTheRealMulticall3ContractStillReviewsWithoutWarnings() {
+        val review = reviewOf(txParsed(MULTICALL3, aggregate3ValueTransfer(), value = ONE_ETH))
+
+        assertEquals("aggregate3Value", review.title)
+        assertNotNull(review.sections.singleOrNull { it.heading == "Calls" })
+        assertTrue(review.warnings.none { it.level == Danger.DANGER })
+    }
+
+    @Test
+    fun aUniswapMulticallReadsOnlyOnAContractTheWhitelistApprovesItOn() {
+        val approve = ContractCall.Approve(SPENDER, BigInteger.TEN).encode()!!
+        val call = InnerCall(target = null, allowFailure = null, value = null, calldata = approve, call = ContractCall.decode(approve), nested = null)
+        val batch = encodeMulticall(MulticallShape.BYTES_ARRAY, deadline = null, calls = listOf(call))!!
+        val entry = WhitelistEntry(
+            chainId = 1,
+            contract = FAKE_BATCH.lowercase(),
+            selector = "0x${MulticallShape.BYTES_ARRAY.selector}",
+            signature = MulticallShape.BYTES_ARRAY.signature,
+            meaning = "Runs the calls in order.",
+            params = listOf(WhitelistParam("data", "bytes[]")),
+            upgradeable = false,
+        )
+
+        assertEquals("Unknown Contract Call", refusalOf(txParsed(FAKE_BATCH, batch)).reason)
+        assertEquals("multicall", reviewOf(txParsed(FAKE_BATCH, batch), builder(REGISTRY.withWhitelist(listOf(entry)))).title)
     }
 
     @Test
@@ -845,6 +879,36 @@ class EvmReviewTest {
 
         assertEquals("0xfffe00", rows.single { it.label == "Message" }.value.text())
         assertEquals("3 bytes", rows.single { it.label == "Size" }.value.text())
+    }
+
+    @Test
+    fun aPersonalMessageThatIsA32ByteHashIsDangerAndNamesItsCheck() {
+        val hash = Hash.sha3("any safe transaction".toByteArray())
+
+        val review = reviewOf(personalParsed(hash))
+
+        val danger = review.warnings.single { it.code == "evm.personal-message.hash" }
+        assertEquals(Danger.DANGER, danger.level)
+        assertEquals("I understand this signature may approve a transaction Lensly cannot show.", danger.acknowledge)
+    }
+
+    @Test
+    fun aReadablePersonalMessageIsNotADangerWhateverItsLength() {
+        val text32 = "a".repeat(32)
+        val text31 = "a".repeat(31)
+
+        for (text in listOf(text32, text31, "hi", "a".repeat(100))) {
+            val review = reviewOf(personalParsed(text.toByteArray()))
+            assertTrue(review.warnings.none { it.level == Danger.DANGER }, text)
+        }
+    }
+
+    @Test
+    fun aBinaryPersonalMessageOfAnotherLengthIsNotADanger() {
+        for (size in listOf(31, 33)) {
+            val review = reviewOf(personalParsed(ByteArray(size) { 0xff.toByte() }))
+            assertTrue(review.warnings.none { it.level == Danger.DANGER }, "$size bytes")
+        }
     }
 
     @Test
@@ -1014,4 +1078,27 @@ private fun lidoBatch(shape: MulticallShape, first: BigInteger?, second: BigInte
         InnerCall(target = LIDO, allowFailure = false, value = it, calldata = calldata, call = null, nested = null)
     }
     return encodeMulticall(shape, deadline = null, calls = calls)!!
+}
+
+/** `aggregate3Value` with one call: a transfer of nothing on USDC, which the registry knows, that sends 1 ETH along. */
+private fun aggregate3ValueTransfer(): ByteArray {
+    val transfer = ContractCall.Transfer("0x1111111111111111111111111111111111111111", BigInteger.ZERO).encode()!!
+    val call = InnerCall(USDC, allowFailure = false, value = ONE_ETH, calldata = transfer, call = ContractCall.decode(transfer), nested = null)
+    return encodeMulticall(MulticallShape.AGGREGATE3_VALUE, deadline = null, calls = listOf(call))!!
+}
+
+/** An `aggregate3` call to Multicall3 whose one call is an `aggregate3` of [nestedOn], holding an unlimited USDC approval. */
+private fun nestedMulticall3Batch(nestedOn: String): ByteArray {
+    val approveBytes = ContractCall.Approve(SPENDER, MAX_UINT256).encode()!!
+    val approve = InnerCall(USDC, allowFailure = false, value = null, calldata = approveBytes, call = ContractCall.decode(approveBytes), nested = null)
+    val nestedBytes = encodeMulticall(MulticallShape.AGGREGATE3, deadline = null, calls = listOf(approve))!!
+    val outer = InnerCall(
+        target = nestedOn,
+        allowFailure = false,
+        value = null,
+        calldata = nestedBytes,
+        call = null,
+        nested = Multicall(deadline = null, calls = listOf(approve)),
+    )
+    return encodeMulticall(MulticallShape.AGGREGATE3, deadline = null, calls = listOf(outer))!!
 }
