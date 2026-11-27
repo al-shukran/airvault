@@ -17,9 +17,12 @@ internal fun urPartRefusal(part: String): String? {
     if (part.length > ParserLimits.MAX_UR_PART_CHARS) {
         return "A code is longer than ${ParserLimits.MAX_UR_PART_CHARS} characters."
     }
-    // A multi-part frame reads "ur:<type>/<sequence>/<body>", and its sequence reads "<index>-<count>".
-    val components = part.substring("ur:".length).split('/')
-    if (components.size != 3) return null
+    // Split as the decoder does, which drops trailing empty segments, so both read the same frame. A single part reads
+    // "ur:<type>/<body>" and a multi-part frame reads "ur:<type>/<sequence>/<body>", with "<index>-<count>" as its sequence.
+    // Any other shape is refused, so a trailing slash cannot hide a declared count from this check.
+    val components = part.substring("ur:".length).split('/').dropLastWhile { it.isEmpty() }
+    if (components.size == 2) return null
+    if (components.size != 3) return "The code is not a valid UR part."
     val declared = SEQUENCE_COMPONENT.matchEntire(components[1])?.groupValues?.get(2) ?: return null
     val count = declared.toIntOrNull()
     if (count == null || count > ParserLimits.MAX_UR_PARTS) {

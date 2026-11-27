@@ -28,7 +28,7 @@ class UrScannerFuzzTest {
 
         // A frame that declares far more parts than ParserLimits.MAX_UR_PARTS must be refused before the decoder
         // builds one index per declared part.
-        receiveAll(UrScanner(), listOf("ur:eth-sign-request/1-${ParserLimits.MAX_UR_PARTS + 1}/$body"))
+        receiveAll(UrScanner(), listOf("ur:eth-sign-request/1-${ParserLimits.MAX_UR_PARTS + 1}/$body", "ur:eth-sign-request/1-${ParserLimits.MAX_UR_PARTS + 1}/$body/"))
     }
 
     private fun receiveAll(scanner: UrScanner, parts: List<String>) {
