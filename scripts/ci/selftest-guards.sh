@@ -677,6 +677,19 @@ unit_tree app/src/test/java/AppTest.kt lumio/src/test/java/LumioTest.kt shared/s
 expect_pass "a *Test.kt under src/test/java in every module" units_guard
 unit_tree app/src/test/kotlin/AppTest.kt lumio/src/test/java/LumioTest.kt shared/src/test/java/SharedTest.kt
 expect_pass "a *Test.kt under src/test/kotlin" units_guard
+unit_tree lumio/src/test/java/LumioTest.kt shared/src/test/java/SharedTest.kt
+mkdir -p "$units/app/src/test/java/AppTest.kt"
+expect_fail "a directory named *Test.kt and no file under app" units_guard
+# run_unit must call the guard, or the unit step runs Gradle with no check (#1632). The copy with the call removed must be rejected.
+unit_calls_guard() {
+    sed -n '/^run_unit() {/,/^}/p' "$1" | grep -q '^    require_unit_tests$' || {
+        echo "error: run_unit does not call require_unit_tests" >&2
+        return 1
+    }
+}
+sed '/^    require_unit_tests$/d' "$root/scripts/ci/run-step.sh" >"$work/run-step-no-guard.sh"
+expect_pass "run_unit calls require_unit_tests" unit_calls_guard "$root/scripts/ci/run-step.sh"
+expect_fail "run_unit without the require_unit_tests call" unit_calls_guard "$work/run-step-no-guard.sh"
 
 # --- close-refresh-pr.sh: a stub gh whose first close fails (and records the comment first, as the old gh pr close --comment did).
 # Whether the first gh pr comment fails before posting ("drop") or after it ("lost"), the pull request ends closed with one comment.
