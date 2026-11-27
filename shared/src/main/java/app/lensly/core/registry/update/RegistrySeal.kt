@@ -16,7 +16,8 @@ import java.security.MessageDigest
  *
  * The seal also holds the SHA-256 of the installed package file and of the files that carry the kept whitelist and denylist, so a file
  * is used only when it is byte for byte the one this device accepted: a signed file planted in its place (by any key, revoked or not)
- * reads as unverified, never as the package that set the floor, and its revocations never count.
+ * reads as unverified, never as the package that set the floor, and its revocations never count. It holds the key IDs that the installed
+ * package revokes too, so a revocation stands when that file is deleted, cut short or replaced by an older package.
  *
  * With file access an attacker can replace, delete or copy back any file in the store, but not a Keystore key. So:
  * - a package swapped in below the floor, or an older whitelist carrier swapped in, no longer matches the sealed sequences or hashes;
@@ -35,7 +36,8 @@ internal object RegistrySeal {
     /**
      * [floor]: the highest accepted sequence. [whitelistSequence] and [denylistSequence]: the sequence of the last package that carried
      * a whitelist, or a denylist, or 0. [installedSha256], [whitelistSha256] and [denylistSha256]: the SHA-256 of the file that holds the
-     * installed package and each of those carriers, or [NONE] where there is none.
+     * installed package and each of those carriers, or [NONE] where there is none. [revokedKeys]: the IDs of the keys the installed package
+     * revokes, which stay revoked whatever happens to that file.
      */
     class Seal(
         val floor: Long,
@@ -44,6 +46,7 @@ internal object RegistrySeal {
         val installedSha256: ByteArray,
         val whitelistSha256: ByteArray,
         val denylistSha256: ByteArray,
+        val revokedKeys: Set<String> = emptySet(),
     )
 
     sealed interface Reading {
@@ -58,29 +61,32 @@ internal object RegistrySeal {
     }
 
     private const val HASH_SIZE = 32
-    private const val PAYLOAD_SIZE = 8 + 8 + 8 + 3 * HASH_SIZE
+    private const val FIXED_SIZE = 8 + 8 + 8 + 3 * HASH_SIZE
+    private const val ID_SIZE = TrustedKey.ID_BYTES * 2
     private const val MAC_SIZE = 32
 
     fun read(dir: File, keys: KeystoreBackend): Reading {
         val newest = keystoreOrNull { keys.registryMacKeySeqs() } ?: return Reading.Unverified
         val file = File(dir, FILE)
         if (!file.isFile) return if (newest.isEmpty()) Reading.Unsealed else Reading.Unverified
-        val bytes = runCatching { file.readBytes() }.getOrNull()?.takeIf { it.size == PAYLOAD_SIZE + MAC_SIZE }
+        val bytes = runCatching { file.readBytes() }.getOrNull()?.takeIf { it.size >= FIXED_SIZE + Int.SIZE_BYTES + MAC_SIZE }
             ?: return Reading.Unverified
-        val payload = bytes.copyOf(PAYLOAD_SIZE)
-        val buffer = ByteBuffer.wrap(payload)
-        val seal = Seal(
-            floor = buffer.getLong(),
-            whitelistSequence = buffer.getLong(),
-            denylistSequence = buffer.getLong(),
-            installedSha256 = ByteArray(HASH_SIZE).also(buffer::get),
-            whitelistSha256 = ByteArray(HASH_SIZE).also(buffer::get),
-            denylistSha256 = ByteArray(HASH_SIZE).also(buffer::get),
-        )
+        val buffer = ByteBuffer.wrap(bytes)
+        val floor = buffer.getLong()
+        val whitelistSequence = buffer.getLong()
+        val denylistSequence = buffer.getLong()
+        val hashes = List(3) { ByteArray(HASH_SIZE).also(buffer::get) }
+        // The count is read before the MAC is checked, so it is held to the file's own size.
+        val count = buffer.getInt()
+        val payloadSize = FIXED_SIZE + Int.SIZE_BYTES + count.toLong() * ID_SIZE
+        if (count < 0 || bytes.size.toLong() != payloadSize + MAC_SIZE) return Reading.Unverified
+        val revoked = List(count) { String(ByteArray(ID_SIZE).also(buffer::get), Charsets.US_ASCII) }.toSet()
+        val payload = bytes.copyOf(payloadSize.toInt())
+        val seal = Seal(floor, whitelistSequence, denylistSequence, hashes[0], hashes[1], hashes[2], revoked)
         if (seal.floor != newest.maxOrNull()) return Reading.Unverified
         val key = keystoreOrNull { keys.registryMacKey(seal.floor) } ?: return Reading.Unverified
         val expected = keystoreOrNull { macOf(key, payload) } ?: return Reading.Unverified
-        if (!MessageDigest.isEqual(bytes.copyOfRange(PAYLOAD_SIZE, bytes.size), expected)) return Reading.Unverified
+        if (!MessageDigest.isEqual(bytes.copyOfRange(payload.size, bytes.size), expected)) return Reading.Unverified
         return Reading.Sealed(seal)
     }
 
@@ -98,9 +104,11 @@ internal object RegistrySeal {
 
     /** Makes the key for [seal]'s floor and returns the bytes of the seal under it. Every other key stays until [commit]. */
     fun create(seal: Seal, keys: KeystoreBackend): ByteArray = keystoreCall {
-        val payload = ByteBuffer.allocate(PAYLOAD_SIZE)
+        val revoked = seal.revokedKeys.sorted()
+        val payload = ByteBuffer.allocate(FIXED_SIZE + Int.SIZE_BYTES + revoked.size * ID_SIZE)
             .putLong(seal.floor).putLong(seal.whitelistSequence).putLong(seal.denylistSequence)
-            .put(seal.installedSha256).put(seal.whitelistSha256).put(seal.denylistSha256).array()
+            .put(seal.installedSha256).put(seal.whitelistSha256).put(seal.denylistSha256)
+            .putInt(revoked.size).also { buffer -> revoked.forEach { buffer.put(it.toByteArray(Charsets.US_ASCII)) } }.array()
         payload + macOf(keys.createRegistryMacKey(seal.floor), payload)
     }
 

@@ -81,6 +81,42 @@ class RegistryKeyRevocationTest {
     }
 
     @Test
+    fun aRevocationStandsWhenTheInstalledFileIsDeleted() {
+        install(signedByFirst(1, revokedKeys = listOf(leaked))).getOrThrow()
+        File(dir, RegistryUpdate.INSTALLED_FILE).delete()
+
+        assertEquals(leaked, assertIs<RegistryUpdateException.RevokedKey>(install(signedByLeaked(2)).exceptionOrNull()).keyId)
+    }
+
+    @Test
+    fun aRevocationStandsWhenTheInstalledFileIsReplacedByAnOlderPackage() {
+        val older = signedByFirst(1)
+        install(older).getOrThrow()
+        install(signedByFirst(2, revokedKeys = listOf(leaked))).getOrThrow()
+        File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(older)
+
+        assertEquals(leaked, assertIs<RegistryUpdateException.RevokedKey>(install(signedByLeaked(3)).exceptionOrNull()).keyId)
+    }
+
+    @Test
+    fun aRevocationStandsWhenTheInstalledFileIsCutShort() {
+        install(signedByFirst(1, revokedKeys = listOf(leaked))).getOrThrow()
+        val file = File(dir, RegistryUpdate.INSTALLED_FILE)
+        file.writeBytes(file.readBytes().copyOf(10))
+
+        assertIs<RegistryUpdateException.RevokedKey>(install(signedByLeaked(2)).exceptionOrNull())
+    }
+
+    @Test
+    fun anUnaffectedKeyStillInstallsAfterTheInstalledFileIsDeleted() {
+        install(signedByFirst(1, revokedKeys = listOf(leaked))).getOrThrow()
+        File(dir, RegistryUpdate.INSTALLED_FILE).delete()
+
+        assertTrue(install(signedByFirst(2, revokedKeys = listOf(leaked))).isSuccess)
+        assertEquals(listOf(leaked), assertNotNull(RegistryUpdate.installedPackage(baked, dir, keys, keystore)).revokedKeys)
+    }
+
+    @Test
     fun aLaterPackageMustKeepRevokingTheSameKeys() {
         install(signedByFirst(1, revokedKeys = listOf(leaked))).getOrThrow()
 
@@ -190,9 +226,10 @@ class RegistryKeyRevocationTest {
 
     @Test
     fun anOldRecoveryPackagePlantedOnDiskCannotRollTheFloorBack() {
-        val old = signedByFirst(5, revokedKeys = listOf(leaked))
+        val revoked = listOf(leaked, "0123456789abcdef")
+        val old = signedByFirst(5, revokedKeys = revoked)
         install(old).getOrThrow()
-        install(signedByFirst(10, revokedKeys = listOf(leaked, "0123456789abcdef"))).getOrThrow()
+        install(signedByFirst(10, revokedKeys = revoked)).getOrThrow()
         // With access to the app's files, the old package replaces the newer one. The Keystore holds no key for its sequence.
         File(dir, RegistryUpdate.INSTALLED_FILE).writeBytes(old)
 
