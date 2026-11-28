@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
@@ -50,8 +50,8 @@ private val CHART_WIDTH = 56.dp
 private val CHART_HEIGHT = 22.dp
 private val VALUE_WIDTH = 88.dp
 
-/** The chart sits this far above the row's centre line, as the mock's does, so its ink centres on the price and change beside it. */
-private val CHART_LIFT = 0.75.dp
+/** The tag of a row's chart, so a test can read where it sits. */
+internal const val CHART_TAG = "watchlist-chart"
 
 /** The add row's dashed ring: its stroke, its dash and gap, and its plus. */
 private val ADD_STROKE = 1.5.dp
@@ -92,6 +92,11 @@ internal fun changeText(percent: Double): String {
         ChangeTone.FLAT -> size
     }
 }
+
+private val HYPHEN_BETWEEN_LETTERS = Regex("(?<=\\p{L})-(?=\\p{L})")
+
+/** [this] with a break opportunity after each hyphen between letters, as the mock's browser breaks "Short-Term" after "Short-": Android's line breaker does not. */
+internal fun String.breakableAfterHyphens(): String = replace(HYPHEN_BETWEEN_LETTERS, "-\u200B")
 
 /** The second line of a row: the [ticker], or null when it is the same as the [name], as BNB's is, so the row keeps its one-line height. */
 internal fun tickerLine(name: String, ticker: String): String? = ticker.takeIf { it.isNotBlank() && it != name }
@@ -183,7 +188,7 @@ private fun WatchRow(
         Box(modifier = Modifier.size(DISC), contentAlignment = Alignment.Center) { leading() }
         Spacer(Modifier.width(ClearAirSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = nameStyle, color = palette.ink)
+            Text(text = title.breakableAfterHyphens(), style = nameStyle, color = palette.ink)
             detail?.let { Text(text = it, style = tickerStyle, color = palette.ink2) }
         }
         trailing()
@@ -196,7 +201,7 @@ private fun PriceColumns(price: String?, change: Double?, ticks: List<Double>, v
     val palette = LocalClearAirPalette.current
     val tone = change?.let(::changeTone) ?: ticks.takeIf { it.size >= 2 }?.let { changeTone((it.last() - it.first()) / it.first() * 100) } ?: ChangeTone.FLAT
     Spacer(Modifier.width(ClearAirSpacing.sm))
-    TickChart(values = ticks, color = chartColor(tone), modifier = Modifier.offset(y = -CHART_LIFT).size(CHART_WIDTH, CHART_HEIGHT))
+    TickChart(values = ticks, color = chartColor(tone), modifier = Modifier.testTag(CHART_TAG).size(CHART_WIDTH, CHART_HEIGHT))
     Spacer(Modifier.width(ClearAirSpacing.sm))
     Column(modifier = Modifier.width(valueWidth), horizontalAlignment = Alignment.End) {
         price?.let { Text(text = it, style = priceStyle, color = palette.ink, textAlign = TextAlign.End, maxLines = 1) }
