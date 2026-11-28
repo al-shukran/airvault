@@ -1,5 +1,6 @@
 package app.lumio.pair
 
+import app.lensly.app.autoAccountName
 import app.lensly.app.export.PairingCodec
 import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
@@ -81,6 +82,30 @@ class PairedNamesInListTest {
         val sent = PairFixtures.payloadOf((0 until 60).map { PairFixtures.solanaAccount(it, long) } + (0 until 60).map { PairFixtures.algorandAccount(it, long) })
 
         assertTrue(scanToEnd(PairingCodec.urParts(sent, brotli = null)) is ScanStep.Refused)
+    }
+
+    @Test
+    fun aHundredAutoNamedSolanaAndAlgorandAccountsUnderALongBasePairAndShowTheirAutoNames() {
+        val base = "My Long Wallet Name Of 22"
+        val sent = PairFixtures.payloadOf(
+            (0 until 100).map { PairFixtures.solanaAccount(it, if (it == 7) "Payroll" else autoAccountName(base, it)) } +
+                (0 until 100).map { PairFixtures.algorandAccount(it, autoAccountName(base, it)) },
+            name = base,
+            base = base,
+        )
+
+        PairedWallets.save(session, pairingOf(PairingCodec.urParts(sent, brotli = null)), nowMs = 1L)
+        val wallet = PairedWallets.list(session).single()
+        val accounts = WalletAccounts.of(
+            wallet, NetworkMode.MAINNET, evmChains = listOf(EVM_MAINNET), evmCache = emptyList(), addressCount = 1,
+            bitcoin = emptyList(), coins = emptyList(), nativeCache = emptyList(),
+        )
+
+        assertEquals(
+            (0 until 100).map { if (it == 7) "Payroll" else autoAccountName(base, it) } + (0 until 100).map { autoAccountName(base, it) },
+            accounts.map { it.name },
+        )
+        assertEquals(listOf<String?>("Payroll"), wallet.solanaNames.filterNotNull())
     }
 
     private companion object {

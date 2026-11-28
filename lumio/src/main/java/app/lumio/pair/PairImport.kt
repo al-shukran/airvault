@@ -8,6 +8,7 @@ import app.airvault.core.signer.AccountExport
 import app.airvault.core.signer.Path
 import app.airvault.core.signer.allows
 import app.lensly.app.AddressBookEntry
+import app.lensly.app.autoAccountName
 import app.lensly.app.canonicalAddressOf
 import app.lensly.app.export.PairingAccount
 import app.lensly.app.export.PairingCodec
@@ -69,6 +70,7 @@ object PairImport {
     private const val NAMES_TOO_LONG =
         "The code's names for Bitcoin, Solana and Algorand accounts are longer than Lumio keeps. Shorten some of them in Lensly, then pair again."
     private const val BAD_ADDRESS = "The code's Address Book holds an address that is not a valid address of a supported chain."
+    private const val ACCOUNT_STEP = 2
     private const val COMPRESSED_KEY_BYTES = 33
     private const val ED25519_KEY_BYTES = 32
     private const val CHAIN_CODE_BYTES = 32
@@ -99,7 +101,7 @@ object PairImport {
         // An account on a chain that no installed wallet serves is left out, because Lumio cannot show it.
         val accounts = payload.accounts.filter { walletRegistry.byChain(it.export.chain) != null }
         if (accounts.isEmpty()) throw PairingRefusal(NO_ACCOUNTS)
-        checkAccounts(accounts)
+        checkAccounts(accounts, payload.name)
         return payload.copy(accounts = accounts, addressBook = addressBookOf(payload.addressBook))
     }
 
@@ -115,14 +117,15 @@ object PairImport {
      * Each chain's accounts are checked for the count Lumio keeps, for a repeated account, for the key rules of their chain (see [checkAccount]), and
      * for their numbering: the accounts of a chain with single keys are numbered 0 to n-1, since Lumio's records keep them by position.
      */
-    private fun checkAccounts(accounts: List<PairingAccount>) {
+    private fun checkAccounts(accounts: List<PairingAccount>, base: String) {
         for (namespace in accounts.map { it.export.chain.namespace }.distinct()) {
             val count = accounts.count { it.export.chain.namespace == namespace }
             val max = requireNotNull(ACCOUNT_LIMITS[namespace]) { "An installed chain has an account limit." }
             if (count > max) throw PairingRefusal("The code carries $count ${nameOf(namespace)} accounts. Lumio pairs up to $max.")
         }
         val named = listOf(Networks.BIP122, Networks.SOLANA, Networks.ALGORAND)
-        if (accounts.filter { it.export.chain.namespace in named }.sumOf { PairRecords.nameRoom(listOf(it.name)) } > PairRecords.MAX_NAME_ROOM) {
+        val kept = accounts.filter { it.export.chain.namespace in named }.map { customNameOf(it, base) }
+        if (PairRecords.nameRoom(kept) > PairRecords.MAX_NAME_ROOM) {
             throw PairingRefusal(NAMES_TOO_LONG)
         }
         if (accounts.map { it.export.chain to it.export.signer.path }.distinct().size != accounts.size) throw PairingRefusal(DUPLICATE)
@@ -191,6 +194,19 @@ object PairImport {
         accountsOf(payload, Networks.BIP122).map { account ->
             requireNotNull(bitcoinAccountOf(account.export)) { "A validated Bitcoin account is a watch-only key." }
         }
+
+    /**
+     * The name Lensly's owner gave [account], or null when it is the account's Auto-Name under [base]: Lumio keeps only the names that differ from it
+     * and shows the Auto-Name for the rest. The Auto-Name counts from the account index in the key path, as Lensly numbers it.
+     */
+    internal fun customNameOf(account: PairingAccount, base: String): String? {
+        val index = account.export.signer.path.getOrNull(ACCOUNT_STEP)?.index
+        return account.name.takeUnless { index != null && it == autoAccountName(base, index) }
+    }
+
+    /** The custom names of the accounts of [namespace] in [payload], in account order. A null is an account that shows its Auto-Name. */
+    internal fun customNamesOf(payload: PairingPayload, namespace: String): List<String?> =
+        accountsOf(payload, namespace).map { customNameOf(it, payload.name) }
 
     /** The accounts of a pairing on the chains of [namespace], in the order of the pairing. */
     internal fun accountsOf(payload: PairingPayload, namespace: String): List<PairingAccount> =

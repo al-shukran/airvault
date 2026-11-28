@@ -132,7 +132,7 @@ object WalletAccounts {
                 coin = AccountCoin(symbol = "BTC", name = name, network = account.network.networkId()),
                 balance = HomeBalances.bitcoin(listOf(row)).singleOrNull(),
                 script = scriptLabel(account.scriptType),
-                name = wallet.bitcoinNames.getOrNull(index),
+                name = wallet.bitcoinNameAt(index),
                 incomplete = row.snapshot?.complete == false,
                 readAtMs = row.snapshot?.scannedAtMs,
             )
@@ -203,7 +203,7 @@ object WalletAccounts {
                 networkName = coin?.name ?: familyLabel(Networks.SOLANA),
                 coin = coin?.let { accountCoinOf(it) },
                 balance = nativeBalance(wallet.copy(solana = listOf(key), algorand = emptyList()), coin, cache),
-                name = wallet.solanaNames.getOrNull(index),
+                name = wallet.solanaNameAt(index),
                 readAtMs = nativeReadAt(wallet, coin, id.address, cache),
             )
         }
@@ -237,7 +237,7 @@ object WalletAccounts {
                 networkName = coin?.name ?: familyLabel(Networks.ALGORAND),
                 coin = coin?.let { accountCoinOf(it) },
                 balance = nativeBalance(wallet.copy(solana = emptyList(), algorand = listOf(key)), coin, cache),
-                name = wallet.algorandNames.getOrNull(index),
+                name = wallet.algorandNameAt(index),
                 readAtMs = nativeReadAt(wallet, coin, id.address, cache),
             )
         }
