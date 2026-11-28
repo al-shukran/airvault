@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -38,7 +39,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -57,6 +61,9 @@ import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirSegmented
 import app.lumio.ui.kit.ClearAirWalletEmblem
+import app.lumio.ui.kit.Designed
+import app.lumio.ui.kit.RowStack
+import app.lumio.ui.kit.designedHeight
 import app.lumio.ui.kit.CssCentre
 import app.lumio.ui.kit.WalletEmblemTone
 import app.lumio.ui.kit.cssLine
@@ -104,6 +111,15 @@ private val PAIR_TITLE: TextStyle = ClearAirType.rowTitle.copy(lineHeight = 21.s
 private val EYEBROW_LINE = 14.dp
 private val SENTENCE_TOP = 10.dp
 private val SENTENCE_BOTTOM = 12.dp
+
+/**
+ * The heights the mock gives the blocks above a row: the head (10 dp, the 43 dp of its two lines and 8 dp), each eyebrow (its top space, the line and 4 dp) and the
+ * control's track. The panel is a [RowStack], so each of these is placed by its designed height, as the rows are (#1742).
+ */
+private val BRAND_HEIGHT = 61.dp
+private val NETWORKS_EYEBROW_HEIGHT = 14.dp + EYEBROW_LINE + ClearAirSpacing.xxs
+private val WALLETS_EYEBROW_HEIGHT = 10.dp + EYEBROW_LINE + ClearAirSpacing.xxs
+private val SEGMENTED_HEIGHT = 43.dp
 
 /** The EVM test network that Send starts on, which the sentence marks as the default. */
 private const val EVM_DEFAULT = "Monad Testnet"
@@ -164,7 +180,7 @@ fun ProfilePanel(
             enter = if (reduced) fadeIn(tween(ClearAirMotion.CROSS_FADE_MS)) else slideInHorizontally(panelOffset) { -it },
             exit = if (reduced) fadeOut(tween(ClearAirMotion.CROSS_FADE_MS)) else slideOutHorizontally(panelOffset) { -it },
         ) {
-            Column(
+            RowStack(
                 modifier = Modifier
                     .fillMaxHeight()
                     .width(PANEL_WIDTH)
@@ -174,7 +190,7 @@ fun ProfilePanel(
                     .navigationBarsPadding()
                     .verticalScroll(rememberScrollState()),
             ) {
-                Brand()
+                Designed(BRAND_HEIGHT) { Brand() }
                 PanelRow(
                     title = "Scan to Pay",
                     description = scanNote ?: "Send to a scanned address",
@@ -186,8 +202,8 @@ fun ProfilePanel(
                         }
                     },
                 )
-                ClearAirEyebrow("Networks", modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = 14.dp, bottom = ClearAirSpacing.xxs).cssLine(EYEBROW_LINE), top = 0.dp, bottom = 0.dp)
-                Column(modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = ClearAirSpacing.xxs, end = ClearAirSpacing.gutter)) {
+                Designed(NETWORKS_EYEBROW_HEIGHT) { PanelEyebrow("Networks", top = 14.dp) }
+                Designed(ClearAirSpacing.xxs + SEGMENTED_HEIGHT) {
                     ClearAirSegmented(
                         options = NetworkMode.entries,
                         selected = mode,
@@ -196,11 +212,12 @@ fun ProfilePanel(
                             onMode(next)
                             onDismiss()
                         },
+                        modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = ClearAirSpacing.xxs, end = ClearAirSpacing.gutter),
                     )
-                    // The mock draws the sentence on the Testnet side only.
-                    if (mode == NetworkMode.TESTNET) {
-                        Text(text = networkSentence, style = CAPTION, color = palette.ink2, modifier = Modifier.padding(top = SENTENCE_TOP, bottom = SENTENCE_BOTTOM))
-                    }
+                }
+                // The mock draws the sentence on the Testnet side only.
+                if (mode == NetworkMode.TESTNET) {
+                    Sentence(networkSentence)
                 }
                 PanelRow(
                     title = "Choose Test Networks",
@@ -212,7 +229,7 @@ fun ProfilePanel(
                         onTestNetworks()
                     },
                 )
-                ClearAirEyebrow("Lensly Wallets", modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = 10.dp, bottom = ClearAirSpacing.xxs).cssLine(EYEBROW_LINE), top = 0.dp, bottom = 0.dp)
+                Designed(WALLETS_EYEBROW_HEIGHT) { PanelEyebrow("Lensly Wallets", top = 10.dp) }
                 wallets.forEachIndexed { index, wallet ->
                     val chosen = wallet.id == activeWalletId
                     PanelRow(
@@ -237,6 +254,34 @@ fun ProfilePanel(
             }
         }
     }
+}
+
+/**
+ * The sentence under the control, [SENTENCE_TOP] under it and [SENTENCE_BOTTOM] above the next row. Each line is rounded up to a whole pixel, which at a fractional density
+ * is more than the mock's line, so the block's designed height is its lines of the mock's line height, and its count of lines is the one the text itself wraps to. The
+ * space above the text is rounded down, as the half pixel the lines have over their design is not added to it as well.
+ */
+@Composable
+private fun Sentence(text: String) {
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val lines = measurer.measure(text, CAPTION, constraints = Constraints(maxWidth = with(density) { (PANEL_WIDTH - ClearAirSpacing.gutter * 2).roundToPx() })).lineCount
+    Designed(SENTENCE_TOP + with(density) { CAPTION.lineHeight.toDp() } * lines + SENTENCE_BOTTOM) {
+        Text(
+            text = text,
+            style = CAPTION,
+            color = LocalClearAirPalette.current.ink2,
+            modifier = Modifier
+                .offset { IntOffset(0, SENTENCE_TOP.toPx().toInt()) }
+                .padding(start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter),
+        )
+    }
+}
+
+/** An eyebrow of the panel, [top] under what is above it, in a line box of [EYEBROW_LINE] and [ClearAirSpacing.xxs] above what follows. */
+@Composable
+private fun PanelEyebrow(text: String, top: Dp) {
+    ClearAirEyebrow(text, modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = top, bottom = ClearAirSpacing.xxs).cssLine(EYEBROW_LINE), top = 0.dp, bottom = 0.dp)
 }
 
 /** The panel's head: the mark, then "Lumio" and "AirVault Companion" beside it, 10 dp under the status bar as the mock sets them. */
@@ -283,6 +328,7 @@ private fun PanelRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .designedHeight(minHeight)
             .defaultMinSize(minHeight = minHeight)
             .then(if (divider) Modifier.divider(palette.hairline) else Modifier)
             .then(tap)

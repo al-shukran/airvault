@@ -254,7 +254,10 @@ private val LEARN_GROUP_TOP = 18.dp
 private val HEADER_HEIGHT = 14.dp
 private val HEADER_GAP = 8.dp
 
-/** In the mock the "All N" action's line is taller than the eyebrow's and the row centres both, so the eyebrow of a group with an action sits this much lower. */
+/**
+ * In the mock the "All N" action's line is taller than the eyebrow's and the row centres both, so the eyebrow of a group with an action sits this much lower. The
+ * 1.25 dp was measured against the approved Explore frame at densities 1 and 2.
+ */
 private val EYEBROW_DROP = 1.25.dp
 private val HEADER_GAP_BARE = 4.dp
 
