@@ -740,6 +740,17 @@ class SwapRouterStepsTest {
     }
 
     @Test
+    fun anExactOutputThroughAWethHopWithEthSentLeavesNothingAfterARefund() {
+        // Transaction 0x6aa08d4b, a real exactOutput through WETH, as an item of a multicall that sends 1 ETH and ends in refundETH.
+        // The pools pay each other for an exact output, so the WETH hop is never in the router and the refund empties it.
+        val exactOut = Numeric.hexStringToByteArray(StepVectors.SWAP_ROUTER_EXACT_OUTPUT)
+
+        assertFalse(multicallWith(oneEth, exactOut, refundEth).leavesInRouter)
+        // Without the refund the ETH sent is still in the router, so the call is still flagged.
+        assertTrue(multicallWith(oneEth, exactOut).leavesInRouter)
+    }
+
+    @Test
     fun anExactInputOfZeroOnWethWithEthSentLeavesTheRoutersWethInTheRouterEvenWithARefund() {
         val allWeth = wethSwapItem(EXACT_INPUT_SINGLE, BigInteger.ZERO)
         val wethToRouter = item(
