@@ -71,7 +71,9 @@ import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirSheet
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.CssCentre
+import app.lumio.ui.kit.FrameColumn
 import app.lumio.ui.kit.cssLine
+import app.lumio.ui.kit.frameHeight
 import app.lumio.ui.kit.inLineBox
 import app.lumio.ui.kit.spacedLikeCss
 import app.lumio.ui.kit.splitAmount
@@ -141,82 +143,82 @@ internal fun AssetPage(
     }
     Column(modifier = Modifier.fillMaxSize()) {
         AssetTopBar(name = name, watched = watched, onWatch = onWatch, onBack = onBack, onLock = onLock)
-        // A lazy list, so the sections below the fold are composed when they scroll in, not on the page's first frame.
+        // A lazy list, so the activity is composed when it scrolls in, not on the page's first frame. The sections above it are one frame column, so
+        // each sits where the frame puts it at any density.
         LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(bottom = ClearAirSpacing.md)) {
             item {
-                Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Spacer(Modifier.height(HEAD_TOP))
-                    ClearAirDisc(size = HEAD_DISC) { icon(HEAD_LOGO) }
-                    Spacer(Modifier.height(EYEBROW_GAP))
-                    ClearAirEyebrow(text = "$name · $symbol", top = 0.dp, bottom = 0.dp, modifier = Modifier.cssLine(EYEBROW_LINE))
-                    Spacer(Modifier.height(PRICE_GAP))
-                    Price(text = priceText ?: "—")
-                    change?.let { value -> ChangeLine(change = value) }
-                }
-                Spacer(Modifier.height(CHART_GAP))
-                TickChart(
-                    series = series ?: PriceSeries(emptyList()),
-                    modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter).testTag(CHART_TAG),
-                )
-                RangeRow(selected = range, onSelect = onRange)
-                if (!priceOnly) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = ACTIONS_TOP)
-                            .padding(horizontal = ClearAirSpacing.gutter, vertical = ACTIONS_PAD),
-                        horizontalArrangement = Arrangement.spacedBy(ACTIONS_GAP, Alignment.CenterHorizontally),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (held == null || senders.isEmpty()) {
-                            ClearAirPrimaryButton(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE, fullWidth = false, labelStyle = CAPSULE_STYLE)
-                            if (senders.isNotEmpty()) {
-                                ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND, modifier = textActionModifier, style = TEXT_ACTION_STYLE)
+                FrameColumn(modifier = Modifier.fillMaxWidth()) {
+                    Spacer(Modifier.frameHeight(HEAD_TOP))
+                    ClearAirDisc(size = HEAD_DISC, modifier = Modifier.frameHeight(HEAD_DISC)) { icon(HEAD_LOGO) }
+                    Spacer(Modifier.frameHeight(EYEBROW_GAP))
+                    ClearAirEyebrow(text = "$name · $symbol", top = 0.dp, bottom = 0.dp, modifier = Modifier.frameHeight(EYEBROW_LINE).cssLine(EYEBROW_LINE))
+                    Spacer(Modifier.frameHeight(PRICE_GAP))
+                    Price(text = priceText ?: "—", modifier = Modifier.frameHeight(PRICE_BLOCK))
+                    change?.let { value -> ChangeLine(change = value, modifier = Modifier.frameHeight(CHANGE_LINE)) }
+                    Spacer(Modifier.frameHeight(CHART_GAP))
+                    TickChart(
+                        series = series ?: PriceSeries(emptyList()),
+                        modifier = Modifier.frameHeight(CHART_HEIGHT).padding(horizontal = ClearAirSpacing.gutter).testTag(CHART_TAG),
+                    )
+                    RangeRow(selected = range, onSelect = onRange, modifier = Modifier.frameHeight(RANGE_ROW))
+                    if (!priceOnly) {
+                        Row(
+                            modifier = Modifier
+                                .frameHeight(ACTIONS_ROW)
+                                .fillMaxWidth()
+                                .padding(start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter, top = ACTIONS_TOP + ACTIONS_PAD, bottom = ACTIONS_PAD),
+                            horizontalArrangement = Arrangement.spacedBy(ACTIONS_GAP, Alignment.CenterHorizontally),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (held == null || senders.isEmpty()) {
+                                ClearAirPrimaryButton(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE, fullWidth = false, labelStyle = CAPSULE_STYLE)
+                                if (senders.isNotEmpty()) {
+                                    ClearAirTextAction(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND, modifier = textActionModifier, style = TEXT_ACTION_STYLE)
+                                }
+                            } else {
+                                ClearAirPrimaryButton(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND, fullWidth = false, labelStyle = CAPSULE_STYLE)
+                                ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE, modifier = textActionModifier, style = TEXT_ACTION_STYLE)
                             }
-                        } else {
-                            ClearAirPrimaryButton(text = "Send $symbol", onClick = { open(CoinPicker.SEND) }, icon = ClearAirGlyph.SEND, fullWidth = false, labelStyle = CAPSULE_STYLE)
-                            ClearAirTextAction(text = "Receive", onClick = { open(CoinPicker.RECEIVE) }, icon = ClearAirGlyph.RECEIVE, modifier = textActionModifier, style = TEXT_ACTION_STYLE)
+                        }
+                        held?.let { coin ->
+                            Spacer(Modifier.frameHeight(SECTION_TOP))
+                            ClearAirEyebrow(
+                                text = "Your $symbol",
+                                top = 0.dp,
+                                bottom = 0.dp,
+                                modifier = Modifier.frameHeight(EYEBROW_LINE).fillMaxWidth().padding(horizontal = ClearAirSpacing.gutter).cssLine(EYEBROW_LINE),
+                            )
+                            Spacer(Modifier.frameHeight(ClearAirSpacing.xxs))
+                            HeldRow(coin = coin, icon = icon, onClick = onHoldings, modifier = Modifier.frameHeight(ROW_HEIGHT))
+                        }
+                        Row(
+                            modifier = Modifier
+                                .frameHeight(ACTIVITY_TOP + ALL_LINE + ACTIVITY_BOTTOM)
+                                .fillMaxWidth()
+                                .padding(start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter, top = ACTIVITY_TOP, bottom = ACTIVITY_BOTTOM),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            ClearAirEyebrow(text = "Activity", top = 0.dp, bottom = 0.dp, modifier = Modifier.cssLine(EYEBROW_LINE))
+                            val measurer = rememberTextMeasurer()
+                            val allWidth = measurer.measure("All", ALL_STYLE).size.width
+                            ClearAirTextAction(
+                                text = "All",
+                                onClick = onAllActivity,
+                                modifier = Modifier.layout { measurable, _ ->
+                                    // The 48 dp target is measured, but the line is the frame's: its width is the text's and its height the line's, so the
+                                    // press reaches past both and the eyebrow row, and the right edge of "All", stay where the frame sets them.
+                                    val placeable = measurable.measure(Constraints())
+                                    val line = ALL_STYLE.lineHeight.roundToPx()
+                                    layout(allWidth, line) { placeable.place((allWidth - placeable.width) / 2, (line - placeable.height) / 2) }
+                                },
+                                style = ALL_STYLE,
+                            )
                         }
                     }
                 }
             }
             if (priceOnly) return@LazyColumn
-            item {
-                held?.let { coin ->
-                    ClearAirEyebrow(
-                        text = "Your $symbol",
-                        top = 0.dp,
-                        bottom = 0.dp,
-                        modifier = Modifier.padding(start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter, top = SECTION_TOP, bottom = ClearAirSpacing.xxs).cssLine(EYEBROW_LINE),
-                    )
-                    HeldRow(coin = coin, icon = icon, onClick = onHoldings)
-                }
-            }
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter, top = ACTIVITY_TOP, bottom = ACTIVITY_BOTTOM),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    ClearAirEyebrow(text = "Activity", top = 0.dp, bottom = 0.dp, modifier = Modifier.cssLine(EYEBROW_LINE))
-                    val measurer = rememberTextMeasurer()
-                    val allWidth = measurer.measure("All", ALL_STYLE).size.width
-                    ClearAirTextAction(
-                        text = "All",
-                        onClick = onAllActivity,
-                        modifier = Modifier.layout { measurable, _ ->
-                            // The 48 dp target is measured, but the line is the frame's: its width is the text's and its height the line's, so the
-                            // press reaches past both and the eyebrow row, and the right edge of "All", stay where the frame sets them.
-                            val placeable = measurable.measure(Constraints())
-                            val line = ALL_STYLE.lineHeight.roundToPx()
-                            layout(allWidth, line) { placeable.place((allWidth - placeable.width) / 2, (line - placeable.height) / 2) }
-                        },
-                        style = ALL_STYLE,
-                    )
-                }
-            }
             item { activity() }
         }
     }
@@ -264,11 +266,11 @@ internal fun AssetPage(
 
 /** The price as the frame sets it: the sign, then the whole figures, then the dimmed fraction, each its own Text with the frame's box. */
 @Composable
-private fun Price(text: String) {
+private fun Price(text: String, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     val parts = splitAmount(text)
     val figures = ClearAirType.hero.copy(lineHeight = FIGURES_LINE).inLineBox()
-    Box(modifier = Modifier.fillMaxWidth().height(PRICE_BLOCK), contentAlignment = Alignment.TopCenter) {
+    Box(modifier = modifier.fillMaxWidth().height(PRICE_BLOCK), contentAlignment = Alignment.TopCenter) {
         Row {
             if (parts.prefix.isNotEmpty()) {
                 Text(text = parts.prefix, style = SIGN_STYLE, color = palette.ink, modifier = Modifier.offset(y = SIGN_TOP))
@@ -285,7 +287,7 @@ private fun Price(text: String) {
  * the arrow, for the words and the width, and is not painted there.
  */
 @Composable
-private fun ChangeLine(change: PriceChange) {
+private fun ChangeLine(change: PriceChange, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     val color = if (change.rising) palette.vaultBlue else palette.rose
     val arrow = change.text.firstOrNull()?.takeIf { it == RISE || it == FALL }
@@ -295,7 +297,7 @@ private fun ChangeLine(change: PriceChange) {
             append(change.text.drop(if (arrow != null) 1 else 0))
         }
     }
-    Box {
+    Box(modifier = modifier) {
         Text(text = text, style = CHANGE_STYLE, color = color)
         if (arrow != null) {
             Canvas(modifier = Modifier.offset(x = ARROW_LEFT, y = ARROW_TOP).size(ARROW_WIDTH, ARROW_HEIGHT)) {
@@ -346,10 +348,10 @@ private fun AssetTopBar(name: String, watched: Boolean, onWatch: () -> Unit, onB
  * chains' logos after the summary, the value in dollars when a price is read, and a chevron. The row is 62 dp at least.
  */
 @Composable
-private fun HeldRow(coin: CoinHeld, icon: @Composable (Dp) -> Unit, onClick: () -> Unit) {
+private fun HeldRow(coin: CoinHeld, icon: @Composable (Dp) -> Unit, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = ROW_HEIGHT)
             .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick)
@@ -390,10 +392,10 @@ private fun HeldRow(coin: CoinHeld, icon: @Composable (Dp) -> Unit, onClick: () 
  * tapping one chooses it.
  */
 @Composable
-private fun RangeRow(selected: ChartFrame, onSelect: (ChartFrame) -> Unit) {
+private fun RangeRow(selected: ChartFrame, onSelect: (ChartFrame) -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     Row(
-        modifier = Modifier.fillMaxWidth().padding(start = RANGE_SIDE, end = RANGE_SIDE, top = RANGE_TOP, bottom = RANGE_BOTTOM),
+        modifier = modifier.fillMaxWidth().padding(start = RANGE_SIDE, end = RANGE_SIDE, top = RANGE_TOP, bottom = RANGE_BOTTOM),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         ChartFrame.entries.forEach { range ->
@@ -446,13 +448,18 @@ private val SIGN_STYLE = ClearAirType.body.copy(fontSize = 23.sp, lineHeight = 2
 private val SIGN_TOP = 15.dp
 private val SIGN_GAP = 3.dp
 private val CHANGE_STYLE = ClearAirChangeLineStyle.copy(lineHeight = 17.sp).inLineBox()
+private val CHANGE_LINE = 17.dp
 private val EYEBROW_LINE = 14.dp
 private val CHART_GAP = 12.dp
+private val CHART_HEIGHT = 120.dp
 private val RANGE_SIDE = 18.dp
 private val RANGE_TOP = 4.dp
 private val RANGE_BOTTOM = 2.dp
 private val RANGE_ITEM_X = 5.dp
 private val RANGE_ITEM_Y = 8.dp
+
+/** The range row: its 17 dp line with 8 dp above and below, inside the row's own 4 dp above and 2 dp below. */
+private val RANGE_ROW = RANGE_TOP + RANGE_ITEM_Y + 17.dp + RANGE_ITEM_Y + RANGE_BOTTOM
 
 /** The side of the spark under the chosen range: a square, turned into a diamond. */
 private val RANGE_SPARK = 5.dp
@@ -461,6 +468,9 @@ private val RANGE_CHOSEN_STYLE = ClearAirType.addressBold.copy(fontSize = 12.5.s
 private val ACTIONS_TOP = 6.dp
 private val ACTIONS_PAD = 6.dp
 private val ACTIONS_GAP = 18.dp
+
+/** Send and Receive: the 52 dp capsule, 12 dp under the range row and 6 dp above the next section. */
+private val ACTIONS_ROW = ACTIONS_TOP + ACTIONS_PAD + 52.dp + ACTIONS_PAD
 private val TEXT_ACTION_PAD = 6.dp
 
 /** The frame sets the text action's label 1 dp above the capsule's centre line, where a centred action would put it on it. */
@@ -470,6 +480,7 @@ private val SECTION_TOP = 18.dp
 /** The activity header starts at a fraction of a dp above a whole 18 dp under the row (the frame's 574.34 for 575), which whole dp shows as one dp. */
 private val ACTIVITY_TOP = 17.dp
 private val ACTIVITY_BOTTOM = 5.dp
+private val ALL_LINE = 21.dp
 private val ALL_STYLE = ClearAirType.rowTitle.copy(fontSize = 13.sp, lineHeight = 21.sp).inLineBox()
 private val CAPSULE_STYLE = ClearAirType.button.copy(lineHeight = 21.sp).inLineBox()
 private val TEXT_ACTION_STYLE = ClearAirType.rowTitle.copy(lineHeight = 21.sp).inLineBox()
