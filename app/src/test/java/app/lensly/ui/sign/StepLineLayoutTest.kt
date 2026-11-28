@@ -65,6 +65,15 @@ class StepLineLayoutTest {
     @Test
     fun anAddressInAnAaveStepLineIsNeverSplitAcrossLines() = assertAddressesStayWhole(aaveSupplySample())
 
+    @Test
+    fun onlyTheGroupsOfAnAddressAreJoined() {
+        val nb = NO_BREAK_SPACE
+        assertEquals("Pay 0x1593${nb}D398${nb}…${nb}3eA2${nb}5343 now", keepAddressesWhole("Pay 0x1593 D398 … 3eA2 5343 now"))
+        val whole = "0x1111 2222 3333 4444 5555 6666 7777 8888 9999 aaaa"
+        assertEquals(whole.replace(' ', nb) + " beef", keepAddressesWhole("$whole beef"))
+        assertEquals("Unknown bulker action 0x1234 56789: raw", keepAddressesWhole("Unknown bulker action 0x1234 56789: raw"))
+    }
+
     private fun assertAddressesStayWhole(review: Review) {
         show(review)
         recipientTexts(review).forEach { text ->

@@ -319,7 +319,7 @@ internal fun ReviewStep(number: Int, text: String, modifier: Modifier = Modifier
     }
 }
 
-private val GROUPED_ADDRESS = Regex("0x[0-9A-Fa-f]{4}( [0-9A-Fa-f]{4}| …)+")
+private val GROUPED_ADDRESS = Regex("0x[0-9A-Fa-f]{4}(?: (?:[0-9A-Fa-f]{4}|…)){1,9}(?![0-9A-Fa-f])")
 
 /** [text] with the groups of each address in it joined by no-break spaces, so a line breaks before an address and never inside it. */
 internal fun keepAddressesWhole(text: String): String = GROUPED_ADDRESS.replace(text) { it.value.replace(' ', '\u00A0') }
