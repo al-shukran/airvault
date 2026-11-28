@@ -226,7 +226,10 @@ private fun seedText(bytes: ByteArray): String? = try {
 /** Whether this account is the key [expected] that the message lists. An account from a lookup table is not one. */
 internal fun SolanaMessageAccount.isStatic(expected: String): Boolean = (this as? SolanaMessageAccount.Static)?.address == expected
 
-/** SetComputeUnitLimit is tag 2 with a u32; SetComputeUnitPrice is tag 3 with a u64. The program takes no accounts. */
+/**
+ * RequestHeapFrame is tag 1 and SetLoadedAccountsDataSizeLimit is tag 4, each with a u32; SetComputeUnitLimit is tag 2 with a u32;
+ * SetComputeUnitPrice is tag 3 with a u64. The program takes no accounts. Tag 0, the removed RequestUnits form, changes the fee and stays raw.
+ */
 private fun computeBudget(
     program: SolanaMessageAccount,
     accounts: List<SolanaMessageAccount>,
@@ -234,8 +237,10 @@ private fun computeBudget(
 ): SolanaInstruction? {
     if (accounts.isNotEmpty()) return null
     return when (data.getOrNull(0)?.toInt()) {
+        1 -> if (data.size == 5) SolanaInstruction.SetHeapSize(program, u32(data, 1)) else null
         2 -> if (data.size == 5) SolanaInstruction.SetComputeUnitLimit(program, u32(data, 1)) else null
         3 -> if (data.size == 9) SolanaInstruction.SetComputeUnitPrice(program, u64(data, 1)) else null
+        4 -> if (data.size == 5) SolanaInstruction.SetAccountDataLimit(program, u32(data, 1)) else null
         else -> null
     }
 }
