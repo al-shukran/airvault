@@ -508,6 +508,40 @@ class EvmReviewTest {
         assertEquals("If this step fails, its value stays in the Multicall3 contract and can be taken by anyone.", caution.message)
     }
 
+    /** The approved batch contract [FAKE_BATCH], which is not Multicall3, running [shape] (the entry's selector is the shape's). */
+    private fun fakeBatchEntry(shape: MulticallShape) = WhitelistEntry(
+        chainId = 1,
+        contract = FAKE_BATCH.lowercase(),
+        selector = "0x${shape.selector}",
+        signature = shape.signature,
+        meaning = "Runs the calls in order.",
+        params = listOf(WhitelistParam("calls", shape.signature.substringAfter("(").removeSuffix(")"))),
+        upgradeable = false,
+    )
+
+    @Test
+    fun aBatchContractThatIsNotMulticall3IsNamedByItsAddressInTheStrandedAndFailingValueWarnings() {
+        val short = "0x0000 0000 … DeaD Beef"
+        val stranded = reviewOf(
+            txParsed(FAKE_BATCH, lidoBatch(MulticallShape.AGGREGATE3, null, null), value = ONE_ETH),
+            builder(REGISTRY.withWhitelist(listOf(lidoEntry(), fakeBatchEntry(MulticallShape.AGGREGATE3)))),
+        )
+        assertEquals(
+            "This batch sends native currency, but its calls receive none of it. The amount stays in the contract at $short and you cannot get it back.",
+            stranded.warnings.single { it.code == "evm.stranded-value" }.message,
+        )
+
+        val failing = reviewOf(
+            txParsed(FAKE_BATCH, aggregate3ValueTransfer(allowFailure = true, value = BigInteger.ONE), value = BigInteger.ONE),
+            builder(REGISTRY.withWhitelist(listOf(fakeBatchEntry(MulticallShape.AGGREGATE3_VALUE)))),
+        )
+        assertEquals(
+            "If this step fails, its value stays in the contract at $short and can be taken by anyone.",
+            failing.warnings.single { it.code == "evm.failing-call-value" }.message,
+        )
+        (stranded.warnings + failing.warnings).forEach { assertTrue("Multicall3" !in it.message, it.message) }
+    }
+
     @Test
     fun anAggregate3ValueCallThatCannotFailOrCarriesNoValueHasNoFailingValueCaution() {
         val cannotFail = reviewOf(txParsed(MULTICALL3, aggregate3ValueTransfer(allowFailure = false, value = BigInteger.ONE), value = BigInteger.ONE))

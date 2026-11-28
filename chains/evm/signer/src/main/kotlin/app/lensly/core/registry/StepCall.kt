@@ -3,6 +3,7 @@ package app.lensly.core.registry
 import app.airvault.abi.AbiValue
 import app.airvault.abi.DecodedParam
 import app.airvault.abi.hexBytesOrNull
+import app.airvault.chains.evm.signer.MULTICALL3_ADDRESS
 import app.airvault.core.model.AddressGroups
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
@@ -31,6 +32,10 @@ internal const val WETH_MAINNET = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
 
 /** [address] for a sentence: its EIP-55 checksum as the first two and last two groups of 4, as the summary shows it. The full value is under Details. */
 internal fun shortAddress(address: String): String = AddressGroups.ends(Keys.toChecksumAddress(address))
+
+/** What a review calls the batch contract [address]: "Multicall3" for the real one, and its short address for any other, which must never wear a well-known name. */
+internal fun batchName(address: String): String =
+    if (address.equals(MULTICALL3_ADDRESS, ignoreCase = true)) "Multicall3" else shortAddress(address)
 
 /**
  * The warning of a step that pays or credits [address], or an empty list when [address] is the signer. [what] is the action that reaches
@@ -74,7 +79,7 @@ internal fun ByteArray.addressAt(at: Int): String = "0x" + copyOfRange(at, at + 
 
 /**
  * One approved call a step describes: its contract, the signing address, the native amount it sends, its decoded arguments, and its
- * network. [caller] is the address the contract sees as its message sender: the signer, or the Multicall3 contract that calls it inside a
+ * network. [caller] is the address the contract sees as its message sender: the signer, or the batch contract that calls it inside a
  * batch. A router flag for the message sender means [caller], so inside a batch it is not the signer. Addresses are lowercase. The names and amounts a step shows come from [registry], so a token it does not know is shown as its
  * short address and raw base units, and never as a guessed symbol or decimals. [held] is the tokens a router step has left in the router and
  * no later step has taken out, so the steps of one call share it. A token's value is the amount known to be there (a wrap of a stated
@@ -132,18 +137,18 @@ internal class StepCall(
     /** [raw] of the wrapped native coin, which has the native coin's decimals, such as 0.5 WETH. */
     fun wrappedAmount(raw: BigInteger): String = "${groupDigits(Amounts.format(raw, network.nativeDecimals))} $wrappedSymbol"
 
-    /** "you" for the signing address, "Multicall3" for the batch that calls the contract, and the short address of any other. */
+    /** "you" for the signing address, the name of the batch that calls the contract ([callerName]), and the short address of any other. */
     fun who(address: String): String = when (address) {
         from -> "you"
-        caller -> "Multicall3"
+        caller -> callerName
         else -> shortAddress(address)
     }
 
-    /** What the contract's message sender is in words: "you" for the signer, and "Multicall3" for the batch that calls it. */
-    val callerName: String get() = if (caller == from) "you" else "Multicall3"
+    /** What the contract's message sender is in words: "you" for the signer, and [batchName] for the batch contract that calls it. */
+    val callerName: String get() = if (caller == from) "you" else batchName(caller)
 
-    /** [callerName] as a possessive before a noun: "your" for the signer, and "Multicall3's" for the batch. */
-    val callerOwn: String get() = if (caller == from) "your" else "Multicall3's"
+    /** [callerName] as a possessive before a noun: "your" for the signer, and "Multicall3's" or "<short address>'s" for the batch. */
+    val callerOwn: String get() = if (caller == from) "your" else "${callerName}'s"
 
     /**
      * The address a step pays when it names [recipient]: the flag 0x…01 is [caller], the flag 0x…02 and the router's own address are both
@@ -155,7 +160,7 @@ internal class StepCall(
         else -> recipient
     }
 
-    /** How a step names [recipient]: "you", "the router" for the flag 0x…02, "Multicall3", or the short address of another. */
+    /** How a step names [recipient]: "you", "the router" for the flag 0x…02, the batch ([callerName]), or the short address of another. */
     fun recipientName(recipient: String): String = paid(recipient).let { if (it == ADDRESS_THIS) "the router" else who(it) }
 
     /** What a swap says about where its output goes, or null when it goes to the signer: "kept in the router", or "sent to <name>". */
