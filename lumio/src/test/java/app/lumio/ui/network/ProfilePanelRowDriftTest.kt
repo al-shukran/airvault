@@ -18,11 +18,11 @@ import org.robolectric.annotation.GraphicsMode
 
 /**
  * The panel keeps its designed spacing at a fractional density (#1742). A row is 62 dp, which is 108.5 px at 1.75 px a dp, and the blocks between the rows are
- * whole dp that are not whole pixels; drawn each as its own rounded pixels they drift down by half a pixel apiece. The wallet rows must stay within a pixel of
+ * whole dp that are not whole pixels; drawn each as its own rounded pixels they drift down by half a pixel apiece. The window is 360 x 1400 dp, 630 x 2450 px at 1.75 px a dp. The wallet rows must stay within a pixel of
  * the cumulative 62 dp spacing, and the last of them within a pixel of where the designed heights above it put it.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = "w360dp-h1400dp")
+@Config(qualifiers = "w630dp-h2450dp")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ProfilePanelRowDriftTest {
     @get:Rule
