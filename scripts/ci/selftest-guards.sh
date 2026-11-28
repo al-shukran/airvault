@@ -114,6 +114,24 @@ kotlin app/src/test/java/A.kt 'fun shortAddress(a: String) = a.take(6) + "…" +
 expect_pass "a test source" "$address_short" "$work/tree"
 kotlin core/model/src/main/kotlin/app/airvault/core/model/AddressGroups.kt 'fun short(a: String) = a.take(6) + "…" + a.takeLast(4)'
 expect_pass "AddressGroups itself" "$address_short" "$work/tree"
+kotlin app/src/main/java/A.kt $'fun shortAddress(a: String): String {\n    val head = a.take(6)\n    val tail = a.takeLast(4)\n    return head + "…" + tail\n}'
+expect_fail "a take, ellipsis and takeLast helper over several lines" "$address_short" "$work/tree"
+kotlin app/src/main/java/A.kt 'fun shortAddress(a: String) = a.take (6) + "…" + a.takeLast(4)'
+expect_fail "a spaced take call" "$address_short" "$work/tree"
+kotlin app/src/main/java/A.kt 'fun shortAddress(a: String) = a.take(6) + "\u2026" + a.takeLast(4)'
+expect_fail "an ellipsis written as a \\u2026 escape" "$address_short" "$work/tree"
+kotlin app/src/main/java/A.kt $'const val ELLIPSIS = "…"\nfun shortAddress(a: String) = a.take(6) + ELLIPSIS + a.takeLast(4)'
+expect_fail "an ellipsis held in a constant" "$address_short" "$work/tree"
+kotlin app/src/main/java/A.java 'String shortAddress(String a) { return a.substring(0, 6) + "…"; }'
+expect_fail "a Java substring helper" "$address_short" "$work/tree"
+kotlin app/src/release/java/A.kt 'fun shortAddress(a: String) = a.take(6) + "…" + a.takeLast(4)'
+expect_fail "a release source set" "$address_short" "$work/tree"
+for exempt in core/model/src/main/kotlin/app/airvault/core/model/AddressGroups.kt chains/solana/signer/src/main/kotlin/app/airvault/chains/solana/signer/SolanaReview.kt app/src/main/java/app/lensly/ui/sign/ReviewBlocks.kt chains/evm/signer/src/main/kotlin/app/lensly/core/registry/CowSteps.kt; do
+    kotlin "$exempt" 'fun shortEvm(a: String) = a.take(6) + "…" + a.takeLast(4)'
+    expect_fail "a 0x helper in $(basename "$exempt")" "$address_short" "$work/tree"
+done
+kotlin app/src/main/java/app/lensly/ui/sign/ReviewBlocks.kt $'internal fun shortAddress(a: String) = "${a.take(10)}...${a.takeLast(6)}"\nfun shortEvm(a: String) = a.take(6) + "…" + a.takeLast(4)'
+expect_fail "a 0x helper after an exempt function in the same file" "$address_short" "$work/tree"
 expect_pass "the repository sources" "$address_short"
 
 # --- check-workflow-guards.sh: each mutation is applied to a copy of the real workflows.
