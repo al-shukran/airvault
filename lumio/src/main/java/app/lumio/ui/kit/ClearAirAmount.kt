@@ -33,7 +33,7 @@ fun ClearAirAmount(
 ) {
     Text(
         text = if (hidden) AnnotatedString(HIDDEN_AMOUNT) else amountText(text, LocalClearAirPalette.current.ink2, dimUnit),
-        modifier = modifier,
+        modifier = if (hidden) modifier else modifier.spokenMint(text),
         style = style,
         color = color,
         maxLines = 1,

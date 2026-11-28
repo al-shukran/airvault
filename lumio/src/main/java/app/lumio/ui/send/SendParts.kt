@@ -43,6 +43,7 @@ import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.rejectOf
+import app.lumio.ui.kit.spokenMint
 
 /** The side of a step diamond, and the width of the line between two of them. */
 private val DIAMOND = 9.dp
@@ -132,7 +133,7 @@ internal fun SendHeading(
     Text(
         text = text,
         textAlign = textAlign,
-        modifier = modifier.padding(top = top, bottom = bottom),
+        modifier = modifier.padding(top = top, bottom = bottom).spokenMint(text),
         style = if (small) ClearAirType.titleXL.copy(fontSize = 22.sp, lineHeight = 27.sp) else if (fontSize.isSpecified) ClearAirType.titleXL.copy(fontSize = fontSize, lineHeight = fontSize * 1.125f) else ClearAirType.titleXL,
         color = LocalClearAirPalette.current.ink,
     )
@@ -212,7 +213,7 @@ internal fun SendFactRow(
         )
         Text(
             text = value,
-            modifier = Modifier.weight(1f).alignByBaseline(),
+            modifier = Modifier.weight(1f).alignByBaseline().spokenMint(value),
             style = if (figureSize > 0f) base.copy(fontSize = figureSize.sp) else base,
             color = palette.ink,
             textAlign = TextAlign.End,
@@ -251,7 +252,7 @@ internal fun SendAmountInput(value: String, onValueChange: (String) -> Unit, sym
                 }
             },
         )
-        Text(text = " $symbol", style = style, color = palette.ink2, maxLines = 1)
+        Text(text = " $symbol", style = style, color = palette.ink2, maxLines = 1, modifier = Modifier.spokenMint(symbol))
     }
 }
 

@@ -116,7 +116,7 @@ fun ClearAirPageTopBar(
         }
         Text(
             text = title,
-            modifier = Modifier.weight(1f).padding(start = TITLE_START),
+            modifier = Modifier.weight(1f).padding(start = TITLE_START).spokenMint(title),
             style = topBarTitle,
             color = palette.ink,
             textAlign = TextAlign.Start,

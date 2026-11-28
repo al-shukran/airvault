@@ -78,6 +78,6 @@ internal fun CapsuleLabel(text: String, icon: ClearAirGlyph?, color: Color, modi
             ClearAirIcon(glyph = it, color = color, size = 18.dp)
             Spacer(Modifier.width(ClearAirSpacing.xs))
         }
-        Text(text = text, style = style, color = color, maxLines = 1)
+        Text(text = text, style = style, color = color, maxLines = 1, modifier = Modifier.spokenMint(text))
     }
 }

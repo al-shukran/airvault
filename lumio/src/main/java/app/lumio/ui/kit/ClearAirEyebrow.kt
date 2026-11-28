@@ -19,7 +19,7 @@ import app.lensly.ui.theme.LocalClearAirPalette
 fun ClearAirEyebrow(text: String, modifier: Modifier = Modifier, top: Dp = 18.dp, bottom: Dp = ClearAirSpacing.xxs, textAlign: TextAlign? = null) {
     Text(
         text = text.uppercase(),
-        modifier = modifier.padding(top = top, bottom = bottom),
+        modifier = modifier.padding(top = top, bottom = bottom).spokenMint(text),
         style = ClearAirType.eyebrow,
         color = LocalClearAirPalette.current.ink2,
         textAlign = textAlign,
