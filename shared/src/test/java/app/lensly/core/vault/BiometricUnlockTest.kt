@@ -7,6 +7,7 @@ import app.lensly.ui.flow.BiometricEnableOutcome
 import app.lensly.ui.flow.BiometricEnableStep
 import java.io.File
 import java.security.GeneralSecurityException
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -66,6 +67,18 @@ class BiometricUnlockTest {
         val sealed = File(layout.root, BiometricUnlock.BLOB_FILE_NAME).readBytes()
 
         assertFalse(sealed.holds(vaultKey))
+    }
+
+    @Test
+    fun enablingSealsTheVaultKeyAndSideAndZeroesWhatItBuiltToSealThem() {
+        val session = openApp()
+        val vaultKey = session.copyOfVaultKey()
+
+        assertTrue(runBlocking { unlock.enable(session) })
+        session.close()
+
+        assertContentEquals(vaultKey + 0.toByte(), biometric.wrappedPlain)
+        assertTrue(biometric.plainArray.all { it == 0.toByte() }, "The array that held the Vault Key was left unzeroed.")
     }
 
     @Test
@@ -281,6 +294,8 @@ class BiometricUnlockTest {
         var keyMade = false
         var failure: Exception? = null
         var substitute: ByteArray? = null
+        var wrappedPlain: ByteArray? = null
+        var plainArray = ByteArray(0)
         private val pad = ByteArray(64) { (it * 37 + 11).toByte() }
 
         override fun available(): Boolean = canUse
@@ -292,6 +307,8 @@ class BiometricUnlockTest {
 
         override suspend fun wrap(plain: ByteArray): WrappedKey? {
             check(keyMade) { "No biometric key." }
+            plainArray = plain
+            wrappedPlain = plain.copyOf()
             return if (passes) WrappedKey(ByteArray(12) { (it + 1).toByte() }, xor(plain)) else null
         }
 

@@ -31,4 +31,12 @@ class PrintableOrHexTest {
         // A backslash followed by "u2028" is another string, so it shows differently.
         assertNotEquals(shown, printableOrHex("a\\u2028b\\u2029c"))
     }
+
+    @Test
+    fun aStringWithAStackOfCombiningMarksIsShownAsItsBytes() {
+        val stacked = "o" + "\u0332".repeat(20)
+
+        assertTrue(printableOrHex(stacked).endsWith(" (not printable)"))
+        assertTrue(printableOrHex(stacked).startsWith("0x6f"))
+    }
 }

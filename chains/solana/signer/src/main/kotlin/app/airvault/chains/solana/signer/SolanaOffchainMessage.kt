@@ -1,6 +1,6 @@
 package app.airvault.chains.solana.signer
 
-import app.airvault.core.model.isPrintableCodePoint
+import app.airvault.core.model.isPrintableText
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
@@ -111,7 +111,7 @@ class SolanaOffchainMessage private constructor(
                 }
                 Format.LIMITED_UTF8 -> {
                     val decoded = decodeUtf8(body) ?: return Result.Rejected(NOT_UTF8)
-                    if (!decoded.codePoints().allMatch(::isPrintableCodePoint)) return Result.Rejected(UNSHOWABLE)
+                    if (!isPrintableText(decoded)) return Result.Rejected(UNSHOWABLE)
                     decoded
                 }
             }

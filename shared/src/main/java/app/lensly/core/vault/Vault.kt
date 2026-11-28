@@ -635,7 +635,7 @@ class Vault constructor(
         }
         try {
             commitKeyFile(listOf(slot, VaultKeyFile.randomSlot(random)), onDigest = ::writePromotionMarker, promotion = true) {
-                unwrapsTo(opened.softKey, hardwareKey, slot, opened.vaultKey + role)
+                unwrapsTo(opened.softKey, hardwareKey, slot, opened.vaultKey, role)
             }
         } catch (e: PromotionUnfinishedException) {
             // The commit stands and the marker and the new file are kept: the next unlock puts the file in place.
@@ -1038,7 +1038,7 @@ class Vault constructor(
                         key to sealSlot(softKey, key, vaultKey, role)
                     }
                     commitKeyFile(listOf(realSlot, contents.slots[decoy])) {
-                        unwrapsTo(softKey, hardwareKey, realSlot, vaultKey + role)
+                        unwrapsTo(softKey, hardwareKey, realSlot, vaultKey, role)
                     }
                     return CreateResult.Created
                 } finally {
@@ -1125,7 +1125,7 @@ class Vault constructor(
                 key to sealSlot(softKey, key, decoyKey, VaultRole.decoy(decoySide))
             }
             commitKeyFile(listOf(contents.slots[real], decoySlot)) {
-                unwrapsTo(softKey, hardwareKey, decoySlot, decoyKey + VaultRole.decoy(decoySide))
+                unwrapsTo(softKey, hardwareKey, decoySlot, decoyKey, VaultRole.decoy(decoySide))
             }
             true
         } catch (e: VaultException) {
@@ -1261,13 +1261,19 @@ class Vault constructor(
         }
     }
 
-    /** True when [slot] opens under [softKey] and the hardware key to exactly [expected]. */
-    private fun unwrapsTo(softKey: ByteArray, hardwareKey: SecretKey, slot: ByteArray, expected: ByteArray): Boolean {
+    /**
+     * True when [slot] opens under [softKey] and the hardware key to exactly [vaultKey] followed by [role]. The two are compared in place,
+     * so no copy of the Vault Key is made that this function could not zero.
+     */
+    internal fun unwrapsTo(softKey: ByteArray, hardwareKey: SecretKey, slot: ByteArray, vaultKey: ByteArray, role: Byte): Boolean {
         return try {
             val hardwareWrapped = Aead.open(softKey, VaultKeyFile.SOFTWARE_AAD, VaultKeyFile.sealedPartOf(slot))
             val plain = Aead.openWithKeystore(hardwareKey, VaultKeyFile.HARDWARE_AAD, hardwareWrapped)
             try {
-                MessageDigest.isEqual(plain, expected)
+                var difference = plain.size xor (vaultKey.size + 1)
+                for (i in vaultKey.indices) difference = difference or (plain.getOrElse(i) { 0 }.toInt() xor vaultKey[i].toInt())
+                difference = difference or (plain.getOrElse(vaultKey.size) { 0 }.toInt() xor role.toInt())
+                difference == 0
             } finally {
                 Arrays.fill(plain, 0)
             }
