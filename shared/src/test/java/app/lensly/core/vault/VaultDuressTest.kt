@@ -444,7 +444,7 @@ class VaultDuressTest {
     }
 
     @Test
-    fun removingTheDuressPasswordRemovesTheDecoysPhotos() {
+    fun removingTheDuressPasswordKeepsTheDecoysPhotoFileAsRandomBytes() {
         createVault()
         val real = unlocked(attempt(APP))
         assertEquals(DuressResult.Enabled, setDuress(real))
@@ -455,7 +455,9 @@ class VaultDuressTest {
         real.close()
 
         assertTrue(realPhoto.exists())
-        assertFalse(decoyPhoto.exists())
+        // The file stays, so the two folders keep the same names, but it no longer holds what the decoy's gallery sealed.
+        assertEquals(PHOTO_BYTES.size.toLong(), decoyPhoto.length())
+        assertFalse(decoyPhoto.readBytes().contentEquals(PHOTO_BYTES))
     }
 
     @Test
@@ -472,7 +474,7 @@ class VaultDuressTest {
 
     /** A photo in the media folder of [side], as the camera or the gallery would keep it. */
     private fun savePhoto(side: Int): File =
-        File(layout.photoDir(side).apply { mkdirs() }, "IMG_1.jpg").apply { writeBytes(ByteArray(1)) }
+        File(layout.photoDir(side).apply { mkdirs() }, "IMG_1.jpg").apply { writeBytes(PHOTO_BYTES) }
 
     private fun createVault() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
@@ -571,6 +573,7 @@ class VaultDuressTest {
             .associate { it.relativeTo(layout.root).path to it.length() }
 
     private companion object {
+        val PHOTO_BYTES = ByteArray(64) { 7 }
         const val APP = "q7Vn!2Lx#Rb9Tm4Wc8Zp"
         const val OTHER = "Hj3\$kP9wQz!Lm6Tn2Ysd"
         const val WRONG = "Zx8#Vb2!Nm5\$Qw7%Ld4"

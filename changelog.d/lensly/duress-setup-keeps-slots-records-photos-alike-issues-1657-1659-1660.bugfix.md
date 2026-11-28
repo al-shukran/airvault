@@ -1,0 +1,1 @@
+Setting, removing or switching to a Duress Password now leaves the vault's files looking the same as before: a wallet made after the setup is fully retired when the Duress Password is used, a setup that was cut short no longer adds record files, and the two photo folders keep the same file names and sizes.

@@ -69,16 +69,19 @@ class ReviewPoolTest {
         create()
         val real = unlock()
         real.createWallet()
-        val realFree = WalletPad(layout, keys, real.copyOfVaultKey(), 0).freeSlotsForTesting()
+        val realKey = real.copyOfVaultKey()
+        val realFree = WalletPad(layout, keys, realKey, 0).freeSlots()
         assertEquals(WALLET_SLOT_STEP - 1, realFree.size)
         var decoyKey = ByteArray(0)
         assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { decoyKey = it.also { d -> d.createWallet() }.copyOfVaultKey() } })
         real.close()
 
         // The decoy's key opens its own section of the pad, and none of the real vault's.
-        assertEquals(emptySet(), WalletPad(layout, keys, decoyKey, 0).freeSlotsForTesting())
-        assertEquals(emptySet(), WalletPad(layout, keys, ByteArray(32) { 9 }, 0).freeSlotsForTesting())
-        assertTrue(WalletPad(layout, keys, decoyKey, 1).freeSlotsForTesting().isNotEmpty())
+        assertEquals(emptySet(), WalletPad(layout, keys, decoyKey, 0).freeSlots())
+        assertEquals(emptySet(), WalletPad(layout, keys, ByteArray(32) { 9 }, 0).freeSlots())
+        // The real vault keeps its list, less the slots of the decoy's wallet.
+        assertEquals(realFree.size - 1, WalletPad(layout, keys, realKey, 0).freeSlots().size)
+        assertEquals(emptySet(), WalletPad(layout, keys, decoyKey, 1).freeSlots())
     }
 
     @Test
