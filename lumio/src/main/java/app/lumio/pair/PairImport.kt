@@ -101,7 +101,7 @@ object PairImport {
         // An account on a chain that no installed wallet serves is left out, because Lumio cannot show it.
         val accounts = payload.accounts.filter { walletRegistry.byChain(it.export.chain) != null }
         if (accounts.isEmpty()) throw PairingRefusal(NO_ACCOUNTS)
-        checkAccounts(accounts, payload.autoNameBase)
+        checkAccounts(accounts, payload.name, payload.autoNameBase)
         return payload.copy(accounts = accounts, addressBook = addressBookOf(payload.addressBook))
     }
 
@@ -117,7 +117,7 @@ object PairImport {
      * Each chain's accounts are checked for the count Lumio keeps, for a repeated account, for the key rules of their chain (see [checkAccount]), and
      * for their numbering: the accounts of a chain with single keys are numbered 0 to n-1, since Lumio's records keep them by position.
      */
-    private fun checkAccounts(accounts: List<PairingAccount>, base: String) {
+    private fun checkAccounts(accounts: List<PairingAccount>, walletName: String, base: String) {
         for (namespace in accounts.map { it.export.chain.namespace }.distinct()) {
             val count = accounts.count { it.export.chain.namespace == namespace }
             val max = requireNotNull(ACCOUNT_LIMITS[namespace]) { "An installed chain has an account limit." }
@@ -125,7 +125,7 @@ object PairImport {
         }
         val named = listOf(Networks.BIP122, Networks.SOLANA, Networks.ALGORAND)
         val kept = accounts.filter { it.export.chain.namespace in named }.map { customNameOf(it, base) }
-        if (PairRecords.nameRoom(kept) > PairRecords.MAX_NAME_ROOM) {
+        if (PairRecords.nameRoom(kept) + PairRecords.baseRoom(walletName, base) > PairRecords.MAX_NAME_ROOM) {
             throw PairingRefusal(NAMES_TOO_LONG)
         }
         if (accounts.map { it.export.chain to it.export.signer.path }.distinct().size != accounts.size) throw PairingRefusal(DUPLICATE)

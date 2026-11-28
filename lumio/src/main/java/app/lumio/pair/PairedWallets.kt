@@ -269,9 +269,9 @@ object PairedWallets {
             .orEmpty()
         val solana = records[WalletRecordNames.SOLANA]?.let { PairRecords.decodeSolana(it) }.orEmpty()
         val algorand = records[WalletRecordNames.ALGORAND]?.let { PairRecords.decodeAlgorand(it) }.orEmpty()
-        require(meta.bitcoinNames.size == bitcoin.size && meta.solanaNames.size == solana.size && meta.algorandNames.size == algorand.size) {
-            "A name is missing from the wallet record."
-        }
+        // A record that Lumio 1.1.0 wrote holds no names, and its accounts show no name beyond their Auto-Name.
+        val named = listOf(meta.bitcoinNames to bitcoin.size, meta.solanaNames to solana.size, meta.algorandNames to algorand.size)
+        require(named.all { (names, count) -> names.isEmpty() || names.size == count }) { "A name is missing from the wallet record." }
         return PairedWallet(
             id = id,
             name = meta.name,

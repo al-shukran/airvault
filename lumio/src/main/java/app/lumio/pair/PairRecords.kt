@@ -14,12 +14,21 @@ import java.nio.ByteBuffer
 /**
  * The bytes of one paired wallet's records, as Lumio writes them into a wallet folder. Each record starts with a version byte. The META
  * and account records hold length-prefixed text and fixed fields in big-endian order, and the Bitcoin record holds the watch-only Accounts.
- * A record holds public data only. Each record type has one layout, and every decoder rejects a record it cannot read in full,
- * including one of another version. The caller wipes such a pairing and reads it as unpaired.
+ * A record holds public data only. Every decoder rejects a record it cannot read in full, including one of a version it does not know. The caller
+ * wipes such a pairing and reads it as unpaired. The META record also reads the layout that Lumio 1.1.0 wrote, so an update keeps its wallets.
  */
 internal object PairRecords {
-    /** The layout of the META and account records. */
-    private const val VERSION: Byte = 6
+    /** The layout of the META record: the one with the account names and the base of the Auto-Names. */
+    private const val META_VERSION: Byte = 5
+
+    /** The META layout of Lumio 1.1.0, which holds no account names and no base. It is read, never written. */
+    private const val META_VERSION_1_1: Byte = 4
+
+    /** The layout of the account record, which Lumio 1.1.0 wrote too. */
+    private const val ACCOUNT_VERSION: Byte = 4
+
+    /** In a META record, the length that stands for an Auto-Name base equal to the wallet's name, which is then not stored. */
+    private const val BASE_IS_NAME = 0xFF
 
     /** The layout of the Bitcoin record. */
     private const val BITCOIN_VERSION: Byte = 2
@@ -50,9 +59,12 @@ internal object PairRecords {
 
     /**
      * The room in the META record for the names of the Bitcoin, Solana and Algorand accounts, each counted as [nameRoom] counts it. The record holds
-     * 8192 bytes and its other fields at most 4411, so this leaves a margin.
+     * 8192 bytes and its other fields at most 4315, so this leaves a margin. The base of the Auto-Names counts when it is not the wallet's name.
      */
-    const val MAX_NAME_ROOM = 3700
+    const val MAX_NAME_ROOM = 3800
+
+    /** The bytes that the Auto-Name base takes beyond the wallet name: none when it is the name, which it is until the wallet is renamed. */
+    fun baseRoom(name: String, base: String): Int = if (base == name) 0 else base.toByteArray(Charsets.UTF_8).size
 
     /** The bytes that [names] take in the META record: one length byte and the text of each name. */
     fun nameRoom(names: List<String?>): Int = names.sumOf { 1 + it.orEmpty().toByteArray(Charsets.UTF_8).size }
@@ -89,16 +101,18 @@ internal object PairRecords {
         require(names.all { list -> list.all { it.size <= PairingCodec.MAX_NAME_BYTES } }) {
             "A name holds at most ${PairingCodec.MAX_NAME_BYTES} bytes."
         }
-        require(meta.otherNames.sumOf { nameRoom(it) } <= MAX_NAME_ROOM) { "The account names take more room than the wallet record holds." }
+        require(meta.otherNames.sumOf { nameRoom(it) } + baseRoom(meta.name, meta.autoNameBase) <= MAX_NAME_ROOM) { "The account names take more room than the wallet record holds." }
         val namesBytes = names.sumOf { list -> META_COUNT_BYTES + list.sumOf { 1 + it.size } }
-        val buffer = ByteBuffer.allocate(META_HEADER_BYTES + name.size + 1 + base.size + META_COUNT_BYTES + meta.addresses.size * ADDRESS_CHARS + namesBytes)
-            .put(VERSION)
+        val sameBase = meta.autoNameBase == meta.name
+        val baseBytes = if (sameBase) 0 else base.size
+        val buffer = ByteBuffer.allocate(META_HEADER_BYTES + name.size + 1 + baseBytes + META_COUNT_BYTES + meta.addresses.size * ADDRESS_CHARS + namesBytes)
+            .put(META_VERSION)
             .putInt(meta.fingerprint.toInt())
             .putLong(meta.createdAtMs)
             .put(name.size.toByte())
             .put(name)
-            .put(base.size.toByte())
-            .put(base)
+            .put((if (sameBase) BASE_IS_NAME else base.size).toByte())
+            .put(if (sameBase) ByteArray(0) else base)
             .put(meta.addresses.size.toByte())
         meta.addresses.forEach { buffer.put(it.toByteArray(Charsets.US_ASCII)) }
         names.forEach { list ->
@@ -109,7 +123,8 @@ internal object PairRecords {
     }
 
     fun decodeMeta(bytes: ByteArray): Meta {
-        require(bytes.size > META_HEADER_BYTES && bytes[0] == VERSION) { "Not a pairing record." }
+        require(bytes.size > META_HEADER_BYTES && (bytes[0] == META_VERSION || bytes[0] == META_VERSION_1_1)) { "Not a pairing record." }
+        val released = bytes[0] == META_VERSION_1_1
         val buffer = ByteBuffer.wrap(bytes)
         buffer.get()
         val fingerprint = buffer.int.toLong() and UINT32_MASK
@@ -118,10 +133,12 @@ internal object PairRecords {
         require(length in 1..PairingCodec.MAX_NAME_BYTES && buffer.remaining() >= length + 1) { "Not a pairing record." }
         val name = String(bytes, buffer.position(), length, Charsets.UTF_8)
         buffer.position(buffer.position() + length)
-        val baseLength = buffer.get().toInt() and UNSIGNED_BYTE_MASK
-        require(baseLength <= PairingCodec.MAX_NAME_BYTES && buffer.remaining() >= baseLength + META_COUNT_BYTES) { "Not a pairing record." }
-        val autoNameBase = String(bytes, buffer.position(), baseLength, Charsets.UTF_8)
-        buffer.position(buffer.position() + baseLength)
+        // Lumio 1.1.0 stored no base: its Auto-Names were built from the wallet's name.
+        val baseLength = if (released) BASE_IS_NAME else buffer.get().toInt() and UNSIGNED_BYTE_MASK
+        val storedBase = if (baseLength == BASE_IS_NAME) 0 else baseLength
+        require(storedBase <= PairingCodec.MAX_NAME_BYTES && buffer.remaining() >= storedBase + META_COUNT_BYTES) { "Not a pairing record." }
+        val autoNameBase = if (baseLength == BASE_IS_NAME) name else String(bytes, buffer.position(), storedBase, Charsets.UTF_8)
+        buffer.position(buffer.position() + storedBase)
         val accountCount = buffer.get().toInt() and UNSIGNED_BYTE_MASK
         require(accountCount in 0..PairingCodec.MAX_ETHEREUM_ACCOUNTS && buffer.remaining() >= accountCount * ADDRESS_CHARS) {
             "Not a pairing record."
@@ -130,7 +147,7 @@ internal object PairRecords {
             ByteArray(ADDRESS_CHARS).also { buffer.get(it) }.toString(Charsets.US_ASCII)
         }
         require(addresses.all { evmAddressOf(it) == it }) { "Not a pairing record." }
-        val (bitcoin, solana, algorand) = List(3) { namesIn(buffer) }
+        val (bitcoin, solana, algorand) = List(3) { if (released) emptyList() else namesIn(buffer) }
         require(!buffer.hasRemaining()) { "Not a pairing record." }
         return Meta(fingerprint, createdAtMs, name, autoNameBase, addresses, bitcoin, solana, algorand)
     }
@@ -156,13 +173,13 @@ internal object PairRecords {
         require(fields[1].size <= PairingCodec.MAX_LABEL_BYTES && fields[2].size <= PairingCodec.MAX_LABEL_BYTES) {
             "A label or group holds at most ${PairingCodec.MAX_LABEL_BYTES} bytes."
         }
-        val buffer = ByteBuffer.allocate(1 + fields.sumOf { 1 + it.size }).put(VERSION)
+        val buffer = ByteBuffer.allocate(1 + fields.sumOf { 1 + it.size }).put(ACCOUNT_VERSION)
         fields.forEach { buffer.put(it.size.toByte()).put(it) }
         return buffer.array()
     }
 
     fun decodeAccount(bytes: ByteArray): Account {
-        require(bytes.isNotEmpty() && bytes[0] == VERSION) { "Not an account record." }
+        require(bytes.isNotEmpty() && bytes[0] == ACCOUNT_VERSION) { "Not an account record." }
         var position = 1
         fun field(maxBytes: Int): String? {
             require(position < bytes.size) { "Not an account record." }
