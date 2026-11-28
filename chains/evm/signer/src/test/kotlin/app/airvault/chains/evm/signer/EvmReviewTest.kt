@@ -1000,6 +1000,44 @@ class EvmReviewTest {
         assertEquals("multicall", reviewOf(txParsed(FAKE_BATCH, batch), builder(REGISTRY.withWhitelist(listOf(entry)))).title)
     }
 
+    /**
+     * A `multicall(bytes[])` on the Aave WETH gateway with two `depositETH` calls, sending [value]. The whitelist approves the gateway for
+     * both functions, but nothing says it forwards the value of a batch to its calls.
+     */
+    private fun payableBatchOnUnknownContract(value: BigInteger): EvmReviewResult {
+        val deposit = Numeric.hexStringToByteArray("0x474cf53d") + word(BigInteger.ZERO) + word(BigInteger(SENDER.removePrefix("0x"), 16)) + word(BigInteger.ZERO)
+        val calls = List(2) { InnerCall(target = null, allowFailure = null, value = null, calldata = deposit, call = null, nested = null) }
+        val batch = encodeMulticall(MulticallShape.BYTES_ARRAY, deadline = null, calls = calls)!!
+        val depositEntry = aavePoolBatchEntry().copy(
+            contract = AAVE_GATEWAY,
+            selector = "0x474cf53d",
+            signature = "depositETH(address,address,uint16)",
+            meaning = "Supplies the ETH the call sends.",
+            params = listOf(WhitelistParam("pool", "address"), WhitelistParam("onBehalfOf", "address"), WhitelistParam("referralCode", "uint16")),
+        )
+        val registry = REGISTRY.withWhitelist(listOf(aavePoolBatchEntry().copy(contract = AAVE_GATEWAY), depositEntry))
+        return builder(registry).review(txParsed(Keys.toChecksumAddress(AAVE_GATEWAY), batch, value = value), SENDER)
+    }
+
+    @Test
+    fun aPayableMulticallOnAContractNotKnownToForwardValueIsRefusedNotShownWithTheFullValueOnEachCall() {
+        val refused = assertIs<EvmReviewResult.Refused>(payableBatchOnUnknownContract(ONE_ETH))
+
+        assertEquals(
+            "Lensly cannot tell how this batch splits the amount it sends among its calls, so it cannot show what each call receives.",
+            refused.reason,
+        )
+    }
+
+    @Test
+    fun aMulticallOnAContractNotKnownToForwardValueThatSendsNoneStillReviews() {
+        val review = assertIs<EvmReviewResult.Ok>(payableBatchOnUnknownContract(BigInteger.ZERO)).review
+
+        val lines = review.sections.single { it.heading == "Calls" }.rows.filter { it.label.startsWith("Supply ") }.map { it.label }
+        assertEquals(2, lines.size)
+        assertTrue(lines.all { it.startsWith("Supply 0 ETH") }, lines.toString())
+    }
+
     @Test
     fun aWhitelistedMulticallThatIsNotKnownToDelegateNamesTheBatchContractAsTheCallerOfItsSteps() {
         // The Aave pool is approved for multicall(bytes[]) here, but nothing says it delegates, so its calls are ordinary calls:
@@ -1462,6 +1500,7 @@ private fun personalParsed(signData: ByteArray, origin: String = "dapp.example",
 )
 
 private const val AAVE_POOL = "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2"
+private const val AAVE_GATEWAY = "0xd01607c3c5ecaba394d8be377a08590149325722"
 private const val UR_V2 = "0x66a9893cc07d91d95644aedd05d03f95e1dba8af"
 /** A transaction names its contract in checksum form. */
 private val UR_V2_TX = Keys.toChecksumAddress(UR_V2)
