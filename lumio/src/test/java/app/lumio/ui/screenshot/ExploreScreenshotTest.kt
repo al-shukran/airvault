@@ -11,6 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import app.lensly.core.registry.Registry
+import app.lensly.core.registry.RegistryLoader
+import app.lumio.data.provider.ProviderCatalog
 import app.lumio.network.NetworkMode
 import app.lumio.ui.explore.ChainRow
 import app.lumio.ui.explore.ExploreScreen
@@ -19,6 +22,7 @@ import app.lumio.ui.kit.LumioTab
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.ProviderStatus
 import app.lumio.ui.shell.LumioRootScreen
+import java.io.File
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,7 +31,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * The golden of the Explore landing: the chains group, and the data providers with their status words. The providers are fixed here, so the
+ * The golden of the Explore landing: the chains group, and the data providers with their status words. The providers shown are fixed here, so the
  * golden does not move with the schedulers. Recorded with `:lumio:recordRoborazziDebug`, like [LumioScreenshotTest].
  */
 @RunWith(RobolectricTestRunner::class)
@@ -71,24 +75,36 @@ class ExploreScreenshotTest {
     private fun Explore() {
         ExploreScreen(
             chains = listOf(
-                ChainRow("Ethereum", "Layer 1 · 4 of your accounts", AssetIconSpec.Chain(null)),
-                ChainRow("Base", "L2 on Ethereum · ID 8453", AssetIconSpec.Chain(null)),
+                ChainRow("Ethereum", "Layer 1 · 4 of your accounts", AssetIconSpec.Chain(registry.network(1L))),
+                ChainRow("Base", "L2 on Ethereum · ID 8453", AssetIconSpec.Chain(registry.network(8453L))),
                 ChainRow("Solana", "Layer 1 · 1 of your accounts", AssetIconSpec.Solana),
             ),
             networks = 55,
             providers = listOf(
                 ProviderRow("blockscout", true, true, null, ProviderStatus.Healthy(score = 120.0)),
                 ProviderRow("mempool", false, true, null, ProviderStatus.CoolingDown(inMs = 4_000)),
-                ProviderRow("etherscan", true, true, null, ProviderStatus.NeedsKey),
             ),
+            providerCount = LISTED_PROVIDERS,
             onChains = {},
             onProviders = {},
             onProvider = {},
+            onArticle = {},
         )
+    }
+
+    /** The shared registry, read the way the registry tests read it, so the chain rows show the logos the app ships. */
+    private val registry: Registry = RegistryLoader.load { path ->
+        listOf("../shared/src/main/assets", "../shared/src/debug/assets")
+            .map { File(it, path) }
+            .firstOrNull(File::isFile)
+            ?.readText()
     }
 
     private companion object {
         /** The mock's gesture area under the tab bar, which a phone's navigation inset gives it. */
         val GESTURE_AREA = 24.dp
+
+        /** The providers the Data providers page lists, which the group's "All" action counts. */
+        val LISTED_PROVIDERS = with(ProviderCatalog) { dataProviders().size + priceProviders().size + rpcProviders(allowLocalHttp = false).size }
     }
 }
