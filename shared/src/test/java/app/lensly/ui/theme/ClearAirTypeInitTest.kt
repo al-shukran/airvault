@@ -1,7 +1,7 @@
 package app.lensly.ui.theme
 
 import java.io.File
-import java.net.URLClassLoader
+import java.net.URLClassLoader // CI_ALLOW_NETWORK_REFERENCE: class loader for an init-order test; no network access
 import kotlin.test.assertNotNull
 import org.junit.Test
 
