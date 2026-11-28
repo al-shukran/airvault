@@ -104,7 +104,7 @@ class AssetFrameTest {
             priceOnly = priceOnly,
             held = held,
             onHoldings = {},
-            accounts = listOf(CoinAccount("Savings", "Air 1 #0", "4 ETH", onSend = if (senders) ({}) else null, onReceive = {})),
+            accounts = listOf(CoinAccount("Savings", "Air 1 #0", "0x1020304050607080901011121314151617181920", "4 ETH", onSend = if (senders) ({}) else null, onReceive = {})),
             onBack = {},
             onLock = {},
             onAllActivity = { allTaps++ },

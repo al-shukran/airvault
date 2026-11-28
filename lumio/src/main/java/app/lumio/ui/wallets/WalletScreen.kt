@@ -253,7 +253,7 @@ private fun ChainIsland(
 }
 
 /**
- * One account of a wallet: its monogram, its title and its short address with its asset count, and its value at the right. The value is its dollars
+ * One account of a wallet: its monogram, its title with its asset count and its address under it, and its value at the right. The value is its dollars
  * when it has a price, with its coins under it; a balance no read has reached is a bar of the value's size.
  */
 @Composable
@@ -271,7 +271,8 @@ private fun AccountItem(
     ClearAirRow(
         title = accountTitle(account),
         index = accountIndex(account),
-        description = accountLine(account, tokens),
+        description = accountSummary(account, tokens),
+        address = account.address,
         leading = { ClearAirMonogram(text = monogramOf(account)) },
         trailing = { AccountValue(account = account, usd = usd, showTotal = showTotal, showBalances = showBalances, slot = slot, clock = clock) },
         onClick = onClick,

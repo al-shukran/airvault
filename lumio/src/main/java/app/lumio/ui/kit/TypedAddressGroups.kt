@@ -11,7 +11,7 @@ import kotlin.math.min
  * digits, and a space sits before each later group. The spaces are on screen only. The value keeps the address as it was typed, and the cursor
  * moves over the digits and never stops on a space.
  */
-object AddressGroups : VisualTransformation {
+object TypedAddressGroups : VisualTransformation {
     /** The offset where the first space goes: after the `0x` and four digits. */
     private const val FIRST = 6
 

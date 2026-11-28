@@ -109,7 +109,9 @@ expect_fail "a substring helper" "$address_short" "$work/tree"
 kotlin chains/evm/signer/src/main/kotlin/A.kt 'val label = name.take(8) + "…"'
 expect_pass "a cut of a name with no takeLast" "$address_short" "$work/tree"
 kotlin lumio/src/main/java/A.kt 'fun shortAddress(a: String) = a.take(6) + "…" + a.takeLast(4)'
-expect_pass "a Lumio source, which waits for a design decision" "$address_short" "$work/tree"
+expect_fail "a Lumio source" "$address_short" "$work/tree"
+kotlin lumio/src/test/java/A.kt 'fun shortAddress(a: String) = a.take(6) + "…" + a.takeLast(4)'
+expect_pass "a Lumio test source" "$address_short" "$work/tree"
 kotlin app/src/test/java/A.kt 'fun shortAddress(a: String) = a.take(6) + "…" + a.takeLast(4)'
 expect_pass "a test source" "$address_short" "$work/tree"
 kotlin core/model/src/main/kotlin/app/airvault/core/model/AddressGroups.kt 'fun short(a: String) = a.take(6) + "…" + a.takeLast(4)'

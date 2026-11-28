@@ -20,16 +20,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.lensly.app.familyLabel
-import app.lensly.ui.components.groupAddress
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
-import app.lensly.ui.theme.ClearAirPalette
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
@@ -39,6 +33,7 @@ import app.lumio.data.net.Networks
 import app.lumio.home.HomeFormat
 import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.home.AssetDisc
+import app.lumio.ui.kit.AddressLine
 import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirCapsuleSmall
 import app.lumio.ui.kit.ClearAirEyebrow
@@ -196,20 +191,10 @@ private fun AccountAddress(address: String) {
         if (copy.copied) {
             Text(text = "Address copied", style = ClearAirType.label, color = palette.ink2)
         } else {
-            Text(text = addressText(address, palette), style = ClearAirType.address)
+            AddressLine(address = address, color = palette.ink, ellipsisColor = palette.ink2, modifier = Modifier.weight(1f, fill = false))
             Spacer(Modifier.width(ClearAirSpacing.xs))
             ClearAirIcon(glyph = ClearAirGlyph.COPY, color = palette.ink2)
         }
-    }
-}
-
-/** The abbreviated address: the first and last two of [groupAddress]'s groups in ink, with an ellipsis between them in secondary ink. */
-private fun addressText(address: String, palette: ClearAirPalette): AnnotatedString {
-    val groups = groupAddress(address).split(' ')
-    return buildAnnotatedString {
-        withStyle(SpanStyle(color = palette.ink)) { append(groups.take(2).joinToString(" ")) }
-        withStyle(SpanStyle(color = palette.ink2)) { append(" … ") }
-        withStyle(SpanStyle(color = palette.ink)) { append(groups.takeLast(2).joinToString(" ")) }
     }
 }
 
