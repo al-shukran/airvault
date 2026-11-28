@@ -182,7 +182,9 @@ internal object V4SwapSteps {
             v[2].word() == BigInteger.ONE -> " from ${c.callerName}"
             else -> " from the router"
         }
-        if (amount == CONTRACT_BALANCE && v[2].word() != BigInteger.ONE) c.emptyRouterOf(currency)
+        if (v[2].word() != BigInteger.ONE) {
+            if (amount == CONTRACT_BALANCE) c.emptyRouterOf(currency) else c.spendFromRouter(currency, amount)
+        }
         return CallSteps(listOf("Pay $what$payer to $V4"), emptyList())
     }
 
