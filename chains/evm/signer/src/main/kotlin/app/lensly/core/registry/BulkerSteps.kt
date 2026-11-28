@@ -137,7 +137,7 @@ internal object BulkerSteps {
         return call.steps(listOf("Withdraw $what from Compound V3 (${market.symbol}) to ${call.who(to)}"), "withdraws to" to to)
     }
 
-    /** A withdrawal of any asset the market holds, from the signer's balance to [to]. A market it does not know is not described. */
+    /** A withdrawal of any asset the market holds, from the caller's balance to [to]. A market it does not know is not described. */
     private fun withdrawAsset(call: StepCall, v: List<AbiValue>): CallSteps? {
         val market = ProtocolSteps.compoundMarket(MAINNET, v[0].address()) ?: return null
         val to = v[1].address()

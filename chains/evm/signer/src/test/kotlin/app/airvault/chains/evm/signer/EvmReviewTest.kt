@@ -1022,6 +1022,32 @@ class EvmReviewTest {
     }
 
     @Test
+    fun anAaveRecipientOtherThanTheSignerInAMulticall3BatchIsDangerWithTheRecipientRow() {
+        val signature = "withdraw(address,uint256,address)"
+        val entry = WhitelistEntry(
+            chainId = 1,
+            contract = AAVE_POOL,
+            selector = WhitelistEntry.selectorOf(signature),
+            signature = signature,
+            meaning = "Withdraws a supplied asset.",
+            params = listOf(WhitelistParam("asset", "address"), WhitelistParam("amount", "uint256"), WhitelistParam("to", "address")),
+            upgradeable = false,
+        )
+        val registry = REGISTRY.withWhitelist(listOf(entry))
+        val calldata = Numeric.hexStringToByteArray(entry.selector) + word(BigInteger(USDC.removePrefix("0x"), 16)) +
+            word(BigInteger.valueOf(1_000_000)) + word(BigInteger(FOREIGN.removePrefix("0x"), 16))
+        val call = InnerCall(AAVE_POOL, allowFailure = false, value = null, calldata = calldata, call = null, nested = null)
+        val batch = encodeMulticall(MulticallShape.AGGREGATE3, deadline = null, calls = listOf(call))!!
+
+        val review = reviewOf(txParsed(MULTICALL3, batch), builder(registry))
+
+        val danger = review.warnings.single { it.code == "evm.steps" }
+        assertEquals(Danger.DANGER, danger.level)
+        assertEquals(ACK_STEP_PAYEE, danger.acknowledge)
+        assertEquals(FOREIGN, review.sections.flatMap { it.rows }.single { it.label == "Recipient" }.value.text())
+    }
+
+    @Test
     fun aRouterSwapThatLeavesItsOutputInTheRouterIsADangerTheOwnerTicksDirectAndInABatch() {
         val registry = REGISTRY.withWhitelist(listOf(urEntry()))
         val swap = urSwapInput(UR_ADDRESS_THIS)
@@ -1304,6 +1330,7 @@ private fun personalParsed(signData: ByteArray, origin: String = "dapp.example",
     ),
 )
 
+private const val AAVE_POOL = "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2"
 private const val UR_V2 = "0x66a9893cc07d91d95644aedd05d03f95e1dba8af"
 /** A transaction names its contract in checksum form. */
 private val UR_V2_TX = Keys.toChecksumAddress(UR_V2)

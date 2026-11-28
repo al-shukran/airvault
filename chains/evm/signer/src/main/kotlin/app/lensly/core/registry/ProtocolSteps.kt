@@ -31,7 +31,7 @@ internal object ProtocolSteps {
 
     /** Aave's variable interest rate mode. `BigInteger.TWO` needs a newer API level than the module's minimum, so it is built here. */
     private val VARIABLE_RATE: BigInteger = BigInteger.valueOf(2)
-    private const val EMODE_WARNING = "Efficiency mode changes the limits and liquidation thresholds of your Aave V3 positions"
+    private fun emodeWarning(c: StepCall) = "Efficiency mode changes the limits and liquidation thresholds of ${c.callerOwn} Aave V3 positions"
 
     private val AAVE_POOLS: List<Pair<Long, String>> = listOf(
         1L to "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
@@ -79,7 +79,7 @@ internal object ProtocolSteps {
             val mode = c.uint(2)
             val line = "Borrow ${c.amount(c.uint(1), c.address(0))} from $AAVE_V3 at ${rateText(mode)} " +
                 "on behalf of ${c.who(c.address(4))}${referral(c.uint(3))}"
-            CallSteps(listOf(line), rateWarnings(mode))
+            c.steps(listOf(line), "sends the borrowed funds to" to c.caller, warnings = rateWarnings(mode))
         },
         "0x573ade81" to Known("repay(address,uint256,uint256,address)") { c ->
             val mode = c.uint(2)
@@ -99,7 +99,7 @@ internal object ProtocolSteps {
             } else {
                 "Set efficiency mode on $AAVE_V3 to category $category"
             }
-            CallSteps(listOf(line), listOf(EMODE_WARNING))
+            CallSteps(listOf(line), listOf(emodeWarning(c)))
         },
     )
 
@@ -187,7 +187,7 @@ internal object ProtocolSteps {
             val dst = c.address(0)
             val asset = c.address(1)
             val collateral = if (asset == market.base) "" else " as collateral"
-            val recipient = if (dst == c.from) "" else " for ${c.who(dst)}"
+            val recipient = if (dst == c.caller) "" else " for ${c.who(dst)}"
             c.steps(listOf("Supply ${c.amount(c.uint(2), asset)}$collateral to Compound V3 (${market.symbol})$recipient"), SUPPLIES_TO to dst)
         },
         "0x26441318" to Known("withdrawFrom(address,address,address,uint256)") { c ->
@@ -195,7 +195,7 @@ internal object ProtocolSteps {
             val to = c.address(1)
             val asset = c.address(2)
             val collateral = if (asset == market.base) "" else " collateral"
-            val account = if (src == c.from) "" else " of ${c.who(src)}"
+            val account = if (src == c.caller) "" else " of ${c.who(src)}"
             val line = "Withdraw ${amountOrAll(c, c.uint(3), asset)}$collateral from Compound V3 (${market.symbol})$account to ${c.who(to)}"
             c.steps(listOf(line), "withdraws from" to src, WITHDRAWS_TO to to)
         },

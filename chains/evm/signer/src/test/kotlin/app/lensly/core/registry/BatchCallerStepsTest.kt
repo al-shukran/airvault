@@ -18,6 +18,7 @@ private const val OTHER_SHORT = "0x1593 D398 … 3eA2 5343"
 private const val AAVE_POOL = "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2"
 private const val AAVE_GATEWAY = "0xd01607c3c5ecaba394d8be377a08590149325722"
 private const val CUSDC_V3 = "0xc3d688b66703497daa19211eedff47f25384cdc3"
+private const val LIDO_QUEUE = "0x889edc2edab5f40e902b864ad4d7ade8e412f9b1"
 private const val BULKER = "0xa397a8c2086c554b531c02e29f3291c9704b00c7"
 private const val COW_SETTLEMENT = "0x9008d19f58aabd9ed0d60971565aa8510560ab41"
 private const val CWETH_V3 = "0xa17581a9e3356d9a858b789d68b4d866e593ae94"
@@ -117,7 +118,7 @@ class BatchCallerStepsTest {
             "supplyTo(address,address,uint256)",
             listOf(address("dst", MULTICALL3), address("asset", USDC), number("amount", ONE_USDC)),
         )
-        assertEquals(listOf("Supply 1 USDC to Compound V3 (cUSDCv3) for Multicall3"), supplyTo.lines)
+        assertEquals(listOf("Supply 1 USDC to Compound V3 (cUSDCv3)"), supplyTo.lines)
         assertEquals(listOf("This supplies to $MULTICALL3_SHORT, not you"), supplyTo.warnings)
         assertEquals(listOf(MULTICALL3), supplyTo.addresses)
 
@@ -127,7 +128,7 @@ class BatchCallerStepsTest {
             "withdrawFrom(address,address,address,uint256)",
             listOf(address("src", MULTICALL3), address("to", OTHER), address("asset", USDC), number("amount", ONE_USDC)),
         )
-        assertEquals(listOf("Withdraw 1 USDC from Compound V3 (cUSDCv3) of Multicall3 to $OTHER_SHORT"), withdrawFrom.lines)
+        assertEquals(listOf("Withdraw 1 USDC from Compound V3 (cUSDCv3) to $OTHER_SHORT"), withdrawFrom.lines)
         assertEquals(listOf("This withdraws from $MULTICALL3_SHORT, not you", "This withdraws to $OTHER_SHORT, not you"), withdrawFrom.warnings)
         assertEquals(listOf(MULTICALL3, OTHER), withdrawFrom.addresses)
 
@@ -140,6 +141,90 @@ class BatchCallerStepsTest {
             caller = SIGNER,
         )
         assertEquals(listOf("This supplies to $OTHER_SHORT, not you"), direct.warnings)
+        assertEquals(emptyList(), direct.addresses)
+    }
+
+    private fun compoundSupplyTo(dst: String, caller: String) = stepsOf(
+        CUSDC_V3,
+        "0x4232cd63",
+        "supplyTo(address,address,uint256)",
+        listOf(address("dst", dst), address("asset", USDC), number("amount", ONE_USDC)),
+        caller,
+    )
+
+    private fun compoundWithdrawFrom(src: String, caller: String) = stepsOf(
+        CUSDC_V3,
+        "0x26441318",
+        "withdrawFrom(address,address,address,uint256)",
+        listOf(address("src", src), address("to", OTHER), address("asset", USDC), number("amount", ONE_USDC)),
+        caller,
+    )
+
+    @Test
+    fun aCompoundAccountThatIsTheSignerIsNamedInABatchButLeftOutOutsideOne() {
+        // Inside a batch the implicit account is Multicall3, so "you" must be said: the funds come from or go to the signer's account.
+        assertEquals(listOf("Supply 1 USDC to Compound V3 (cUSDCv3) for you"), compoundSupplyTo(SIGNER, MULTICALL3).lines)
+        assertEquals(listOf("Withdraw 1 USDC from Compound V3 (cUSDCv3) of you to $OTHER_SHORT"), compoundWithdrawFrom(SIGNER, MULTICALL3).lines)
+        // Straight from the signer the account is implicit and the lines are unchanged.
+        assertEquals(listOf("Supply 1 USDC to Compound V3 (cUSDCv3)"), compoundSupplyTo(SIGNER, SIGNER).lines)
+        assertEquals(listOf("Withdraw 1 USDC from Compound V3 (cUSDCv3) to $OTHER_SHORT"), compoundWithdrawFrom(SIGNER, SIGNER).lines)
+        // The batch is the implicit account of a call made inside it.
+        assertEquals(listOf("Supply 1 USDC to Compound V3 (cUSDCv3)"), compoundSupplyTo(MULTICALL3, MULTICALL3).lines)
+        assertEquals(listOf("Withdraw 1 USDC from Compound V3 (cUSDCv3) to $OTHER_SHORT"), compoundWithdrawFrom(MULTICALL3, MULTICALL3).lines)
+    }
+
+    @Test
+    fun theEfficiencyModeWarningNamesWhoseAavePositionsItChanges() {
+        fun emode(caller: String) = stepsOf(AAVE_POOL, "0x28530a47", "setUserEMode(uint8)", listOf(number("categoryId", 1, "uint8")), caller)
+        assertEquals(
+            listOf("Efficiency mode changes the limits and liquidation thresholds of Multicall3's Aave V3 positions"),
+            emode(MULTICALL3).warnings,
+        )
+        assertEquals(
+            listOf("Efficiency mode changes the limits and liquidation thresholds of your Aave V3 positions"),
+            emode(SIGNER).warnings,
+        )
+    }
+
+    @Test
+    fun anAaveBorrowInABatchSendsTheFundsToMulticall3AndWarnsOfIt() {
+        fun borrow(caller: String) = stepsOf(
+            AAVE_POOL,
+            "0xa415bcad",
+            "borrow(address,uint256,uint256,uint16,address)",
+            listOf(address("asset", USDC), number("amount", ONE_USDC), number("interestRateMode", 2), number("referralCode", 0, "uint16"), address("onBehalfOf", SIGNER)),
+            caller,
+        )
+        val batched = borrow(MULTICALL3)
+        assertEquals(listOf("This sends the borrowed funds to $MULTICALL3_SHORT, not you"), batched.warnings)
+        assertEquals(listOf(MULTICALL3), batched.addresses)
+
+        // Straight from the signer the funds come to the signer: no warning and no row.
+        val direct = borrow(SIGNER)
+        assertEquals(emptyList(), direct.warnings)
+        assertEquals(emptyList(), direct.addresses)
+    }
+
+    @Test
+    fun aLidoClaimInABatchSendsTheEthToMulticall3AndWarnsOfIt() {
+        fun claim(caller: String) = stepsOf(
+            LIDO_QUEUE,
+            "0xe3afe0a3",
+            "claimWithdrawals(uint256[],uint256[])",
+            listOf(
+                DecodedParam(WhitelistParam("_requestIds", "uint256[]"), AbiValue.Items(listOf(AbiValue.Word(abiWord(BigInteger.valueOf(5)).toHex())))),
+                DecodedParam(WhitelistParam("_hints", "uint256[]"), AbiValue.Items(listOf(AbiValue.Word(abiWord(BigInteger.valueOf(9)).toHex())))),
+            ),
+            caller,
+        )
+        val batched = claim(MULTICALL3)
+        assertEquals(listOf("Claim the ETH of Lido withdrawal request #5 to Multicall3"), batched.lines)
+        assertEquals(listOf("This sends the claimed ETH to $MULTICALL3_SHORT, not you"), batched.warnings)
+        assertEquals(listOf(MULTICALL3), batched.addresses)
+
+        val direct = claim(SIGNER)
+        assertEquals(listOf("Claim the ETH of Lido withdrawal request #5 to you"), direct.lines)
+        assertEquals(emptyList(), direct.warnings)
         assertEquals(emptyList(), direct.addresses)
     }
 
