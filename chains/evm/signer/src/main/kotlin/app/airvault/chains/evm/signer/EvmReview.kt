@@ -423,7 +423,8 @@ class EvmReviewBuilder(
          * Decides each call of [multicall], whose calldata has [shape], and lists it in [rows] at [level]. A nested batch is checked against its
          * own calldata, and its calls one level down. [value] is what the call that holds the batch sends. Each call is described with the
          * value it really receives: its own value in `aggregate3Value`, zero in the other Multicall3 shapes, and [value] in Uniswap's
-         * `multicall`, which delegates. [caller] is the address that calls [to]. A Multicall3 call is made by Multicall3, so its contract sees
+         * `multicall`, which delegates. A `multicall` on a contract not known to delegate is refused when it sends value, because the split is
+         * unknown. [caller] is the address that calls [to]. A Multicall3 call is made by Multicall3, so its contract sees
          * Multicall3 as its message sender. A `multicall` keeps its [caller] only on a contract known to delegate (Uniswap's SwapRouter02);
          * on any other contract its calls are ordinary calls made by [to]. A call that fails any check refuses the whole request.
          */
@@ -437,13 +438,17 @@ class EvmReviewBuilder(
             parent: String,
             rows: MutableList<ReviewRow>,
         ) {
-            val callerOfCalls = if (shape.hasTarget || !SwapRouterSteps.delegatesItsBatch(chainId, to)) to else caller
+            val delegates = !shape.hasTarget && SwapRouterSteps.delegatesItsBatch(chainId, to)
+            val callerOfCalls = if (delegates) caller else to
+            // A `multicall` passes value to its calls only if its contract chooses to, so unless it is known to delegate the split is unknown.
+            if (!shape.hasTarget && !delegates && value.signum() > 0) throw Refusal(UNATTRIBUTED_VALUE_REFUSAL)
             if (shape.hasTarget && !shape.hasValue && value.signum() > 0) {
                 warnings += Warning(Danger.DANGER, CODE_STRANDED_VALUE, strandedValueWarning(to), FieldPath("$parent.function"), ACK_STRANDED_VALUE)
             }
             if (shape.hasValue && multicall.calls.sumOf { it.value ?: BigInteger.ZERO } != value) throw Refusal(VALUE_MISMATCH_REFUSAL)
             multicall.calls.forEachIndexed { index, inner ->
-                // A Multicall3 call sends its own value, or none. A call of Uniswap's multicall delegates, so it sees the value of its batch.
+                // A Multicall3 call sends its own value, or none. A call of a multicall that delegates sees the value
+                // of its batch. Any other multicall sends none, or is refused above.
                 val sent = if (shape.hasTarget) inner.value ?: BigInteger.ZERO else value
                 // A Multicall3 call names its own contract. Any other call goes to the contract its batch goes to.
                 val contract = inner.target ?: to
@@ -1332,5 +1337,7 @@ private const val WORD_BYTES = 32
 private val AMOUNT_PARAMS = setOf("amount", "value", "wad")
 private const val VALUE_MISMATCH_REFUSAL =
     "The values of the calls do not add up to the amount the batch sends, so the contract would reject it and Lensly cannot show it."
+private const val UNATTRIBUTED_VALUE_REFUSAL =
+    "Lensly cannot tell how this batch splits the amount it sends among its calls, so it cannot show what each call receives."
 private val TOO_DEEP_REFUSAL = "The calls nest deeper than ${ParserLimits.MAX_NESTED_DEPTH} levels, so Lensly cannot show every call."
 private val TOO_MANY_CALLS_REFUSAL = "The transaction holds more than ${ParserLimits.MAX_NESTED_CALLS} calls, so Lensly cannot show every call."
