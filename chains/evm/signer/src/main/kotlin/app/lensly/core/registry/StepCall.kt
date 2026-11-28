@@ -77,7 +77,7 @@ internal fun ByteArray.addressAt(at: Int): String = "0x" + copyOfRange(at, at + 
  * network. [caller] is the address the contract sees as its message sender: the signer, or the Multicall3 contract that calls it inside a
  * batch. A router flag for the message sender means [caller], so inside a batch it is not the signer. Addresses are lowercase. The names and amounts a step shows come from [registry], so a token it does not know is shown as its
  * short address and raw base units, and never as a guessed symbol or decimals. [held] is the tokens a router step has left in the router and
- * no later step has taken out, so the steps of one call share it. A token's value is the amount known to be there (a wrap of a stated
+ * no later step has taken out, so the steps of one call share it. The native coin sent with the call counts as held from the start. A token's value is the amount known to be there (a wrap of a stated
  * amount), which a later spend of that amount takes out, or null when the amount is not known (a swap output), which only a step that
  * takes everything takes out.
  */
@@ -91,6 +91,11 @@ internal class StepCall(
     val caller: String = from,
     private val held: MutableMap<String, BigInteger?> = LinkedHashMap(),
 ) {
+    init {
+        // The native coin sent with the call is in the router until a step spends or takes it out. A call inside it sends none.
+        if (sent.signum() > 0) held[NATIVE_COIN] = sent
+    }
+
     val chainId: Long get() = network.chainId
 
     /** The wrapped native coin's symbol, such as WETH on Ethereum: W and the native symbol. */
@@ -195,6 +200,17 @@ internal class StepCall(
     fun spendFromRouter(token: String, amount: BigInteger) {
         val known = held[token] ?: return
         if (amount >= known) held -= token else held[token] = known - amount
+    }
+
+    /** A step that spends [amount] of [token] only if the router is known to hold at least that much, as a swap paid in WETH spends ETH. */
+    fun spendFromRouterIfHeld(token: String, amount: BigInteger) {
+        val known = held[token] ?: return
+        if (known >= amount) spendFromRouter(token, amount)
+    }
+
+    /** A step that spends some unknown part of the [token] the router holds, so only a step that takes all of it takes the rest out. */
+    fun spendUnknownFromRouter(token: String) {
+        if (held.containsKey(token)) held[token] = null
     }
 
     /** The same call with its steps' leftover check made: [CallSteps.leavesInRouter] says what the router still holds at the end. */
