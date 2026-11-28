@@ -138,7 +138,7 @@ class SolanaSendRouteTest {
         compose.onNodeWithText("Continue").performClick()
         compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("AMOUNT · 2 OF 5").fetchSemanticsNodes().isNotEmpty() }
 
-        assertEquals(1, compose.onAllNodesWithText("1.5 ${ChainHoldings.shortened(MINT)} available").fetchSemanticsNodes().size)
+        assertEquals(1, compose.onAllNodesWithText("1.5 ${ChainHoldings.mintName(MINT)} available").fetchSemanticsNodes().size)
     }
 
     @Test

@@ -1,6 +1,11 @@
 package app.lumio.ui.receive
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -10,6 +15,11 @@ import app.lumio.receive.ReceiveAnswers
 import app.lumio.receive.ReceiveCoin
 import app.lumio.receive.ReceiveNetwork
 import app.lumio.ui.home.AssetIconSpec
+import app.lumio.ui.kit.ADDRESS_LINE_TAG
+import app.lumio.ui.kit.spokenAddress
+import androidx.compose.ui.unit.dp
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -79,5 +89,38 @@ class ReceiveRadioStepsTest {
         compose.onNodeWithText("Into Which Account?").assertIsDisplayed()
         compose.onNodeWithText("PulsarNova 5").assertIsDisplayed()
         compose.onNodeWithText("Trading · Group DeFi", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun anAccountRowHoldsItsLabelAndGroupAndItsAddressOnALineOfItsOwn() {
+        show()
+
+        compose.onNodeWithText("Base").performClick()
+
+        compose.onNodeWithText("Trading · Group DeFi").assertIsDisplayed()
+        val spoken = compose.onAllNodesWithTag(ADDRESS_LINE_TAG, useUnmergedTree = true)[0].fetchSemanticsNode().config[SemanticsProperties.Text].first().text
+        assertEquals(spokenAddress(pulsar.address).text, spoken)
+        compose.onAllNodesWithText("0x", substring = true, useUnmergedTree = true).assertCountEquals(2)
+    }
+
+    @Test
+    fun anAccountWithNeitherLabelNorGroupHasItsAddressWhereTheDetailWouldBe() {
+        val plain = ReceiveAccount(name = "Account 3", label = null, group = null, address = "0x1020304050607080901127a1020304050607080")
+        val network = ReceiveNetwork(name = "Ethereum", icon = AssetIconSpec.Letter("E"), accounts = listOf(plain, felix))
+        compose.setContent {
+            ClearAirTheme {
+                ReceiveFlowSheet(
+                    visible = true,
+                    opening = 0,
+                    start = ReceiveAnswers(coin = usdc.copy(networks = listOf(network)), network = network),
+                    assets = emptyList(),
+                    onClose = {},
+                )
+            }
+        }
+
+        val title = compose.onNodeWithText("Account 3", useUnmergedTree = true).getBoundsInRoot()
+        val address = compose.onAllNodesWithTag(ADDRESS_LINE_TAG, useUnmergedTree = true)[0].getBoundsInRoot()
+        assertTrue(address.top >= title.bottom && address.top - title.bottom < 6.dp, "the address sits right under the title: title $title, address $address")
     }
 }

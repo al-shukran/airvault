@@ -1,6 +1,10 @@
 package app.lumio.ui.transactions
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -12,7 +16,12 @@ import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxAsset
 import app.lumio.data.tx.TxDirection
 import app.lumio.data.tx.TxStatus
+import app.lumio.pair.PairedAccount
+import app.lumio.pair.PairedWallet
 import app.lumio.transactions.TxDetail
+import app.lumio.ui.kit.ADDRESS_LINE_TAG
+import app.lumio.ui.kit.spokenAddress
+import app.lumio.ui.kit.spokenHash
 import java.math.BigInteger
 import kotlin.test.assertEquals
 import org.junit.Rule
@@ -129,5 +138,71 @@ class TransactionDetailAddressTest {
 
         compose.onNodeWithText("Lena Park").assertIsDisplayed()
         compose.onNodeWithText("0x5c5c 5c5c 5c5c 5c5c 5c5c 5c5c 5c5c 5c5c 5c5c 5c5c").assertIsDisplayed()
+    }
+
+    private fun show(names: Map<String, String>, face: AccountFace = AccountFace.UNKNOWN) {
+        compose.setContent {
+            ClearAirTheme {
+                TransactionDetailScreen(
+                    detail = detail(),
+                    accountNames = names,
+                    book = emptyList(),
+                    backLabel = "Activity",
+                    showBalance = true,
+                    onAddress = {},
+                    onExplorer = {},
+                    onBack = {},
+                    onLock = {},
+                    unnamedAccount = face,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun theOwnAccountSaysItIsYoursAndShowsItsAddressOnALineOfItsOwn() {
+        show(mapOf(account to "PulsarNova #5"))
+
+        compose.onNodeWithText("PulsarNova #5").assertIsDisplayed()
+        compose.onNodeWithText("Your account").assertIsDisplayed()
+        val spoken = compose.onAllNodesWithTag(ADDRESS_LINE_TAG, useUnmergedTree = true)[0].fetchSemanticsNode().config[SemanticsProperties.Text].first().text
+        assertEquals(spokenAddress(account).text, spoken)
+    }
+
+    @Test
+    fun anUnnamedOwnAccountIsItsPlaceAndItsMonogramNotItsCutAddress() {
+        show(emptyMap(), AccountFace(title = "Account 1", monogram = "E1"))
+
+        compose.onNodeWithText("Account 1").assertIsDisplayed()
+        compose.onNodeWithText("E1").assertIsDisplayed()
+    }
+
+    @Test
+    fun anOwnAccountTheWalletDoesNotHoldIsAccountWithAQuestionMark() {
+        show(emptyMap())
+
+        compose.onNodeWithText("Account", substring = false, useUnmergedTree = true).assertIsDisplayed()
+        compose.onAllNodesWithText("?", useUnmergedTree = true).assertCountEquals(2) // the counterparty is not in the book either
+    }
+
+    @Test
+    fun theHashIsInGroupsOfFourAndSpokenVerbatim() {
+        show(emptyMap())
+
+        val hash = detail().tx.hash
+        compose.onNodeWithText(spokenHash(hash).text, useUnmergedTree = true).assertExists()
+    }
+
+    private fun walletOf(vararg accounts: PairedAccount) = PairedWallet(
+        id = "w", name = "Vault", fingerprint = 1L, createdAtMs = 1L, bitcoin = emptyList(), evmAccounts = accounts.toList(),
+    )
+
+    @Test
+    fun theFaceOfAnUnnamedAccountIsItsPlaceInTheWalletAndItsChainsLetter() {
+        val wallet = walletOf(PairedAccount(0, "0x" + "b2".repeat(20), null, null, null), PairedAccount(1, account, null, null, null))
+
+        assertEquals(AccountFace(title = "Account 2", monogram = "E2"), unnamedFaceOf(wallet, account))
+        assertEquals(AccountFace.UNKNOWN, unnamedFaceOf(wallet, friend))
+        assertEquals(AccountFace.UNKNOWN, unnamedFaceOf(null, account))
     }
 }

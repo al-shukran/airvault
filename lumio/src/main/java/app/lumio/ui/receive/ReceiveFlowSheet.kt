@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -45,7 +44,9 @@ import app.lumio.receive.ReceiveFlow
 import app.lumio.receive.ReceiveNetwork
 import app.lumio.receive.ReceiveStep
 import app.lumio.receive.monogramOf
-import app.lumio.receive.shortAddress
+import app.lumio.ui.kit.ADDRESS_GAP
+import app.lumio.ui.kit.AddressLine
+import app.lumio.ui.kit.AddressRow
 import app.lumio.ui.home.AssetIcon
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
@@ -268,7 +269,8 @@ private fun ReceiveAccountStep(
         network.accounts.forEach { account ->
             RadioRow(
                 title = account.name,
-                detail = accountLine(account),
+                detail = accountDetail(account),
+                address = account.address,
                 leading = { Monogram(initials = monogramOf(account.name)) },
                 onPick = { onPick(account) },
             )
@@ -282,21 +284,23 @@ private fun ReceiveAccountStep(
  * picks it, and the step goes on, so the radio is never filled here.
  */
 @Composable
-private fun RadioRow(title: String, detail: String?, leading: @Composable () -> Unit, onPick: () -> Unit) {
+private fun RadioRow(title: String, detail: String?, leading: @Composable () -> Unit, onPick: () -> Unit, address: String? = null) {
     val palette = LocalClearAirPalette.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .defaultMinSize(minHeight = CHOICE_MIN_HEIGHT)
-            .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onPick)
-            .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
+    AddressRow(
+        minHeight = CHOICE_MIN_HEIGHT,
+        addressInset = ROW_LOGO + ClearAirSpacing.sm,
+        footerAddress = address.takeIf { detail != null },
+        press = Modifier.lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onPick),
     ) {
         leading()
         Spacer(Modifier.width(ClearAirSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
             Text(text = title, style = ClearAirType.rowTitle, color = palette.ink)
-            detail?.let { Text(text = it, style = ClearAirType.body, color = palette.ink2) }
+            if (detail != null) {
+                Text(text = detail, style = ClearAirType.body, color = palette.ink2)
+            } else if (address != null) {
+                AddressLine(address = address, modifier = Modifier.padding(top = ADDRESS_GAP))
+            }
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))
         ClearAirRadio(selected = false)
@@ -344,9 +348,9 @@ private fun Monogram(initials: String) {
  */
 private fun networkDetail(network: ReceiveNetwork): String? = network.name.removePrefix(network.label).trim().ifEmpty { null }
 
-/** The line under an account's name: its label, its group, and its short address, as in "Trading · Group DeFi · 0x1020…122b". */
-private fun accountLine(account: ReceiveAccount): String =
-    listOfNotNull(account.label, account.group?.let { "Group $it" }, shortAddress(account.address)).joinToString(" · ")
+/** The line under an account's name: its label and its group, as in "Trading · Group DeFi", or null when it has neither. The address is a line of its own. */
+private fun accountDetail(account: ReceiveAccount): String? =
+    listOfNotNull(account.label, account.group?.let { "Group $it" }).joinToString(" · ").ifEmpty { null }
 
 private fun ReceiveCoin.matches(query: String): Boolean {
     val needle = query.trim()

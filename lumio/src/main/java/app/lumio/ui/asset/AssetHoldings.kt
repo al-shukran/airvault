@@ -8,13 +8,14 @@ import app.lumio.wallets.WalletAccount
 import app.lumio.watchlist.WatchedAsset
 import java.math.BigDecimal
 
-/** One account's share of a coin: its name, its wallet's name, index and address as Holdings Breakdown writes them, and the amount it holds. */
+/** One account's share of a coin: its name, its wallet's name and index, its address (shown on its own line), and the amount it holds. */
 internal data class AccountHolding(
     val walletId: String,
     val accountId: AccountId,
     val chain: String,
     val name: String,
     val detail: String,
+    val address: String,
     val amount: BigDecimal,
 )
 
@@ -55,8 +56,8 @@ internal fun canHold(account: WalletAccount, asset: WatchedAsset): Boolean =
 /** The name of [account] as the Asset page writes it: the owner's name, else its label, else its network. */
 internal fun accountName(account: WalletAccount): String = account.name ?: account.label ?: account.networkName
 
-/** The line under an account's name: its wallet's name, its index and its short address, as `Lumio #0 · 0x1020…122b`. */
-internal fun accountDetail(walletName: String, account: WalletAccount): String = "$walletName #${account.index} · ${shortAddress(account.address)}"
+/** The line under an account's name: its wallet's name and its index, as `Lumio #0`. The address is a line of its own. */
+internal fun accountDetail(walletName: String, account: WalletAccount): String = "$walletName #${account.index}"
 
 /**
  * A coin's holdings as [holdingsOf] reads them, one group per chain. Chains are in name order, as the design lists them, and each chain's accounts are
@@ -72,6 +73,7 @@ internal fun chainHoldings(holdings: List<WalletHolding>, walletName: String): L
                 chain = chain,
                 name = accountName(holding.account),
                 detail = accountDetail(walletName, holding.account),
+                address = holding.account.address,
                 amount = holding.amount,
             )
         }
@@ -87,12 +89,7 @@ internal fun chainHoldings(holdings: List<WalletHolding>, walletName: String): L
 /** An amount of a coin as the page writes it: the digits without trailing zeros, then the ticker. */
 internal fun amountText(amount: BigDecimal, symbol: String): String = "${amount.stripTrailingZeros().toPlainString()} $symbol"
 
-/** An address shortened to its first six and last four characters, joined by an ellipsis: `0x1020…122b`. */
-internal fun shortAddress(address: String): String = if (address.length <= SHORT_ADDRESS_LENGTH) address else address.take(6) + "…" + address.takeLast(4)
-
 /** The count of accounts and chains as the asset page's holdings row reads them: `5 accounts · 3 chains`. */
 internal fun holdingsSummary(accounts: Int, chains: Int): String = "${counted(accounts, "account")} · ${counted(chains, "chain")}"
 
 private fun counted(count: Int, noun: String): String = if (count == 1) "1 $noun" else "$count ${noun}s"
-
-private const val SHORT_ADDRESS_LENGTH = 12

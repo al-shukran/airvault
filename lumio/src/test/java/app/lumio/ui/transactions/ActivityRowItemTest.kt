@@ -1,10 +1,16 @@
 package app.lumio.ui.transactions
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import app.lensly.app.addressKeyOf
 import app.lensly.ui.theme.ClearAirTheme
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
@@ -13,6 +19,8 @@ import app.lumio.data.tx.TxAsset
 import app.lumio.data.tx.TxDirection
 import app.lumio.data.tx.TxStatus
 import app.lumio.transactions.TxFeedItem
+import app.lumio.ui.kit.ADDRESS_LINE_TAG
+import app.lumio.ui.kit.spokenAddress
 import java.math.BigInteger
 import java.time.ZoneId
 import kotlin.test.assertEquals
@@ -90,5 +98,32 @@ class ActivityRowItemTest {
 
         compose.onNodeWithText("Received").assertIsDisplayed()
         assertTrue(compose.onAllNodesWithText("Confirming", substring = true).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun anUnnamedPartyIsFromItsAddressOnALineOfItsOwn() {
+        compose.setContent {
+            ClearAirTheme {
+                ActivityRowItem(item = item(TxStatus.CONFIRMED), names = emptyMap(), zone = ZoneId.of("UTC"), shown = true, onClick = {})
+            }
+        }
+
+        compose.onNodeWithText("From").assertIsDisplayed()
+        val spoken = compose.onNodeWithTag(ADDRESS_LINE_TAG, useUnmergedTree = true).fetchSemanticsNode().config[SemanticsProperties.Text].first().text
+        assertEquals(spokenAddress(friend).text, spoken)
+        compose.onAllNodesWithText("0x", substring = true, useUnmergedTree = true).assertCountEquals(1)
+        assertTrue(compose.onNodeWithTag(ADDRESS_LINE_TAG, useUnmergedTree = true).getBoundsInRoot().top > compose.onNodeWithText("Received", useUnmergedTree = true).getBoundsInRoot().bottom)
+    }
+
+    @Test
+    fun aNamedPartyHasNoAddressLine() {
+        compose.setContent {
+            ClearAirTheme {
+                ActivityRowItem(item = item(TxStatus.CONFIRMED), names = mapOf(addressKeyOf(friend) to "Lena Park"), zone = ZoneId.of("UTC"), shown = true, onClick = {})
+            }
+        }
+
+        compose.onNodeWithText("From Lena Park", substring = true).assertIsDisplayed()
+        assertTrue(compose.onAllNodesWithTag(ADDRESS_LINE_TAG, useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
     }
 }

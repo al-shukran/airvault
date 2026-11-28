@@ -58,6 +58,7 @@ internal fun HoldingsPage(
                     ClearAirRow(
                         title = holding.name,
                         description = holding.detail,
+                        address = holding.address,
                         leading = { ClearAirMonogram(text = monogramOf(holding.name, named = true)) },
                         trailing = {
                             Text(

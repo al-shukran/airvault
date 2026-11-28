@@ -30,11 +30,11 @@ object SolanaAssets {
 
     /**
      * The coins the send offers: SOL, then each SPL token of the classic program that the account holds with an amount above zero. A Token-2022 token can
-     * be shown but not sent yet, so it is not offered. A token takes its symbol from [names], or else its shortened mint.
+     * be shown but not sent yet, so it is not offered. A token takes its symbol from [names], or else its mint in groups of four.
      */
     fun choices(balances: List<SplBalance>, names: SolanaTokenList): List<SolanaSendAsset> = listOf(native) + balances
         .filter { it.program == SolanaTokenAccounts.TOKEN_PROGRAM && it.amount.signum() > 0 }
-        .map { balance -> SolanaSendAsset(balance, names.token(balance.mint)?.symbol ?: ChainHoldings.shortened(balance.mint), balance.decimals) }
+        .map { balance -> SolanaSendAsset(balance, names.token(balance.mint)?.symbol ?: ChainHoldings.mintName(balance.mint), balance.decimals) }
 
     /**
      * The plan of a send of [units] of [asset] from [account] to [recipient]: lamports of SOL, or base units of the token. [sol] is the account's SOL.

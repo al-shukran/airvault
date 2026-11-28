@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Every short display of an address goes through AddressGroups (core/model), so an EVM 0x address reads in groups of 4 on every screen (#1684).
-# Only app/, shared/, core/, chains/ and abi/ are checked for now: Lumio's address display waits for a design decision. Fails when a Kotlin or Java
+# Only app/, lumio/, shared/, core/, chains/ and abi/ are checked. Fails when a Kotlin or Java
 # file under a module's shipped source set (src/main or src/release), outside the exceptions below, cuts a string with take(..), an ellipsis and
 # takeLast(..) in one function, or with substring(0, N) and an ellipsis, which is how a local 4…4 helper is written. Each function is read whole,
 # so a helper spread over several lines, a spaced call, a … escape or an ellipsis held in a constant is caught too.
@@ -25,7 +25,7 @@ EXEMPT = {
     "app/src/main/java/app/lensly/ui/sign/ReviewBlocks.kt": {"shortAddress"},
     "chains/evm/signer/src/main/kotlin/app/lensly/core/registry/CowSteps.kt": {"describe"},
 }
-CHECKED = {"app", "shared", "core", "chains", "abi"}
+CHECKED = {"app", "lumio", "shared", "core", "chains", "abi"}
 SHIPPED = {"main", "release"}
 SKIP_DIRS = {".git", ".gradle", "build", "node_modules"}
 FUN = re.compile(r"\bfun\s+")

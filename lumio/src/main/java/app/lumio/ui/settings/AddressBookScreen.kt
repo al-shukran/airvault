@@ -125,6 +125,7 @@ private fun EntryRows(entries: List<AddressBookEntry>, onOpen: (AddressBookEntry
         ClearAirRow(
             title = entry.name,
             description = entry.subtitle(),
+            address = entry.address,
             leading = { ClearAirMonogram(text = monogramOf(entry.name, named = true)) },
             onClick = { onOpen(entry) },
         )
@@ -170,17 +171,10 @@ private fun AddressBookEntry.matches(query: String): Boolean {
 }
 
 /**
- * The line under a name: the chain the address is on (a testnet4 address names its network), the label, and the address short. An EVM address is one account on every EVM network, so
- * it names the family, Ethereum.
+ * The line under a name: the chain the address is on (a testnet4 address names its network) and the label, or null when it has neither. An EVM address is one account on every EVM network, so
+ * it names the family, Ethereum. The address is a line of its own.
  */
-private fun AddressBookEntry.subtitle(): String =
-    listOfNotNull(addressChainLabel(address), label, shortAddress(address)).joinToString(" · ")
-
-/** [address] cut to its first and last characters, such as 0x9f3c…41d0: the 0x and four characters, or four, then the last four. */
-private fun shortAddress(address: String): String {
-    val head = if (address.startsWith("0x")) 6 else 4
-    return if (address.length <= head + 4) address else "${address.take(head)}…${address.takeLast(4)}"
-}
+private fun AddressBookEntry.subtitle(): String? = listOfNotNull(addressChainLabel(address), label).joinToString(" · ").ifEmpty { null }
 
 /** The note under the top bar: the book is edited on Lensly, so it cannot be changed here. */
 private const val READ_ONLY = "Read only · edited on Lensly"

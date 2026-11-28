@@ -44,6 +44,10 @@ data class ActivityLine(
     val usd: Double?,
     val incoming: Boolean,
     val pending: Boolean,
+    /** The other side's address when no name knows it, which a row shows on a line of its own after [addressWord]; null otherwise. */
+    val address: String? = null,
+    /** "From" for money in and "To" for money out. */
+    val addressWord: String = "To",
 )
 
 /** The text of the activity rows: what each one is, who it went to or came from, when, and how much. */
@@ -67,7 +71,7 @@ object ActivityText {
 
     /**
      * The line of [tx]. [party] names the other side of a transfer, from the address book or the wallet's own accounts, or null when neither
-     * knows it, and the address is then shortened. [chain] is the network's name and [usd] the value in dollars, or null without a price.
+     * knows it, and the line then carries the address, on a line of its own, after the direction word. [chain] is the network's name and [usd] the value in dollars, or null without a price.
      */
     fun line(tx: LumioTx, chain: String, usd: Double?, party: String?, zone: ZoneId): ActivityLine {
         val incoming = tx.direction == TxDirection.IN
@@ -76,14 +80,11 @@ object ActivityText {
             tx.direction == TxDirection.OUT && isContractCall(tx) -> "Contract Call"
             else -> "Sent"
         }
-        val who = (tx.counterparty?.let { party ?: shortAddress(it) })
+        val address = tx.counterparty?.takeIf { party == null }
         val time = CLOCK.format(Instant.ofEpochMilli(tx.timestampMs).atZone(zone))
         val pending = tx.status == TxStatus.PENDING
-        val direction = when {
-            who == null -> null
-            incoming -> "From $who"
-            else -> "To $who"
-        }
+        val word = if (incoming) "From" else "To"
+        val direction = party?.let { "$word $it" }
         val parts = listOfNotNull(
             if (pending) "Confirming" else null,
             direction,
@@ -100,6 +101,8 @@ object ActivityText {
             title = title,
             detail = parts.joinToString(" · "),
             amount = if (amount.signum() == 0) "Fee only" else "$sign${PortfolioFormat.coins(amount)} ${tx.asset.symbol}",
+            address = address,
+            addressWord = word,
             usd = usd,
             incoming = incoming,
             pending = pending,
@@ -109,9 +112,4 @@ object ActivityText {
     /** Whether [tx] calls a contract: an outgoing transaction that carries call data. A plain transfer carries none. */
     private fun isContractCall(tx: LumioTx): Boolean = tx.inputData?.let { it.isNotEmpty() && it != "0x" } == true
 
-    /** The first six and the last four characters of [address], with an ellipsis between, such as "0x1020…122b". */
-    fun shortAddress(address: String): String =
-        if (address.length <= SHORT_LIMIT) address else "${address.take(6)}…${address.takeLast(4)}"
-
-    private const val SHORT_LIMIT = 12
 }

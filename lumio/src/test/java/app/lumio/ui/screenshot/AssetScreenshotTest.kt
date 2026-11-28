@@ -126,7 +126,7 @@ class AssetScreenshotTest {
             onWatch = {},
             held = held,
             onHoldings = {},
-            accounts = listOf(CoinAccount(title = "Savings", detail = "Air 1 #0 · 0x1020…122b", trailing = "4 ETH", onSend = {}, onReceive = {})),
+            accounts = listOf(CoinAccount(title = "Savings", detail = "Air 1 #0", address = "0x1020304050607080901011121314151617181920", trailing = "4 ETH", onSend = {}, onReceive = {})),
             onBack = {},
             onLock = {},
             onAllActivity = {},
@@ -166,6 +166,7 @@ class AssetScreenshotTest {
         chain = chain,
         name = name,
         detail = detail,
+        address = "0x1020304050607080901011121314151617181920",
         amount = amount,
     )
 
