@@ -26,8 +26,10 @@ internal object CowSteps {
         val uid = call.bytes(0)
         if (uid.size != UID_BYTES) return CallSteps(emptyList(), listOf(UNREADABLE_CALL))
         val owner = "0x" + uid.copyOfRange(DIGEST_BYTES, DIGEST_BYTES + OWNER_BYTES).toHex()
-        if (owner != call.from) {
-            return CallSteps(emptyList(), listOf("This pre-signs an order owned by ${shortAddress(owner)}, not you, so the call reverts"))
+        // The settlement takes the pre-signature from its message sender, which inside a batch is the batch contract.
+        if (owner != call.caller) {
+            val warning = "This pre-signs an order owned by ${call.who(owner)}, not ${call.callerName}, so the call reverts"
+            return CallSteps(emptyList(), listOf(warning))
         }
         val digest = "0x" + uid.copyOfRange(0, DIGEST_BYTES).toHex()
         val order = digest.take(SHORT_HEAD + 2) + "…" + digest.takeLast(SHORT_TAIL)
@@ -35,7 +37,7 @@ internal object CowSteps {
         if (!call.bool(1)) return CallSteps(emptyList(), listOf(UNREADABLE_CALL))
         val validTo = BigInteger(1, uid.copyOfRange(DIGEST_BYTES + OWNER_BYTES, UID_BYTES))
         return CallSteps(
-            listOf("Pre-sign CoW order $order for you, valid until ${untilText(validTo)}"),
+            listOf("Pre-sign CoW order $order for ${call.callerName}, valid until ${untilText(validTo)}"),
             listOf("Solvers may fill this order on its terms until it expires. Revoke it to cancel."),
         )
     }
