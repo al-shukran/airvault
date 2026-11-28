@@ -181,9 +181,10 @@ class PhotoStore(
 
         /**
          * Runs [block] on [sealer] and waits for it. Every save and every shred of the cover runs there, one after another, so a block that
-         * lists and shreds photo files sees no save half way, and a photo saved meanwhile waits for the block.
+         * lists and shreds photo files sees no save half way, and a photo saved meanwhile waits for the block. Everything queued before it
+         * has run when it returns, so an empty block waits for the photo copies that a Duress Password set queues (see `dropSidePhotos`).
          */
-        internal fun <T> whileNoSaveRuns(block: () -> T): T {
+        fun <T> whileNoSaveRuns(block: () -> T): T {
             val task = FutureTask(block)
             sealer.execute(task)
             try {

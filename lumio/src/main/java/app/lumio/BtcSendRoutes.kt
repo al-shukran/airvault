@@ -51,6 +51,7 @@ import app.lumio.evm.SignatureStep
 import app.lumio.network.NetworkMode
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.pair.ownAccountsOf
 import app.lumio.send.ArrivalWatch
 import app.lumio.send.BtcPaymentCode
 import app.lumio.send.Landing
@@ -196,6 +197,7 @@ internal fun BtcSendRoute(
     val fromPath = selected.account.path.asString('\'')
     val paired = wallets.firstOrNull { it.fingerprint == selected.account.masterFingerprint }
     val addressBook = paired?.addressBook.orEmpty()
+    val own = remember(wallets) { ownAccountsOf(wallets) }
 
     // The coins the send may spend, read from the network, or from the pairing fixture in a debug build. A read failure keeps the page, with the words why.
     suspend fun readSpendable(): BtcSpendable = DebugSpendFixture.spendable(selected.account)
@@ -430,7 +432,7 @@ internal fun BtcSendRoute(
         BtcSendStep.Amount -> {
             val pool = spendable
             val total = pool?.coins?.sumOf { it.valueSats }
-            val notes = remember(recipient, addressBook) { addressNotesOf(recipient, BITCOIN_FAMILY, emptyMap(), addressBook) }
+            val notes = remember(recipient, own, addressBook) { addressNotesOf(recipient, BITCOIN_FAMILY, own, addressBook) }
             val toName = nameOrAddress(notes, recipient)
             val sent = preview
             SendAmountPage(
@@ -490,8 +492,8 @@ internal fun BtcSendRoute(
             }
         }
         is BtcSendStep.Review -> {
-            val notes = remember(current.plan.recipient, addressBook) {
-                addressNotesOf(current.plan.recipient, BITCOIN_FAMILY, emptyMap(), addressBook)
+            val notes = remember(current.plan.recipient, own, addressBook) {
+                addressNotesOf(current.plan.recipient, BITCOIN_FAMILY, own, addressBook)
             }
             val toName = nameOrAddress(notes, current.plan.recipient)
             val warnings = lookalikeWarnings(notes) + BtcAdvanced.warnings(suggestedRate ?: current.plan.feeRateSatPerVb, current.plan.feeRateSatPerVb)
@@ -548,7 +550,7 @@ internal fun BtcSendRoute(
             onLock = onLock,
         )
         is BtcSendStep.Submit -> {
-            val toName = nameWithAddress(addressNotesOf(current.plan.recipient, BITCOIN_FAMILY, emptyMap(), addressBook), current.plan.recipient)
+            val toName = nameWithAddress(addressNotesOf(current.plan.recipient, BITCOIN_FAMILY, own, addressBook), current.plan.recipient)
             SignedSendSteps(
                 machine = current.machine,
                 headline = "Your BTC Is on Its Way",

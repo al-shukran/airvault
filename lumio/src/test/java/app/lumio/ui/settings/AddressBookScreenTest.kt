@@ -1,6 +1,8 @@
 package app.lumio.ui.settings
 
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -13,6 +15,8 @@ import app.lensly.ui.theme.ClearAirTheme
 import app.lumio.pair.ADDRESS_BOOK_ALICE
 import app.lumio.pair.ADDRESS_BOOK_COLD
 import app.lumio.pair.ADDRESS_BOOK_FAUCET
+import app.lumio.ui.kit.ADDRESS_LINE_TAG
+import app.lumio.ui.kit.spokenAddress
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -110,5 +114,19 @@ class AddressBookScreenTest {
         compose.onNodeWithText("Cold storage").performClick()
         compose.onNodeWithText("Edit on Lensly").performClick()
         assertEquals(ADDRESS_BOOK_COLD.address, edited)
+    }
+
+    @Test
+    fun everyRowHasItsAddressOnALineOfItsOwnInGroupsOfFourWhateverTheChain() {
+        compose.setContent {
+            ClearAirTheme {
+                AddressBookScreen(entries = listOf(ADDRESS_BOOK_ALICE, ADDRESS_BOOK_COLD), offline = null, onEdit = {}, onBack = {}, onLock = {})
+            }
+        }
+
+        val spoken = compose.onAllNodesWithTag(ADDRESS_LINE_TAG, useUnmergedTree = true).fetchSemanticsNodes().map { it.config[SemanticsProperties.Text].first().text }
+        assertEquals(listOf(ADDRESS_BOOK_ALICE.address, ADDRESS_BOOK_COLD.address).map { spokenAddress(it).text }.toSet(), spoken.toSet())
+        compose.onNodeWithText("Ethereum · Savings", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("Bitcoin", useUnmergedTree = true).assertIsDisplayed()
     }
 }

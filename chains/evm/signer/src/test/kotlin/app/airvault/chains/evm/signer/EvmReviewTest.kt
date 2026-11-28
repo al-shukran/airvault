@@ -508,6 +508,40 @@ class EvmReviewTest {
         assertEquals("If this step fails, its value stays in the Multicall3 contract and can be taken by anyone.", caution.message)
     }
 
+    /** The approved batch contract [FAKE_BATCH], which is not Multicall3, running [shape] (the entry's selector is the shape's). */
+    private fun fakeBatchEntry(shape: MulticallShape) = WhitelistEntry(
+        chainId = 1,
+        contract = FAKE_BATCH.lowercase(),
+        selector = "0x${shape.selector}",
+        signature = shape.signature,
+        meaning = "Runs the calls in order.",
+        params = listOf(WhitelistParam("calls", shape.signature.substringAfter("(").removeSuffix(")"))),
+        upgradeable = false,
+    )
+
+    @Test
+    fun aBatchContractThatIsNotMulticall3IsNamedByItsAddressInTheStrandedAndFailingValueWarnings() {
+        val short = "0x0000 0000 … DeaD Beef"
+        val stranded = reviewOf(
+            txParsed(FAKE_BATCH, lidoBatch(MulticallShape.AGGREGATE3, null, null), value = ONE_ETH),
+            builder(REGISTRY.withWhitelist(listOf(lidoEntry(), fakeBatchEntry(MulticallShape.AGGREGATE3)))),
+        )
+        assertEquals(
+            "This batch sends native currency, but its calls receive none of it. The amount stays in the contract at $short and you cannot get it back.",
+            stranded.warnings.single { it.code == "evm.stranded-value" }.message,
+        )
+
+        val failing = reviewOf(
+            txParsed(FAKE_BATCH, aggregate3ValueTransfer(allowFailure = true, value = BigInteger.ONE), value = BigInteger.ONE),
+            builder(REGISTRY.withWhitelist(listOf(fakeBatchEntry(MulticallShape.AGGREGATE3_VALUE)))),
+        )
+        assertEquals(
+            "If this step fails, its value stays in the contract at $short and can be taken by anyone.",
+            failing.warnings.single { it.code == "evm.failing-call-value" }.message,
+        )
+        (stranded.warnings + failing.warnings).forEach { assertTrue("Multicall3" !in it.message, it.message) }
+    }
+
     @Test
     fun anAggregate3ValueCallThatCannotFailOrCarriesNoValueHasNoFailingValueCaution() {
         val cannotFail = reviewOf(txParsed(MULTICALL3, aggregate3ValueTransfer(allowFailure = false, value = BigInteger.ONE), value = BigInteger.ONE))
@@ -1062,7 +1096,7 @@ class EvmReviewTest {
         listOf(direct(byteArrayOf(0x00), listOf(swap)), batched(byteArrayOf(0x00), listOf(swap))).forEach { review ->
             val danger = review.warnings.single { it.code == "evm.router-leftover" }
             assertEquals(Danger.DANGER, danger.level)
-            assertEquals("This leaves tokens in the router, where anyone can take them", danger.message)
+            assertEquals("This leaves ETH or tokens in the router, where anyone can take them", danger.message)
             assertEquals(ACK_ROUTER_LEFTOVER, danger.acknowledge)
         }
         // A sweep to the signer after the swap takes the output out, so the review has no such warning.
@@ -1082,7 +1116,7 @@ class EvmReviewTest {
         // The router's own address as the recipient does what the flag does, so it earns the same DANGER.
         leftover(review(swap, listOf(urSwapInput(UR_V2)))).single().let {
             assertEquals(Danger.DANGER, it.level)
-            assertEquals("This leaves tokens in the router, where anyone can take them", it.message)
+            assertEquals("This leaves ETH or tokens in the router, where anyone can take them", it.message)
             assertEquals(ACK_ROUTER_LEFTOVER, it.acknowledge)
         }
         // A wrap into the router that nothing spends is a DANGER too, and the usual swap of the wrapped ETH is not.
@@ -1358,7 +1392,7 @@ private const val UR_MSG_SENDER = "0x0000000000000000000000000000000000000001"
 private const val UR_ADDRESS_THIS = "0x0000000000000000000000000000000000000002"
 private const val WETH_ADDRESS = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
 private const val ACK_STEP_PAYEE = "I understand this call pays an account other than mine."
-private const val ACK_ROUTER_LEFTOVER = "I understand this call leaves tokens in the router, where anyone can take them."
+private const val ACK_ROUTER_LEFTOVER = "I understand this call leaves ETH or tokens in the router, where anyone can take them."
 
 /** The approved Universal Router V2 `execute(bytes,bytes[],uint256)` on Ethereum. */
 private fun urEntry(): WhitelistEntry {

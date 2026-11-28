@@ -29,8 +29,11 @@ const val SCREENSHOT_QUALIFIERS = "w720dp-h1600dp-port-mdpi"
 /** The same window in the night theme, for a test that records a night golden with `@Config(qualifiers = ...)` on its method. */
 const val SCREENSHOT_NIGHT_QUALIFIERS = "w720dp-h1600dp-port-night-mdpi"
 
-/** Where the goldens are written. Relative to the app module, which is the test working directory. */
-const val SCREENSHOT_DIR = "src/test/screenshots"
+/**
+ * Where the goldens are written. Relative to the app module, which is the test working directory. `SCREENSHOT_OUT` names another folder, which
+ * scripts/design/render-at-density.sh uses to render at a measuring density without touching the goldens.
+ */
+val SCREENSHOT_DIR: String = System.getenv("SCREENSHOT_OUT") ?: "src/test/screenshots"
 
 /** The share of pixels allowed to differ from a golden: 0.05 percent, about 576 pixels of a 720 x 1600 frame. */
 private const val SCREENSHOT_CHANGE_THRESHOLD = 0.0005f
@@ -39,6 +42,9 @@ private const val SCREENSHOT_CHANGE_THRESHOLD = 0.0005f
 private const val SCREEN_WIDTH_PX = 720f
 private const val SCREEN_HEIGHT_PX = 1600f
 const val SCREEN_DENSITY = 1.75f
+
+/** The density a frame is drawn at: the phone's, unless `SCREENSHOT_DENSITY` names another for measuring (1 px = 1 dp, or 2). */
+private val RENDER_DENSITY: Float = System.getenv("SCREENSHOT_DENSITY")?.toFloatOrNull() ?: SCREEN_DENSITY
 
 /** The tag of the frame, so a check can read its pixels and its semantics tree. */
 const val SCREEN_TAG = "lensly-screenshot-screen"
@@ -58,7 +64,7 @@ fun ComposeContentTestRule.snapshot(
     theme: @Composable (content: @Composable () -> Unit) -> Unit = { LumenTheme(content = it) },
     frame: DpSize? = null,
     fontScale: Float = 1f,
-    density: Float = SCREEN_DENSITY,
+    density: Float = RENDER_DENSITY,
     content: @Composable () -> Unit,
 ) {
     val size = frame ?: DpSize((SCREEN_WIDTH_PX / SCREEN_DENSITY).dp, (SCREEN_HEIGHT_PX / SCREEN_DENSITY).dp)

@@ -435,7 +435,7 @@ internal fun SendRoute(
                 error = if (invalid && chain != null) "This isn't a ${chain.name} address" else null,
                 hint = bitcoinHint(recipient),
                 canContinue = chain != null && recipient.isNotBlank() && recipientError(recipient) == null,
-                accounts = ready.accounts.filterKeys { it != addressKeyOf(ready.from) }.map { (address, account) ->
+                accounts = ready.accounts.filterKeys { it.startsWith("0x") && it != addressKeyOf(ready.from) }.map { (address, account) ->
                     SendChoice(title = accountName(account), detail = "Your account", address = address)
                 },
                 addressBook = ready.wallet.addressBook.map { entry ->

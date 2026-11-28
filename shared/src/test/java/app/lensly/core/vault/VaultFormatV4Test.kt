@@ -60,6 +60,7 @@ class VaultFormatV4Test {
 
         fun setDuress(real: VaultSession) {
             assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { it.createWallet() } })
+            runBlocking { vault.awaitPhotoCopies() }
         }
 
         /** Writes [bytes] as `unlock.bin` and records it as the file last written, as a commit does. */
@@ -197,7 +198,7 @@ class VaultFormatV4Test {
         val real = rig.unlocked(APP)
         rig.setDuress(real)
         val withDuress = rig.layout.vaultKey.readBytes()
-        runBlocking { rig.vault.removeDuress(real) }
+        runBlocking { rig.vault.removeDuress(real); rig.vault.awaitPhotoCopies() }
         real.close()
 
         rig.layout.vaultKey.writeBytes(withDuress)
@@ -255,7 +256,7 @@ class VaultFormatV4Test {
         assertEquals(emptyList(), recordFilesWithAnotherFirstByte(rig))
 
         // A retired file is replaced by a random one of its size.
-        runBlocking { rig.vault.removeDuress(real) }
+        runBlocking { rig.vault.removeDuress(real); rig.vault.awaitPhotoCopies() }
         real.close()
         assertEquals(emptyList(), recordFilesWithAnotherFirstByte(rig))
     }
@@ -288,7 +289,7 @@ class VaultFormatV4Test {
         assertEquals(before, recordFiles(rig))
         rig.setDuress(real)
         assertEquals(before, recordFiles(rig))
-        runBlocking { rig.vault.removeDuress(real) }
+        runBlocking { rig.vault.removeDuress(real); rig.vault.awaitPhotoCopies() }
         assertEquals(before, recordFiles(rig))
         real.close()
     }
@@ -305,7 +306,7 @@ class VaultFormatV4Test {
         assertEquals(without, recordSizes(rig))
         assertEquals(0, publicRecordNames(rig))
 
-        runBlocking { rig.vault.removeDuress(real) }
+        runBlocking { rig.vault.removeDuress(real); rig.vault.awaitPhotoCopies() }
         assertEquals(without, recordSizes(rig))
         assertEquals(0, publicRecordNames(rig))
         real.close()

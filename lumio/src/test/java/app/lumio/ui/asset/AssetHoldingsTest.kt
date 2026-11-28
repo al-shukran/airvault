@@ -61,7 +61,8 @@ class AssetHoldingsTest {
         assertEquals(listOf("Arbitrum", "Ethereum"), chains.map { it.chain })
         assertEquals(listOf(BigDecimal("13.23"), BigDecimal("1")), chains.map { it.total })
         assertEquals(listOf("PulsarNova", "FelixStone"), chains.first().accounts.map { it.name })
-        assertEquals("Air 1 #5 · 0x1020…122b", chains.first().accounts.first().detail)
+        assertEquals("Air 1 #5", chains.first().accounts.first().detail)
+        assertEquals(accounts[2].address, chains.first().accounts.first().address, "the address is a line of its own, not part of the detail")
     }
 
     @Test
@@ -134,12 +135,6 @@ class AssetHoldingsTest {
         assertTrue(canHold(onSolana, spl))
         assertTrue(canHold(onAlgorand, asa))
         assertFalse(canHold(onSolana, WatchedAsset(NetworkId(ethereum, testnet = false), contract = "0xa0b8")))
-    }
-
-    @Test
-    fun anAddressKeepsItsFirstSixAndLastFourCharacters() {
-        assertEquals("0x1020…122b", shortAddress("0x102030405060708090a0b0c0d0e0f0101122b"))
-        assertEquals("0x1020", shortAddress("0x1020"))
     }
 
     @Test

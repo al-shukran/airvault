@@ -46,6 +46,22 @@ class ActivityViewTest {
     )
 
     @Test
+    fun aNamedPartyKeepsItsNameInTheDetailAndHasNoAddressLine() {
+        val line = ActivityText.line(tx(TxDirection.IN, "1000000000000000000"), chain = "Arbitrum", usd = null, party = "Exchange Deposit", zone = zone)
+
+        assertEquals(null, line.address)
+    }
+
+    @Test
+    fun anUnnamedSenderIsFromItsAddressOnALineOfItsOwn() {
+        val line = ActivityText.line(tx(TxDirection.IN, "1000000000000000000"), chain = "Arbitrum", usd = null, party = null, zone = zone)
+
+        assertEquals("Arbitrum · 15:00", line.detail)
+        assertEquals("From", line.addressWord)
+        assertEquals(counterparty, line.address)
+    }
+
+    @Test
     fun rowsAreSectionedByTodayYesterdayOrTheirDay() {
         val day = 24 * 60 * 60 * 1000L
         assertEquals("Today", ActivityText.section(now, now, zone))
@@ -76,7 +92,9 @@ class ActivityViewTest {
         )
 
         assertEquals("Contract Call", line.title)
-        assertEquals("Confirming · To 0x1234…5678 · Monad Testnet", line.detail)
+        assertEquals("Confirming · Monad Testnet", line.detail)
+        assertEquals("To", line.addressWord)
+        assertEquals(counterparty, line.address)
         assertEquals("−0.25 ETH", line.amount)
         assertEquals(null, line.usd)
         assertTrue(line.pending)
@@ -88,12 +106,6 @@ class ActivityViewTest {
 
         assertEquals("Sent", line.title)
         assertEquals("Fee only", line.amount)
-    }
-
-    @Test
-    fun anAddressShortensOnlyWhenItIsLong() {
-        assertEquals("0xabc", ActivityText.shortAddress("0xabc"))
-        assertEquals("0x1020…122b", ActivityText.shortAddress("0x1020" + "0".repeat(32) + "122b"))
     }
 
     @Test

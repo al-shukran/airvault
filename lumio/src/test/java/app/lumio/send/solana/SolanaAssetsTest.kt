@@ -4,6 +4,7 @@ import app.lensly.core.solana.SolanaTokenAccounts
 import app.airvault.chains.solana.signer.SolanaTokenList
 import app.lumio.data.provider.SplBalance
 import app.lumio.data.provider.solana.SOLANA_DEVNET
+import app.lumio.ui.kit.addressLineText
 import fr.acinq.bitcoin.Base58
 import java.math.BigInteger
 import kotlin.test.assertEquals
@@ -39,12 +40,13 @@ class SolanaAssetsTest {
     }
 
     @Test
-    fun aMintTheListDoesNotNameIsShortened() {
+    fun aMintTheListDoesNotNameIsWrittenAsItsGroupedEnds() {
         val unnamedHeld = SplBalance(account, unnamedMint, SolanaTokenAccounts.TOKEN_PROGRAM, BigInteger("5"), 2)
 
         val symbol = SolanaAssets.choices(listOf(unnamedHeld), names)[1].symbol
 
-        assertEquals("${unnamedMint.take(4)}...${unnamedMint.takeLast(4)}", symbol)
+        assertEquals(addressLineText(unnamedMint), symbol)
+        assertEquals("QWmr oo4Y … HGbU zwF", symbol.replace('\u00A0', ' '), "the grouped ends, joined by no-break spaces so a break comes only after the ellipsis")
     }
 
     @Test

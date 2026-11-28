@@ -1,0 +1,1 @@
+The review now warns when a Uniswap router call leaves ETH or tokens in the router for anyone to take: ETH sent with the call and not spent, and tokens moved into the router with Permit2 and not used.

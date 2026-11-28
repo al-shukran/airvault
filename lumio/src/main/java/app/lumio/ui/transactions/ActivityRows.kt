@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,6 +30,7 @@ import app.lumio.data.tx.TxStatus
 import app.lumio.home.Masking
 import app.lumio.transactions.ActivityText
 import app.lumio.transactions.TxFeedItem
+import app.lumio.ui.kit.AddressRow
 import app.lumio.ui.kit.CssCentre
 import app.lumio.ui.kit.LocalFiat
 import app.lumio.ui.kit.inLineBox
@@ -66,13 +65,13 @@ fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, 
     val tx = item.tx
     val party = tx.counterparty?.let { names[addressKeyOf(it)] }
     val line = remember(item, party, zone) { ActivityText.line(tx, chain = item.chain, usd = item.usd, party = party, zone = zone) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .defaultMinSize(minHeight = if (frame) FRAME_ROW_MIN_HEIGHT else ROW_MIN_HEIGHT)
-            .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick)
-            .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
+    AddressRow(
+        minHeight = if (frame) FRAME_ROW_MIN_HEIGHT else ROW_MIN_HEIGHT,
+        addressInset = DISC + ClearAirSpacing.sm,
+        footerAddress = line.address,
+        footerWord = line.addressWord,
+        footerWordStyle = if (frame) ClearAirType.caption else ClearAirType.body,
+        press = Modifier.lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick),
     ) {
         Box(
             modifier = Modifier.size(DISC).clip(CircleShape).background(palette.raised),

@@ -10,6 +10,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasClickAction
@@ -67,6 +68,40 @@ class ProfilePanelTest {
         compose.onNodeWithText("Send to a scanned address").assertIsDisplayed()
         compose.onNodeWithText("Mainnet").assertIsDisplayed()
         compose.onNodeWithText("Testnet").assertIsDisplayed()
+    }
+
+    /** The top of each line of the approved Profile panel frame (p1-02), in dp from the panel's top: its line boxes are the mock's, so the text sits where the frame has it. */
+    @Test
+    fun theLinesSitWhereTheApprovedFrameSetsThem() {
+        compose.setContent {
+            ClearAirTheme {
+                ProfilePanel(
+                    visible = true,
+                    mode = NetworkMode.TESTNET,
+                    testNetworks = 4,
+                    networkSentence = testNetworkSentence(listOf("Monad Testnet")),
+                    wallets = WALLETS,
+                    activeWalletId = "air1",
+                    onMode = {},
+                    onScan = {},
+                    onTestNetworks = {},
+                    onWallet = {},
+                    onPair = {},
+                    onDismiss = {},
+                )
+            }
+        }
+        fun top(text: String, dp: Double) = compose.onNodeWithText(text, ignoreCase = true, useUnmergedTree = true).assertTopPositionInRootIsEqualTo(dp.dp)
+        top("Lumio", 10.0)
+        top("AirVault Companion", 35.0)
+        top("Scan to Pay", 73.0)
+        top("Networks", 138.0)
+        top("Mainnet", 170.0)
+        top("Choose Test Networks", 292.0)
+        top("Lensly Wallets", 337.0)
+        top("Air 1", 366.0)
+        top("Air 2", 428.0)
+        top("Pair Another Wallet", 490.0)
     }
 
     @Test

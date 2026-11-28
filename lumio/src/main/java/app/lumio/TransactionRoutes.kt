@@ -38,6 +38,7 @@ import app.lumio.portfolio.TransactionPage
 import app.lumio.ui.settings.CommentBackupRows
 import app.lumio.ui.transactions.AddressInfoSheet
 import app.lumio.ui.transactions.TransactionDetailScreen
+import app.lumio.ui.transactions.unnamedFaceOf
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -82,6 +83,7 @@ internal fun TransactionDetailRoute(navController: NavHostController, holder: Va
             TransactionDetailScreen(
                 detail = page.detail,
                 accountNames = page.accounts.plainNames(),
+                unnamedAccount = unnamedFaceOf(page.wallet, page.detail.tx.account),
                 book = page.book,
                 backLabel = navController.backLabel(),
                 showBalance = display.showAssets,

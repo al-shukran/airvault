@@ -111,6 +111,53 @@ class BatchCallerStepsTest {
     }
 
     @Test
+    fun aBatchContractThatIsNotMulticall3IsNamedByItsAddressNeverAsMulticall3() {
+        val batch = OTHER
+        val withdraw = aaveWithdraw(batch, caller = batch)
+        assertEquals(listOf("Withdraw 1 USDC from Aave V3 to $OTHER_SHORT"), withdraw.lines)
+        assertEquals(listOf("This withdraws to $OTHER_SHORT, not you"), withdraw.warnings)
+        assertEquals(listOf(batch), withdraw.addresses)
+
+        val borrow = stepsOf(
+            AAVE_GATEWAY,
+            "0xe74f7b85",
+            "borrowETH(address,uint256,uint16)",
+            listOf(address("unused", AAVE_POOL), number("amount", ONE_USDC), number("referralCode", 0, "uint16")),
+            batch,
+        )
+        assertTrue(borrow.lines.single().endsWith("at a variable rate, sent to $OTHER_SHORT"), borrow.lines.single())
+
+        val repay = stepsOf(
+            AAVE_POOL,
+            "0x2dad97d4",
+            "repayWithATokens(address,uint256,uint256)",
+            listOf(address("asset", USDC), number("amount", ONE_USDC), number("interestRateMode", 2)),
+            batch,
+        )
+        assertEquals(listOf("Repay 1 USDC to Aave V3 at a variable rate, paid from $OTHER_SHORT's supplied USDC"), repay.lines)
+
+        val emode = stepsOf(AAVE_POOL, "0x28530a47", "setUserEMode(uint8)", listOf(number("categoryId", 1, "uint8")), batch)
+        assertEquals(
+            listOf("Efficiency mode changes the limits and liquidation thresholds of $OTHER_SHORT's Aave V3 positions"),
+            emode.warnings,
+        )
+
+        val cow = cow(batch, caller = batch)
+        assertTrue(cow.lines.single().contains(" for $OTHER_SHORT, valid until "), cow.lines.single())
+
+        listOf(withdraw, borrow, repay, emode, cow).forEach { steps ->
+            (steps.lines + steps.warnings).forEach { assertTrue("Multicall3" !in it, it) }
+            assertNamesNoYou(steps)
+        }
+    }
+
+    @Test
+    fun theRealMulticall3IsRecognisedWhateverTheCaseOfItsAddress() {
+        val checksummed = "0xcA11bde05977b3631167028862bE2a173976CA11"
+        assertEquals(listOf("Withdraw 1 USDC from Aave V3 to Multicall3"), aaveWithdraw(MULTICALL3, caller = checksummed).lines)
+    }
+
+    @Test
     fun aCompoundStepInABatchNamesMulticall3AndWarnsOfEveryAccountButTheSigner() {
         val supplyTo = stepsOf(
             CUSDC_V3,

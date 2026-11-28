@@ -48,6 +48,8 @@ data class ChangeCopy(
     val newHeadline: String,
     val newHint: String,
     val changedText: String,
+    /** The progress row of the Confirm step, while the vault saves the new password. */
+    val savingLabel: String,
     /** A warning shown under the hint on every step, or null for none. */
     val warning: String? = null,
 ) {
@@ -57,6 +59,7 @@ data class ChangeCopy(
             newHeadline = "New Password",
             newHint = "$MIN_PASSWORD_LENGTH+ characters, hard to guess",
             changedText = "The new password opens the vault now. The old one does not.",
+            savingLabel = "Changing the Application Password",
         )
 
         val DURESS_PASSWORD = ChangeCopy(
@@ -64,6 +67,7 @@ data class ChangeCopy(
             newHeadline = "New Password",
             newHint = "$MIN_PASSWORD_LENGTH+ characters, not your Application Password",
             changedText = "The Duress Password is set. The old one does not open anything.",
+            savingLabel = "Setting the Duress Password",
         )
     }
 }
@@ -132,7 +136,7 @@ fun ChangePasswordScreen(
 
             PasswordField(length = state.length, onClick = { focused = true })
             Spacer(Modifier.height(LenslySpacing.sm))
-            StatusSlot(state = state)
+            StatusSlot(state = state, copy = copy)
 
             Spacer(Modifier.weight(1f))
 
@@ -154,7 +158,7 @@ fun ChangePasswordScreen(
  * refused password. It has one height, so the keyboard does not move when either comes and goes.
  */
 @Composable
-private fun StatusSlot(state: ChangePasswordState) {
+private fun StatusSlot(state: ChangePasswordState, copy: ChangeCopy) {
     Box(
         modifier = Modifier.fillMaxWidth().height(STATUS_HEIGHT),
         contentAlignment = Alignment.Center,
@@ -162,7 +166,7 @@ private fun StatusSlot(state: ChangePasswordState) {
         val error = state.error
         when {
             state.busy -> LoadingState(
-                label = if (state.step == ChangeStep.Confirm) "Changing the Application Password" else "Checking the Password",
+                label = if (state.step == ChangeStep.Confirm) copy.savingLabel else "Checking the Password",
             )
             error != null -> InlineBanner(message = error.sentence(), tone = BannerTone.Error)
         }

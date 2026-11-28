@@ -37,6 +37,7 @@ import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.registry.WhitelistEntry
+import app.lensly.core.registry.batchName
 import app.lensly.core.registry.isHypeSystemAddress
 import app.lensly.core.registry.isHyperEvm
 import app.lensly.core.registry.isSystemAddress
@@ -437,7 +438,7 @@ class EvmReviewBuilder(
         ) {
             val callerOfCalls = if (shape.hasTarget) to else caller
             if (shape.hasTarget && !shape.hasValue && value.signum() > 0) {
-                warnings += Warning(Danger.DANGER, CODE_STRANDED_VALUE, STRANDED_VALUE_WARNING, FieldPath("$parent.function"), ACK_STRANDED_VALUE)
+                warnings += Warning(Danger.DANGER, CODE_STRANDED_VALUE, strandedValueWarning(to), FieldPath("$parent.function"), ACK_STRANDED_VALUE)
             }
             if (shape.hasValue && multicall.calls.sumOf { it.value ?: BigInteger.ZERO } != value) throw Refusal(VALUE_MISMATCH_REFUSAL)
             multicall.calls.forEachIndexed { index, inner ->
@@ -454,7 +455,7 @@ class EvmReviewBuilder(
                 val flags = flagsOf(shape, inner)
                 // Multicall3 keeps the value of a call that fails when the batch lets it fail.
                 if (shape.hasValue && inner.allowFailure == true && sent.signum() > 0) {
-                    warnings += Warning(Danger.CAUTION, CODE_FAILING_CALL_VALUE, FAILING_CALL_VALUE_WARNING, FieldPath("$prefix.function"))
+                    warnings += Warning(Danger.CAUTION, CODE_FAILING_CALL_VALUE, failingCallValueWarning(to), FieldPath("$prefix.function"))
                 }
                 val nested = inner.nested
                 val lone = inner.call
@@ -1179,13 +1180,17 @@ internal const val ACK_UNLIMITED = "I understand this approval is unlimited."
 /** The check the owner ticks for an unknown call, by name. */
 internal const val ACK_UNKNOWN_CALL = "I understand Lensly cannot say what this call does."
 
-/** The warning on a Multicall3 batch that gets native currency but sends none of it to its calls. */
-internal const val STRANDED_VALUE_WARNING =
-    "This batch sends native currency, but its calls receive none of it. The amount stays in the Multicall3 contract and you cannot get it back."
+/** The warning on a batch at [batch] that gets native currency but sends none of it to its calls. */
+internal fun strandedValueWarning(batch: String): String =
+    "This batch sends native currency, but its calls receive none of it. The amount stays in the ${batchContract(batch)} and you cannot get it back."
 
-/** The CAUTION on a Multicall3 call that may fail and carries native currency. */
-internal const val FAILING_CALL_VALUE_WARNING =
-    "If this step fails, its value stays in the Multicall3 contract and can be taken by anyone."
+/** The CAUTION on a call of a batch at [batch] that may fail and carries native currency. */
+internal fun failingCallValueWarning(batch: String): String =
+    "If this step fails, its value stays in the ${batchContract(batch)} and can be taken by anyone."
+
+/** "Multicall3 contract" for the real one, and "contract at <short address>" for any other batch contract. */
+private fun batchContract(batch: String): String =
+    if (batch.equals(MULTICALL3_ADDRESS, ignoreCase = true)) "Multicall3 contract" else "contract at ${batchName(batch)}"
 
 /** The check the owner ticks for a batch that strands the amount it sends, by name. */
 internal const val ACK_STRANDED_VALUE = "I understand this amount stays in the contract and is lost to me."
@@ -1205,11 +1210,11 @@ internal const val ACK_ALL_NFTS = "I understand this grants control of all NFTs 
 /** The check the owner ticks for a batch call whose router step pays an account other than the signer, by name. */
 internal const val ACK_STEP_PAYEE = "I understand this call pays an account other than mine."
 
-/** The DANGER on a router call whose steps leave tokens in the router, where the next caller can take them. */
-internal const val ROUTER_LEFTOVER_WARNING = "This leaves tokens in the router, where anyone can take them"
+/** The DANGER on a router call whose steps leave ETH or tokens in the router, where the next caller can take them. */
+internal const val ROUTER_LEFTOVER_WARNING = "This leaves ETH or tokens in the router, where anyone can take them"
 
-/** The check the owner ticks for a router call that leaves tokens in the router, by name. */
-internal const val ACK_ROUTER_LEFTOVER = "I understand this call leaves tokens in the router, where anyone can take them."
+/** The check the owner ticks for a router call that leaves ETH or tokens in the router, by name. */
+internal const val ACK_ROUTER_LEFTOVER = "I understand this call leaves ETH or tokens in the router, where anyone can take them."
 
 /** The check the owner ticks for a transfer that moves tokens out of an account other than the signer, by name. */
 internal const val ACK_FOREIGN_FROM = "I understand these tokens move out of another account."

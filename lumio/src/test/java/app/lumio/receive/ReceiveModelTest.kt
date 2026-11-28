@@ -103,16 +103,6 @@ class ReceiveModelTest {
     }
 
     @Test
-    fun shortensAnAddressToSixAndFour() {
-        assertEquals("0x1020…122b", shortAddress(ADDRESS))
-    }
-
-    @Test
-    fun leavesAShortAddressWhole() {
-        assertEquals("0x12", shortAddress("0x12"))
-    }
-
-    @Test
     fun shareSentenceNamesTheCoinTheFullAddressAndTheNetwork() {
         assertEquals(
             "Send MON on $ADDRESS on the Monad Testnet network. Assets sent on other networks may be lost.",
