@@ -1,5 +1,6 @@
 package app.lensly.app
 
+import app.airvault.core.model.AddressGroups
 import app.airvault.core.model.ChainId
 import app.lensly.ui.components.groupAddress
 
@@ -71,10 +72,6 @@ fun AddressBookEntry.plainLabel(): String = plainNameOrNull(label) ?: "Address B
 /**
  * [address] in groups of 4, cut to its first two and its last two groups around an ellipsis, as "0x1234 5678 … 9abc def0", and in full when it has
  * no more than four groups. A sentence shows it after a name, so a name never stands for its address, and a lookalike that shares the start still differs at the end.
+ * The router steps of a contract call show addresses the same way, through the same [AddressGroups] rule.
  */
-fun addressEnds(address: String): String {
-    val groups = groupAddress(address).split(" ")
-    return if (groups.size <= ADDRESS_ENDS_GROUPS * 2) groups.joinToString(" ") else (groups.take(ADDRESS_ENDS_GROUPS) + "…" + groups.takeLast(ADDRESS_ENDS_GROUPS)).joinToString(" ")
-}
-
-private const val ADDRESS_ENDS_GROUPS = 2
+fun addressEnds(address: String): String = AddressGroups.ends(address)

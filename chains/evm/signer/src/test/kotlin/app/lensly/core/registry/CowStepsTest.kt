@@ -49,6 +49,7 @@ class CowStepsTest {
         assertEquals(emptyList(), steps.lines)
         assertEquals(1, steps.warnings.size)
         assertTrue(steps.warnings.single().endsWith("not you, so the call reverts"), steps.warnings.single())
+        assertAddressesInGroupsOfFour(steps)
     }
 
     @Test

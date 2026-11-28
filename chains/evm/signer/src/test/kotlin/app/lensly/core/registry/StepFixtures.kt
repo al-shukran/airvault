@@ -36,3 +36,14 @@ internal fun abiWord(value: BigInteger): ByteArray {
 
 /** A 32-byte ABI word holding [address]. */
 internal fun abiAddressWord(address: String): ByteArray = abiWord(BigInteger(address.removePrefix("0x"), 16))
+
+/**
+ * Asserts that [steps] show every address as `0x` and groups of 4 characters, never as `0x`, four characters and an ellipsis: after the
+ * prefix, each run of hex characters is one group of exactly four.
+ */
+internal fun assertAddressesInGroupsOfFour(steps: CallSteps) {
+    (steps.lines + steps.warnings).forEach { text ->
+        kotlin.test.assertFalse(Regex("0x[0-9a-fA-F]{4}…").containsMatchIn(text), text)
+        Regex("0x[0-9a-fA-F]+").findAll(text).forEach { kotlin.test.assertEquals(2 + 4, it.value.length, text) }
+    }
+}

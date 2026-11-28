@@ -34,6 +34,9 @@ internal object UniversalRouterSteps {
     /** CONTRACT_BALANCE in ActionConstants: an amount that means the whole balance the router holds. */
     private val CONTRACT_BALANCE: BigInteger = BigInteger.ONE.shiftLeft(255)
 
+    /** BipsLibrary.BPS_DENOMINATOR: a portion of this many basis points is the whole balance. */
+    private val BPS_DENOMINATOR: BigInteger = BigInteger.valueOf(10_000)
+
     /** The two router deployments approved on Ethereum mainnet, by chain and address. */
     private enum class Dialect { V1_2, V2 }
 
@@ -88,7 +91,7 @@ internal object UniversalRouterSteps {
             warnings += step.warnings
             addresses += step.addresses
         }
-        return CallSteps(lines, warnings, addresses.distinct())
+        return call.checked(CallSteps(lines, warnings, addresses.distinct()))
     }
 
     /**
@@ -163,6 +166,8 @@ internal object UniversalRouterSteps {
         } else {
             "Swap up to ${call.amount(limit, tokenIn)} for exactly ${call.amount(amount, tokenOut)}"
         }
+        if (exactIn && amount == CONTRACT_BALANCE && !payerIsUser) call.emptyRouterOf(tokenIn)
+        call.keepInRouter(tokenOut, recipient)
         return call.paying(sentence + " " + via(call, "Uniswap v3", trade) + tail(call, recipient, payerIsUser), SWAP_OUTPUT, recipient)
     }
 
@@ -183,6 +188,8 @@ internal object UniversalRouterSteps {
             else -> "Swap exactly ${call.amount(amount, tokenIn)} for ≥ ${call.amount(limit, tokenOut)}"
         }
         val line = sentence + " " + via(call, "Uniswap v2", Route(path, emptyList())) + tail(call, recipient, payerIsUser)
+        if (exactIn && amount == CONTRACT_BALANCE && !payerIsUser) call.emptyRouterOf(tokenIn)
+        call.keepInRouter(tokenOut, recipient)
         return call.paying(line, SWAP_OUTPUT, recipient)
     }
 
@@ -236,6 +243,7 @@ internal object UniversalRouterSteps {
         val minimum = values[2].word()
         val least = if (minimum.signum() == 0) "" else " (at least ${call.amount(minimum, token)})"
         val line = "Sweep all ${call.symbolOf(token)} held by the router to ${call.recipientName(recipient)}$least"
+        call.takeFromRouter(token, recipient)
         return call.paying(line, "sweeps the router's tokens to", recipient)
     }
 
@@ -251,6 +259,7 @@ internal object UniversalRouterSteps {
         } else {
             "Transfer ${call.amount(value, token)} from the router to $name"
         }
+        if (token != NATIVE_COIN && value == CONTRACT_BALANCE) call.takeFromRouter(token, recipient)
         return call.paying(sentence, "transfers the router's tokens to", recipient)
     }
 
@@ -261,6 +270,7 @@ internal object UniversalRouterSteps {
         val bips = values[2].word()
         val portion = percentOf(bips)
         val line = "Pay $portion of the router's ${call.symbolOf(token)} balance to ${call.recipientName(recipient)}"
+        if (bips >= BPS_DENOMINATOR) call.takeFromRouter(token, recipient)
         return call.paying(line, "pays part of the router's tokens to", recipient)
     }
 
@@ -289,6 +299,8 @@ internal object UniversalRouterSteps {
         val name = call.recipientName(recipient)
         val to = if (name == "the router") "in the router" else "for $name"
         val line = "Unwrap all ${call.wrappedSymbol} the router holds → ${call.network.nativeSymbol} $to$least"
+        call.emptyRouterOf(WETH_MAINNET)
+        call.keepInRouter(NATIVE_COIN, recipient)
         return call.paying(line, "sends the unwrapped ${call.network.nativeSymbol} to", recipient)
     }
 

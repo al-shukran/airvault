@@ -20,7 +20,6 @@ internal object BulkerSteps {
     private const val INVOKE_SELECTOR = "0x555029a6"
     private const val INVOKE_SIGNATURE = "invoke(bytes32[],bytes[])"
     private const val MAINNET = 1L
-    private const val WETH_MAINNET = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
     private const val SELECTOR_BYTES = 4
     private const val ASCII_FROM = 0x20
     private const val ASCII_TO = 0x7e

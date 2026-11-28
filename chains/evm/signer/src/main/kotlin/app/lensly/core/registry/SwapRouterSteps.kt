@@ -9,7 +9,7 @@ import app.lensly.core.wallet.toHex
 import java.math.BigInteger
 
 /**
- * Steps for the calls on the Uniswap SwapRouter02 deployment on Ethereum mainnet: the Uniswap v3 swaps, unwrapWETH9 to a recipient,
+ * Steps for the calls on the Uniswap SwapRouter02 deployment on Ethereum mainnet: the Uniswap v3 swaps, unwrapWETH9 and sweepToken to a recipient,
  * refundETH, and multicall, which runs its calls in order. The layouts and semantics are those of
  * contracts/interfaces/IV3SwapRouter.sol, contracts/base/MulticallExtended.sol and contracts/base/PeripheryPaymentsExtended.sol at
  * Uniswap/swap-router-contracts 70bc2e40, and of contracts/base/Multicall.sol and contracts/base/PeripheryPayments.sol at
@@ -18,7 +18,8 @@ import java.math.BigInteger
  *
  * A multicall reverts the whole batch when one of its calls fails. A multicall inside a multicall is not read, since no real transaction has
  * one. A call Lensly cannot read is shown as raw input and warns. The recipient flags are read as in V3SwapRouter.sol: address(1) is the
- * signer, and address(2) is the router.
+ * signer, and address(2) is the router. A swap that leaves its output in the router, with no unwrapWETH9, sweepToken or refundETH to take
+ * it out, is flagged: the next caller can take it.
  */
 internal object SwapRouterSteps {
     private const val ROUTER = "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45"
@@ -32,6 +33,7 @@ internal object SwapRouterSteps {
     private const val SINGLE = "(address,address,uint24,address,uint256,uint256,uint160)"
     private const val PATH = "(bytes,address,uint256,uint256)"
     private const val V3 = "Uniswap v3"
+    private const val SWEEPS_TO = "sweeps the router's tokens to"
 
     /** A call the router runs: its signature, the layout of its arguments, and the steps it reads from them. */
     private class Call(val signature: String, val layout: List<WhitelistParam>, val describe: (StepCall) -> CallSteps?)
@@ -45,6 +47,13 @@ internal object SwapRouterSteps {
             unwrapWeth(it, it.uint(0), it.address(1))
         },
         "0x12210e8a" to Call("refundETH()", emptyList()) { refund(it) },
+        "0xdf2ab5bb" to Call(
+            "sweepToken(address,uint256,address)",
+            params("token" to "address", "amountMinimum" to "uint256", "recipient" to "address"),
+        ) { sweepToken(it, it.address(0), it.uint(1), it.address(2)) },
+        "0xe90a182f" to Call("sweepToken(address,uint256)", params("token" to "address", "amountMinimum" to "uint256")) {
+            sweepToken(it, it.address(0), it.uint(1), recipient = null)
+        },
     )
 
     /** The steps of [call] when it is an approved SwapRouter02 call on mainnet, and null for any other call. */
@@ -56,7 +65,7 @@ internal object SwapRouterSteps {
             else -> CALLS[selector]?.takeIf { it.signature == signature }?.let { known ->
                 known.describe(call) ?: CallSteps(emptyList(), listOf(UNREADABLE_CALL))
             }
-        }
+        }?.let(call::checked)
     }
 
     /** The steps of a multicall's [items], which are its calls in order. */
@@ -82,8 +91,7 @@ internal object SwapRouterSteps {
         if (selector == MULTICALL || selector == MULTICALL_DEADLINE) return unreadable(selector, input)
         val known = CALLS[selector] ?: return unknown(selector, input)
         val decoded = decode(input, known.layout) ?: return unreadable(selector, input)
-        val inner = StepCall(call.registry, call.network, call.contract, call.from, BigInteger.ZERO, decoded, call.caller)
-        return known.describe(inner) ?: unreadable(selector, input)
+        return known.describe(call.inner(decoded)) ?: unreadable(selector, input)
     }
 
     /** The arguments of [input], read with [layout] (which the input's selector precedes), or null when they do not decode. */
@@ -133,6 +141,8 @@ internal object SwapRouterSteps {
             "Swap up to ${c.amount(limit, tokenIn)} for exactly ${c.amount(amount, tokenOut)}"
         }
         val to = c.destination(recipient)?.let { ", $it" }.orEmpty()
+        if (exactIn && amount.signum() == 0) c.emptyRouterOf(tokenIn)
+        c.keepInRouter(tokenOut, recipient)
         return c.paying("$sentence ${via(c, V3, route)}$to", "pays the swap output to", recipient)
     }
 
@@ -141,16 +151,29 @@ internal object SwapRouterSteps {
         val least = if (minimum.signum() == 0) "" else " (at least ${c.wrappedAmount(minimum)})"
         // The router takes this recipient as it is: no flag is mapped.
         val line = "Unwrap all ${c.wrappedSymbol} the router holds → ${c.network.nativeSymbol} for ${c.who(recipient)}$least"
+        c.emptyRouterOf(WETH_MAINNET)
         return c.payingAddress(line, "sends the unwrapped ${c.network.nativeSymbol} to", recipient)
     }
 
+    /** Sends all [token] the router holds to [recipient], if at least the minimum. A null [recipient] is the message sender. */
+    private fun sweepToken(c: StepCall, token: String, minimum: BigInteger, recipient: String?): CallSteps {
+        val least = if (minimum.signum() == 0) "" else " (at least ${c.amount(minimum, token)})"
+        c.emptyRouterOf(token)
+        val to = recipient?.let(c::who) ?: c.callerName
+        val line = "Sweep all ${c.symbolOf(token)} held by the router to $to$least"
+        // The router takes a given recipient as it is: no flag is mapped.
+        return if (recipient == null) c.paying(line, SWEEPS_TO, MSG_SENDER) else c.payingAddress(line, SWEEPS_TO, recipient)
+    }
+
     /** Sends all the native coin the router holds to the message sender. */
-    private fun refund(c: StepCall): CallSteps =
-        c.paying(
+    private fun refund(c: StepCall): CallSteps {
+        c.emptyRouterOf(NATIVE_COIN)
+        return c.paying(
             "Refund all ${c.network.nativeSymbol} the router holds to ${c.callerName}",
             "refunds the router's ${c.network.nativeSymbol} to",
             MSG_SENDER,
         )
+    }
 
     /** The named fields of a call, in the order its signature lists them. */
     private fun params(vararg fields: Pair<String, String>): List<WhitelistParam> =

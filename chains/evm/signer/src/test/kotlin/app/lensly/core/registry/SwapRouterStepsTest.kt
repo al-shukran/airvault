@@ -8,7 +8,7 @@ import app.airvault.abi.WhitelistParam
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
 import kotlin.random.Random
-import kotlin.test.assertEquals
+import kotlin.test.assertEquals import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -121,22 +121,22 @@ class SwapRouterStepsTest {
         )
 
         assertEquals(
-            listOf("Swap up to 6.513472 USDT for exactly 40000000000 base units of 0x972a…2F68 via Uniswap v3 (0.3%)"),
+            listOf("Swap up to 6.513472 USDT for exactly 40000000000 base units of 0x972a 7A92 … 648f 2F68 via Uniswap v3 (0.3%)"),
             steps.lines,
         )
     }
 
     @Test
     fun anExactInputAcrossTwoPoolsNamesEachPoolsFee() {
-        // Transaction 0xdf441b7a: 50 USDT through WETH to 0x8CD4…ae7E, through the 0.01% pool and then the 1% pool.
+        // Transaction 0xdf441b7a: 50 USDT through WETH to 0x8CD4 1041 … BE8a ae7E, through the 0.01% pool and then the 1% pool.
         val steps = assertNotNull(
             stepsOf(StepVectors.SWAP_ROUTER_EXACT_INPUT, EXACT_INPUT, EXACT_INPUT_SIG, PATH_PARAMS, SENDER_TWO_POOLS),
         )
 
         assertEquals(
             listOf(
-                "Swap exactly 50 USDT for ≥ 1356863935555867246592 base units of 0x8CD4…ae7E via Uniswap v3: " +
-                    "USDT → WETH (0.01%), WETH → 0x8CD4…ae7E (1%)",
+                "Swap exactly 50 USDT for ≥ 1356863935555867246592 base units of 0x8CD4 1041 … BE8a ae7E via Uniswap v3: " +
+                    "USDT → WETH (0.01%), WETH → 0x8CD4 1041 … BE8a ae7E (1%)",
             ),
             steps.lines,
         )
@@ -144,7 +144,7 @@ class SwapRouterStepsTest {
 
     @Test
     fun anExactOutputAcrossTwoPoolsReadsThePathFromTheTokenBoughtBack() {
-        // Transaction 0x6aa08d4b: buys 100 USDT through WETH, paying 0x8CD4…ae7E, for at most 2919943589650316656640 base units.
+        // Transaction 0x6aa08d4b: buys 100 USDT through WETH, paying 0x8CD4 1041 … BE8a ae7E, for at most 2919943589650316656640 base units.
         // The path of an exact output lists the token bought first, so the steps read it from the other end.
         val steps = assertNotNull(
             stepsOf(StepVectors.SWAP_ROUTER_EXACT_OUTPUT, EXACT_OUTPUT, EXACT_OUTPUT_SIG, PATH_PARAMS, SENDER_TWO_POOLS),
@@ -152,8 +152,8 @@ class SwapRouterStepsTest {
 
         assertEquals(
             listOf(
-                "Swap up to 2919943589650316656640 base units of 0x8CD4…ae7E for exactly 100 USDT via Uniswap v3: " +
-                    "0x8CD4…ae7E → WETH (1%), WETH → USDT (0.01%)",
+                "Swap up to 2919943589650316656640 base units of 0x8CD4 1041 … BE8a ae7E for exactly 100 USDT via Uniswap v3: " +
+                    "0x8CD4 1041 … BE8a ae7E → WETH (1%), WETH → USDT (0.01%)",
             ),
             steps.lines,
         )
@@ -168,7 +168,7 @@ class SwapRouterStepsTest {
 
         assertEquals(
             listOf(
-                "Swap exactly 421723804899518709760 base units of 0xE7E7…E7E7 for ≥ 0 WETH via Uniswap v3 (1%), kept in the router",
+                "Swap exactly 421723804899518709760 base units of 0xE7E7 E741 … 5aC1 E7E7 for ≥ 0 WETH via Uniswap v3 (1%), kept in the router",
                 "Unwrap all WETH the router holds → ETH for you",
             ),
             steps.lines,
@@ -323,6 +323,7 @@ class SwapRouterStepsTest {
 
         val other = steps(lookalike)
         assertEquals(listOf("This pays the swap output to ${shortAddress(lookalike)}, not you"), other.warnings)
+        assertAddressesInGroupsOfFour(other)
         assertEquals(listOf(lookalike), other.addresses)
         assertTrue(other.lines.single().endsWith(", sent to ${shortAddress(lookalike)}"), other.lines.single())
         listOf(SENDER_EXACT_INPUT_SINGLE, FLAG_SIGNER, FLAG_ROUTER).forEach { own ->
@@ -331,7 +332,7 @@ class SwapRouterStepsTest {
         }
         // Inside a Multicall3 batch the flag 0x...01 is Multicall3.
         val batched = steps(FLAG_SIGNER, caller = multicall3)
-        assertEquals(listOf("This pays the swap output to 0xcA11…CA11, not you"), batched.warnings)
+        assertEquals(listOf("This pays the swap output to 0xcA11 bde0 … 3976 CA11, not you"), batched.warnings)
         assertEquals(listOf(multicall3), batched.addresses)
         assertTrue(batched.lines.single().endsWith(", sent to Multicall3"), batched.lines.single())
     }
@@ -438,5 +439,91 @@ class SwapRouterStepsTest {
             val steps = assertNotNull(SwapRouterSteps.describe(call, MULTICALL, MULTICALL_SIG))
             assertTrue(steps.lines.isNotEmpty() || steps.warnings.isNotEmpty())
         }
+    }
+
+    /** A call to the router's [selector] with static [args], as one item of a multicall. */
+    private fun item(selector: String, vararg args: ByteArray): ByteArray = Numeric.hexStringToByteArray(selector) + args.fold(ByteArray(0)) { a, b -> a + b }
+
+    private fun swapItem(recipient: String): ByteArray = item(
+        EXACT_INPUT_SINGLE,
+        abiAddressWord(USDT),
+        abiAddressWord(USDC),
+        abiWord(BigInteger.valueOf(100)),
+        abiAddressWord(recipient),
+        abiWord(BigInteger.valueOf(93_600_000)),
+        abiWord(BigInteger.ZERO),
+        abiWord(BigInteger.ZERO),
+    )
+
+    private fun unwrapItem(recipient: String): ByteArray = item("0x49404b7c", abiWord(BigInteger.ZERO), abiAddressWord(recipient))
+
+    private fun sweepItem(token: String, recipient: String): ByteArray =
+        item("0xdf2ab5bb", abiAddressWord(token), abiWord(BigInteger.ZERO), abiAddressWord(recipient))
+
+    /** The steps of a multicall of [items], sent by the signer. */
+    private fun multicallOf(vararg items: ByteArray): CallSteps = assertNotNull(
+        CallSteps.describe(
+            STEP_REGISTRY,
+            1,
+            SWAP_ROUTER,
+            MULTICALL,
+            MULTICALL_SIG,
+            SENDER_EXACT_INPUT_SINGLE,
+            BigInteger.ZERO,
+            listOf(DecodedParam(MULTICALL_PARAMS[0], AbiValue.Items(items.map { AbiValue.Dynamic(it.toHex()) }))),
+        ),
+    )
+
+    @Test
+    fun aSwapToTheRouterWithNoUnwrapOrSweepLeavesItsOutputThereInAMulticallAndOnItsOwn() {
+        assertTrue(multicallOf(swapItem(FLAG_ROUTER)).leavesInRouter)
+        assertFalse(multicallOf(swapItem(FLAG_SIGNER)).leavesInRouter)
+        assertFalse(multicallOf(swapItem(SENDER_EXACT_INPUT_SINGLE)).leavesInRouter)
+        val alone = assertNotNull(
+            CallSteps.describe(
+                STEP_REGISTRY,
+                1,
+                SWAP_ROUTER,
+                EXACT_INPUT_SINGLE,
+                EXACT_INPUT_SINGLE_SIG,
+                SENDER_EXACT_INPUT_SINGLE,
+                BigInteger.ZERO,
+                singlePoolArgs(USDT, USDC, BigInteger.valueOf(100), FLAG_ROUTER, BigInteger.valueOf(93_600_000), BigInteger.ZERO, BigInteger.ZERO),
+            ),
+        )
+        assertTrue(alone.leavesInRouter)
+    }
+
+    @Test
+    fun anUnwrapOrASweepOfTheOutputTakesItOutOfTheRouter() {
+        val signer = SENDER_EXACT_INPUT_SINGLE
+        assertFalse(multicallOf(swapItem(FLAG_ROUTER), sweepItem(USDC, signer)).leavesInRouter)
+        assertTrue(multicallOf(swapItem(FLAG_ROUTER), sweepItem(WETH, signer)).leavesInRouter)
+        // An unwrap takes WETH out, so it takes a swap of WETH out, and a swap of another token it leaves.
+        val toWeth = item(
+            EXACT_INPUT_SINGLE,
+            abiAddressWord(USDC),
+            abiAddressWord(WETH),
+            abiWord(BigInteger.valueOf(500)),
+            abiAddressWord(FLAG_ROUTER),
+            abiWord(BigInteger.TEN),
+            abiWord(BigInteger.ZERO),
+            abiWord(BigInteger.ZERO),
+        )
+        assertFalse(multicallOf(toWeth, unwrapItem(signer)).leavesInRouter)
+        assertTrue(multicallOf(swapItem(FLAG_ROUTER), unwrapItem(signer)).leavesInRouter)
+        // The refund of the native coin takes none of the swap output.
+        assertTrue(multicallOf(swapItem(FLAG_ROUTER), item("0x12210e8a")).leavesInRouter)
+    }
+
+    @Test
+    fun aSweepOfTheRouterToTheMessageSenderNamesThemAndTakesTheOutputOut() {
+        val steps = multicallOf(swapItem(FLAG_ROUTER), item("0xe90a182f", abiAddressWord(USDC), abiWord(BigInteger.ZERO)))
+
+        assertEquals("Sweep all USDC held by the router to you", steps.lines.last())
+        assertFalse(steps.leavesInRouter)
+        assertEquals(emptyList(), steps.warnings)
+        val other = multicallOf(sweepItem(USDC, "0x7546" + "00000000000000000000000000000000" + "0ecf"))
+        assertEquals(1, other.warnings.size)
     }
 }

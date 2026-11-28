@@ -57,8 +57,13 @@ private fun stepsOfParts(contract: String, commands: ByteArray, inputs: List<Byt
 )
 
 /** The ABI encoding of V3_SWAP_EXACT_IN with [path] to [recipient], which is the input a router command holds. */
-private fun v3ExactInInput(path: ByteArray, recipient: String = NATIVE_COIN, payerIsUser: Boolean = true): ByteArray {
-    val head = abiAddressWord(recipient) + abiWord(BigInteger.TEN.pow(18)) + abiWord(BigInteger.ZERO) +
+private fun v3ExactInInput(
+    path: ByteArray,
+    recipient: String = NATIVE_COIN,
+    payerIsUser: Boolean = true,
+    amountIn: BigInteger = BigInteger.TEN.pow(18),
+): ByteArray {
+    val head = abiAddressWord(recipient) + abiWord(amountIn) + abiWord(BigInteger.ZERO) +
         abiWord(BigInteger.valueOf(5L * ABI_WORD)) + abiWord(if (payerIsUser) BigInteger.ONE else BigInteger.ZERO)
     val padded = path + ByteArray((ABI_WORD - path.size % ABI_WORD) % ABI_WORD)
     return head + abiWord(BigInteger.valueOf(path.size.toLong())) + padded
@@ -70,6 +75,12 @@ private const val FUZZ_ROUNDS = 3000
 private val WETH_TO_USDC = Numeric.hexStringToByteArray(WETH) + byteArrayOf(0, 1, 0xf4.toByte()) + Numeric.hexStringToByteArray(USDC)
 
 private const val SWAP_WARNING = "This pays the swap output to "
+
+/** ActionConstants.CONTRACT_BALANCE: an amount that means the whole balance the router holds. */
+private val ALL_OF_BALANCE: BigInteger = BigInteger.ONE.shiftLeft(255)
+
+/** A USDC to WETH path through the 0.05% pool. */
+private val USDC_TO_WETH = Numeric.hexStringToByteArray(USDC) + byteArrayOf(0, 1, 0xf4.toByte()) + Numeric.hexStringToByteArray(WETH)
 private const val WRAP = 0x0b.toByte()
 private const val V3_SWAP = 0x00.toByte()
 private const val PERMIT2_TRANSFER_FROM = 0x02.toByte()
@@ -116,7 +127,7 @@ class UniversalRouterStepsTest {
 
         assertEquals(
             listOf(
-                "Swap exactly 110000000000000000000000 base units of 0xBF01…a461 for ≥ 0.007797477281397367 WETH via Uniswap v2, " +
+                "Swap exactly 110000000000000000000000 base units of 0xBF01 c3eF … 7DE3 a461 for ≥ 0.007797477281397367 WETH via Uniswap v2, " +
                     "paid by you, kept in the router",
                 "Unwrap all WETH the router holds → ETH for you (at least 0.007797477281397367 WETH)",
             ),
@@ -133,8 +144,8 @@ class UniversalRouterStepsTest {
         assertEquals(
             listOf(
                 "Wrap 0.008456 ETH → WETH in the router",
-                "Swap exactly 0.008456 WETH for ≥ 79728190054265695 base units of 0xbe7f…a938 via Uniswap v2, kept in the router",
-                "Sweep all 0xbe7f…a938 held by the router to you (at least 79728190054265695 base units of 0xbe7f…a938)",
+                "Swap exactly 0.008456 WETH for ≥ 79728190054265695 base units of 0xbe7f 040C … d2a7 a938 via Uniswap v2, kept in the router",
+                "Sweep all 0xbe7f 040C … d2a7 a938 held by the router to you (at least 79728190054265695 base units of 0xbe7f 040C … d2a7 a938)",
             ),
             steps.lines,
         )
@@ -149,9 +160,9 @@ class UniversalRouterStepsTest {
 
         assertEquals(
             listOf(
-                "Approve the Universal Router to spend 0xc8Fb…8888 amount 7756377918158211619 base units until 2026-11-16 05:46 UTC",
-                "Swap exactly 7756377918158211619 base units of 0xc8Fb…8888 for ≥ 0.000736805214329485 ETH via Uniswap v4 (0%)",
-                "Pay all 0xc8Fb…8888 the router owes from you to Uniswap v4 (at most 7756377918158211619 base units of 0xc8Fb…8888)",
+                "Approve the Universal Router to spend 0xc8Fb 80fC … 8888 8888 amount 7756377918158211619 base units until 2026-11-16 05:46 UTC",
+                "Swap exactly 7756377918158211619 base units of 0xc8Fb 80fC … 8888 8888 for ≥ 0.000736805214329485 ETH via Uniswap v4 (0%)",
+                "Pay all 0xc8Fb 80fC … 8888 8888 the router owes from you to Uniswap v4 (at most 7756377918158211619 base units of 0xc8Fb 80fC … 8888 8888)",
                 "Take all ETH owed to the router from Uniswap v4 to you",
             ),
             steps.lines,
@@ -165,7 +176,7 @@ class UniversalRouterStepsTest {
         val steps = assertNotNull(stepsOf(StepVectors.UR_V2_V4, UR_V1_2))
 
         assertEquals(
-            "Approve 0x66a9…A8Af to spend 0xc8Fb…8888 amount 7756377918158211619 base units until 2026-11-16 05:46 UTC",
+            "Approve 0x66a9 893c … e1dB A8Af to spend 0xc8Fb 80fC … 8888 8888 amount 7756377918158211619 base units until 2026-11-16 05:46 UTC",
             steps.lines[0],
         )
         assertTrue(steps.lines[1].startsWith("Unknown command 0x10: raw input 0x"), steps.lines[1])
@@ -189,7 +200,7 @@ class UniversalRouterStepsTest {
         val steps = assertNotNull(stepsOfParts(UR_V1_2, byteArrayOf(0x85.toByte()), listOf(transfer)))
         val v4 = assertNotNull(stepsOfParts(UR_V2, byteArrayOf(0x90.toByte()), listOf(ByteArray(0))))
 
-        assertEquals(listOf("Transfer 7 base units of 0x3fC2…0EAD from the router to you"), steps.lines)
+        assertEquals(listOf("Transfer 7 base units of 0x3fC2 9836 … 7D67 0EAD from the router to you"), steps.lines)
         // An empty v4 input does not decode, so the command is shown raw with a warning, and it gets no allow-revert note.
         assertEquals(listOf("Command 0x10 could not be read: raw input 0x"), v4.lines)
         assertEquals(listOf("Lensly cannot read the input of command 0x10. Its raw input is under Details."), v4.warnings)
@@ -205,7 +216,7 @@ class UniversalRouterStepsTest {
             val steps = assertNotNull(stepsOfParts(contract, byteArrayOf(0x8e.toByte()), listOf(input)))
 
             assertEquals(
-                listOf("Require you to hold at least 7 base units of 0x3fC2…0EAD (if it fails, the rest of the batch still runs)"),
+                listOf("Require you to hold at least 7 base units of 0x3fC2 9836 … 7D67 0EAD (if it fails, the rest of the batch still runs)"),
                 steps.lines,
             )
         }
@@ -267,7 +278,7 @@ class UniversalRouterStepsTest {
             ),
             viaBatch.lines,
         )
-        assertEquals(listOf("This pays the swap output to 0xcA11…CA11, not you"), viaBatch.warnings)
+        assertEquals(listOf("This pays the swap output to 0xcA11 bde0 … 3976 CA11, not you"), viaBatch.warnings)
         assertEquals(listOf(MULTICALL3), viaBatch.addresses)
         // The same call from the signer pays the signer: no note, no warning.
         assertEquals(listOf("Wrap 1 ETH → WETH in the router", "Swap exactly 1 WETH for ≥ 0 USDC via Uniswap v3 (0.05%)"), direct.lines)
@@ -285,7 +296,7 @@ class UniversalRouterStepsTest {
 
         val wrap = assertNotNull(stepsOfParts(UR_V2, byteArrayOf(WRAP), listOf(wrapInput(MSG_SENDER)), MULTICALL3))
         assertEquals(listOf("Wrap 1 ETH → WETH for Multicall3"), wrap.lines)
-        assertEquals(listOf("This wraps ETH for 0xcA11…CA11, not you"), wrap.warnings)
+        assertEquals(listOf("This wraps ETH for 0xcA11 bde0 … 3976 CA11, not you"), wrap.warnings)
 
         val unwrap = assertNotNull(stepsOfParts(UR_V2, byteArrayOf(UNWRAP), listOf(abiAddressWord(MSG_SENDER) + abiWord(BigInteger.ZERO)), MULTICALL3))
         assertEquals(listOf("Unwrap all WETH the router holds → ETH for Multicall3"), unwrap.lines)
@@ -305,6 +316,7 @@ class UniversalRouterStepsTest {
         assertEquals(listOf(SWAP_WARNING + shortAddress(LOOKALIKE) + ", not you"), steps.warnings)
         assertEquals(listOf(LOOKALIKE), steps.addresses)
         assertTrue(steps.lines.single().endsWith(", sent to ${shortAddress(LOOKALIKE)}"), steps.lines.single())
+        assertAddressesInGroupsOfFour(steps)
     }
 
     @Test
@@ -379,5 +391,77 @@ class UniversalRouterStepsTest {
             if (unread) assertTrue(steps.warnings.isNotEmpty(), steps.lines.toString())
             assertTrue(steps.lines.isNotEmpty() || steps.warnings.isNotEmpty())
         }
+    }
+
+    /** Whether the router still holds tokens after a call made of [commands] and their [inputs], as a swap of WETH to USDC leaves them. */
+    private fun leaves(commands: ByteArray, inputs: List<ByteArray>): Boolean =
+        assertNotNull(stepsOfParts(UR_V2, commands, inputs)).leavesInRouter
+
+    @Test
+    fun aSwapToTheRouterWithNothingToTakeItOutLeavesItsOutputThere() {
+        assertTrue(leaves(byteArrayOf(V3_SWAP), listOf(v3ExactInInput(WETH_TO_USDC, ADDRESS_THIS))))
+        // A swap to the signer, or to the message sender flag, leaves nothing.
+        assertFalse(leaves(byteArrayOf(V3_SWAP), listOf(v3ExactInInput(WETH_TO_USDC, SIGNER))))
+        assertFalse(leaves(byteArrayOf(V3_SWAP), listOf(v3ExactInInput(WETH_TO_USDC, MSG_SENDER))))
+    }
+
+    @Test
+    fun aSweepOrAnUnwrapToTheSignerTakesTheSwapOutputOutOfTheRouter() {
+        val swap = v3ExactInInput(WETH_TO_USDC, ADDRESS_THIS)
+        fun afterSweep(recipient: String, token: String = USDC) =
+            leaves(byteArrayOf(V3_SWAP, SWEEP), listOf(swap, abiAddressWord(token) + abiAddressWord(recipient) + abiWord(BigInteger.ZERO)))
+
+        assertFalse(afterSweep(SIGNER))
+        assertFalse(afterSweep(MSG_SENDER))
+        // A sweep to the router moves nothing, and a sweep of another token leaves this one.
+        assertTrue(afterSweep(ADDRESS_THIS))
+        assertTrue(afterSweep(SIGNER, token = WETH))
+        val unwrapped = leaves(
+            byteArrayOf(V3_SWAP, UNWRAP),
+            listOf(v3ExactInInput(USDC_TO_WETH, ADDRESS_THIS), abiAddressWord(SIGNER) + abiWord(BigInteger.ZERO)),
+        )
+        assertFalse(unwrapped)
+        // The unwrapped coin stays in the router when the unwrap pays the router.
+        assertTrue(
+            leaves(
+                byteArrayOf(V3_SWAP, UNWRAP),
+                listOf(v3ExactInInput(USDC_TO_WETH, ADDRESS_THIS), abiAddressWord(ADDRESS_THIS) + abiWord(BigInteger.ZERO)),
+            ),
+        )
+    }
+
+    @Test
+    fun aTransferOrPortionTakesTheOutputOutOnlyWhenItTakesAllOfIt() {
+        val swap = v3ExactInInput(WETH_TO_USDC, ADDRESS_THIS)
+        fun after(command: Byte, amount: BigInteger) = leaves(byteArrayOf(V3_SWAP, command), listOf(swap, tokenInput(SIGNER, amount)))
+
+        assertFalse(after(TRANSFER, ALL_OF_BALANCE))
+        assertTrue(after(TRANSFER, BigInteger.TEN))
+        assertFalse(after(PAY_PORTION, BigInteger.valueOf(10_000)))
+        assertTrue(after(PAY_PORTION, BigInteger.valueOf(50)))
+        // A portion, then a sweep of the rest, leaves nothing.
+        assertFalse(
+            leaves(
+                byteArrayOf(V3_SWAP, PAY_PORTION, SWEEP),
+                listOf(swap, tokenInput(OTHER, BigInteger.valueOf(50)), tokenInput(SIGNER, BigInteger.ZERO)),
+            ),
+        )
+    }
+
+    @Test
+    fun aLaterSwapOfAllTheRouterHoldsSpendsWhatAnEarlierSwapLeftThere() {
+        val first = v3ExactInInput(WETH_TO_USDC, ADDRESS_THIS)
+        val second = v3ExactInInput(USDC_TO_WETH, SIGNER, payerIsUser = false, amountIn = ALL_OF_BALANCE)
+
+        assertFalse(leaves(byteArrayOf(V3_SWAP, V3_SWAP), listOf(first, second)))
+        // A swap of a fixed amount may not spend all of it.
+        assertTrue(leaves(byteArrayOf(V3_SWAP, V3_SWAP), listOf(first, v3ExactInInput(USDC_TO_WETH, SIGNER, payerIsUser = false))))
+    }
+
+    @Test
+    fun theRealSwapsThatSweepOrUnwrapTheirOutputLeaveNothingInTheRouter() {
+        assertFalse(assertNotNull(stepsOf(StepVectors.UR_MULTI_STEP, UR_V1_2)).leavesInRouter)
+        assertFalse(assertNotNull(stepsOf(StepVectors.UR_V2_SWAP, UR_V1_2, from = "0x7095688dbbe3dd2649cc4ddd77d5be84e97d4c54")).leavesInRouter)
+        assertFalse(assertNotNull(stepsOf(StepVectors.UR_WRAP_V2_SWEEP, UR_V1_2, from = "0x1753603034a750ec6c42565ce4c6ae88d8bcd706")).leavesInRouter)
     }
 }
