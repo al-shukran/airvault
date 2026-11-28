@@ -14,7 +14,6 @@ import app.lensly.core.vault.UnlockResult
 import app.lensly.core.vault.Vault
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultLayout
-import app.lensly.core.vault.VaultRecordNames
 import app.lensly.core.vault.readPendingPhotoKey
 import app.lensly.ui.camera.GalleryScreen
 import app.lensly.ui.camera.PhotoStore
@@ -41,7 +40,7 @@ suspend fun galleryStoreFor(vault: Vault, layout: VaultLayout, password: CharArr
                 is UnlockResult.Unlocked -> {
                     val session = result.session
                     try {
-                        PhotoStore.of(layout, side = session.side, privateKey = session.getVaultRecord(VaultRecordNames.PHOTO_KEY))
+                        PhotoStore.of(layout, side = session.side, privateKey = session.photoPrivateKey())
                             .also { vault.awaitCleanup() }
                     } finally {
                         session.close()

@@ -192,6 +192,7 @@ internal fun AssetRoute(
         CoinAccount(
             title = accountName(account),
             detail = accountDetail(wallet?.name.orEmpty(), account),
+            address = account.address,
             trailing = amount?.let { Masking.amount(amountText(it, symbol), hidden = !display.showAssets) },
             onSend = coinSendRoute(account, asset, selection.mode)?.let { route -> { navController.navigate(route) } },
             onReceive = {

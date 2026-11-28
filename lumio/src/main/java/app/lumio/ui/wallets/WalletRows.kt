@@ -87,11 +87,14 @@ internal fun updatedAgo(ageMs: Long): String {
     }
 }
 
-/** An address as a list shows it: its first eight and last six characters. */
-internal fun shortAddress(address: String): String = "${address.take(8)}…${address.takeLast(6)}"
-
 /** The title of an account: the name the owner gave it in Lensly, or "Account" and its place in the wallet. */
-internal fun accountTitle(account: WalletAccount): String = account.name ?: "Account ${account.index + 1}"
+internal fun accountTitle(account: WalletAccount): String = account.name ?: unnamedTitle(account.index)
+
+/** The title of an account that has no name: "Account" and its place in the wallet, counted from 1. */
+internal fun unnamedTitle(index: Int): String = "Account ${index + 1}"
+
+/** The monogram of an account that has no name: its chain's letter and its place, such as "E1" for the first Ethereum account. */
+internal fun unnamedMonogram(namespace: String, index: Int): String = "${familyLabel(namespace).first()}${index + 1}"
 
 /** The index that follows a named account's title, such as "#5": its place among the accounts of its app, from 0. An unnamed account's title has it already. */
 internal fun accountIndex(account: WalletAccount): String? = if (account.name == null) null else "#${account.index}"
@@ -109,18 +112,15 @@ internal fun monogramOf(account: WalletAccount): String {
         else -> ""
     }
     if (letters.isNotEmpty()) return letters.uppercase()
-    return "${familyLabel(account.namespace).first()}${account.index + 1}"
+    return unnamedMonogram(account.namespace, account.index)
 }
 
 /**
- * The line under an account's title: its short address, then its script for Bitcoin or its count of assets for the rest. The count needs a read of
- * the native coin, so an account no read has reached shows its address alone.
+ * The line under an account's title: its script for Bitcoin or its count of assets for the rest, or null. The count needs a read of the native coin, so
+ * an account no read has reached has no line, and its address, which is a line of its own, takes its place.
  */
-internal fun accountLine(account: WalletAccount, tokens: Int): String {
-    val address = shortAddress(account.address)
-    val detail = account.script ?: account.balance?.let { plural(1 + tokens, "asset") }
-    return if (detail == null) address else "$address · $detail"
-}
+internal fun accountSummary(account: WalletAccount, tokens: Int): String? =
+    account.script ?: account.balance?.let { plural(1 + tokens, "asset") }
 
 /** The sum of the dollar values [usdOf] gives the [accounts], or null when none of them has a price. */
 internal fun groupUsd(accounts: List<WalletAccount>, usdOf: (WalletAccount) -> Double?): Double? =

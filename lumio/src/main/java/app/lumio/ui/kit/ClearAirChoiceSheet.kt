@@ -3,9 +3,7 @@ package app.lumio.ui.kit
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -15,7 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -36,6 +33,7 @@ class ChoiceRow(
     val title: String,
     val onPick: () -> Unit,
     val detail: String? = null,
+    val address: String? = null,
     val trailing: String? = null,
     val selected: Boolean = false,
     val enabled: Boolean = true,
@@ -75,23 +73,25 @@ fun ClearAirChoiceSheet(title: String, groups: List<ChoiceGroup>) {
 private fun ChoiceRowItem(row: ChoiceRow, divider: Boolean) {
     val palette = LocalClearAirPalette.current
     val titleColor = if (row.enabled) palette.ink else palette.ink.copy(alpha = DISABLED_ALPHA)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .drawBehind {
-                if (divider) {
-                    val inset = ClearAirSpacing.gutter.toPx()
-                    drawLine(palette.hairline, Offset(inset, 0f), Offset(size.width - inset, 0f), strokeWidth = 1.dp.toPx())
-                }
+    AddressRow(
+        minHeight = ROW_HEIGHT,
+        addressInset = 0.dp,
+        footerAddress = row.address.takeIf { row.detail != null },
+        modifier = Modifier.drawBehind {
+            if (divider) {
+                val inset = ClearAirSpacing.gutter.toPx()
+                drawLine(palette.hairline, Offset(inset, 0f), Offset(size.width - inset, 0f), strokeWidth = 1.dp.toPx())
             }
-            .defaultMinSize(minHeight = ROW_HEIGHT)
-            .clickable(enabled = row.enabled, role = Role.RadioButton, onClick = row.onPick)
-            .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
+        },
+        press = Modifier.clickable(enabled = row.enabled, role = Role.RadioButton, onClick = row.onPick),
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(text = row.title, style = ClearAirType.rowTitle, color = titleColor)
-            row.detail?.let { Text(text = it, style = ClearAirType.body, color = palette.ink2) }
+            if (row.detail != null) {
+                Text(text = row.detail, style = ClearAirType.body, color = palette.ink2)
+            } else if (row.address != null) {
+                AddressLine(address = row.address, modifier = Modifier.padding(top = ADDRESS_GAP))
+            }
         }
         row.trailing?.let {
             Spacer(Modifier.width(ClearAirSpacing.sm))

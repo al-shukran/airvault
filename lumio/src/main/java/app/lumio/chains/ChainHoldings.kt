@@ -12,6 +12,7 @@ import app.lumio.data.provider.SplBalance
 import app.lumio.data.provider.SplTokenBalances
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
+import app.lumio.ui.kit.addressLineText
 import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
 
@@ -31,9 +32,6 @@ data class ChainHolding(val symbol: String, val network: String, val amount: Big
 object ChainHoldings {
     private const val SOLANA_TOKENS = "registry/solana-tokens.json"
 
-    /** A mint longer than this is shortened to its first and last four characters when the token list does not name it. */
-    private const val SHORT_MINT = 12
-
     @Volatile
     private var tokenNames: SolanaTokenList? = null
 
@@ -46,11 +44,11 @@ object ChainHoldings {
     suspend fun solana(scheduler: Scheduler, network: NetworkId, owner: String, names: SolanaTokenList, networkName: String): List<ChainHolding> =
         solanaRows(scheduler.run(SplTokenBalances(network, owner), Priority.FOREGROUND), names, network, networkName)
 
-    /** The rows of [balances] that hold an amount. A token the list names takes the list's symbol, and any other is named by its shortened mint. */
+    /** The rows of [balances] that hold an amount. A token the list names takes the list's symbol, and any other is named by its mint in groups of four, cut to its two first and two last. */
     fun solanaRows(balances: List<SplBalance>, names: SolanaTokenList, network: NetworkId, networkName: String): List<ChainHolding> =
         balances.filter { it.amount.signum() > 0 }.map { balance ->
             ChainHolding(
-                symbol = names.token(balance.mint)?.symbol ?: shortened(balance.mint),
+                symbol = names.token(balance.mint)?.symbol ?: mintName(balance.mint),
                 network = networkName,
                 amount = balance.amount,
                 decimals = balance.decimals,
@@ -86,5 +84,6 @@ object ChainHoldings {
         return scheduler.run(AsaAssetInfo(network, assetId), Priority.FOREGROUND).also { paramsCache[key] = it }
     }
 
-    internal fun shortened(mint: String): String = if (mint.length <= SHORT_MINT) mint else mint.take(4) + "..." + mint.takeLast(4)
+    /** The name of a token the list does not know: its [mint] as an address is written, in groups of four with the ends and an ellipsis. */
+    internal fun mintName(mint: String): String = addressLineText(mint)
 }

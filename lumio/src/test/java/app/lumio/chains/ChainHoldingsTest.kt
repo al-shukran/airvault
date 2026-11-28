@@ -8,6 +8,7 @@ import app.lumio.data.net.Networks
 import app.lumio.data.provider.AsaHolding
 import app.lumio.data.provider.AsaInfo
 import app.lumio.data.provider.SplBalance
+import app.lumio.ui.kit.addressLineText
 import java.math.BigInteger
 import kotlin.test.assertEquals
 import org.junit.Test
@@ -17,7 +18,7 @@ class ChainHoldingsTest {
     private val names = SolanaTokenList.parse("""{"tokens":[{"mint":"$USDC_MINT","symbol":"USDC","name":"USD Coin","decimals":6}]}""")
 
     @Test
-    fun aMintTheListNamesTakesItsSymbolAndAnOtherIsShortened() {
+    fun aMintTheListNamesTakesItsSymbolAndAnOtherIsItsGroupedEnds() {
         val rows = ChainHoldings.solanaRows(
             listOf(
                 SplBalance(ACCOUNT, USDC_MINT, CLASSIC_PROGRAM, BigInteger("1500000"), 6),
@@ -31,7 +32,7 @@ class ChainHoldingsTest {
         assertEquals(
             listOf(
                 ChainHolding("USDC", "Solana Devnet", BigInteger("1500000"), 6, AssetId.Spl(SOL_DEVNET, USDC_MINT)),
-                ChainHolding("5UHr...2XJ6", "Solana Devnet", BigInteger("42"), 9, AssetId.Spl(SOL_DEVNET, UNKNOWN_MINT)),
+                ChainHolding(addressLineText(UNKNOWN_MINT), "Solana Devnet", BigInteger("42"), 9, AssetId.Spl(SOL_DEVNET, UNKNOWN_MINT)),
             ),
             rows,
         )

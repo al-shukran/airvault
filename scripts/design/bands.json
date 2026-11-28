@@ -1,0 +1,840 @@
+{
+"profile_panel_dark": {
+"ref": [
+21,
+19,
+23
+],
+"ymax": 720.0,
+"elements": [
+{
+"id": "e1",
+"what": "icon",
+"x": 20,
+"top": 17.0,
+"bottom": 47.0
+},
+{
+"id": "e2",
+"what": "Lumio",
+"x": 66,
+"top": 15.0,
+"bottom": 30.0
+},
+{
+"id": "e3",
+"what": "AirVault Companion",
+"x": 66,
+"top": 38.0,
+"bottom": 48.0
+},
+{
+"id": "e4",
+"what": "box",
+"x": 20,
+"top": 74.0,
+"bottom": 110.0
+},
+{
+"id": "e5",
+"what": "icon",
+"x": 27.5,
+"top": 74.0,
+"bottom": 110.0
+},
+{
+"id": "e6",
+"what": "Scan to Pay",
+"x": 68,
+"top": 77.0,
+"bottom": 90.0
+},
+{
+"id": "e7",
+"what": "Send to a scanned address",
+"x": 68,
+"top": 97.0,
+"bottom": 107.0
+},
+{
+"id": "e8",
+"what": "icon",
+"x": 268,
+"top": 87.0,
+"bottom": 97.0
+},
+{
+"id": "e9",
+"what": "NETWORKS",
+"x": 20,
+"top": 140.0,
+"bottom": 148.0
+},
+{
+"id": "e10",
+"what": "box",
+"x": 20,
+"top": 159.0,
+"bottom": 202.0
+},
+{
+"id": "e11",
+"what": "Mainnet",
+"x": 56.72,
+"top": 159.0,
+"bottom": 202.0
+},
+{
+"id": "e12",
+"what": "Testnet",
+"x": 189.16,
+"top": 159.0,
+"bottom": 202.0
+},
+{
+"id": "e13",
+"what": "box",
+"x": 153.5,
+"top": 159.0,
+"bottom": 202.0
+},
+{
+"id": "e14",
+"what": "Each chain uses its test network: Monad Testnet (EVM default), Bitcoin Testnet4, Solana Devnet and Algorand Testnet.",
+"x": 20,
+"top": 233.0,
+"bottom": 246.0
+},
+{
+"id": "e15",
+"what": "Choose Test Networks",
+"x": 20,
+"top": 295.0,
+"bottom": 307.0
+},
+{
+"id": "e16",
+"what": "4",
+"x": 248.45,
+"top": 296.0,
+"bottom": 306.0
+},
+{
+"id": "e17",
+"what": "icon",
+"x": 268,
+"top": 297.0,
+"bottom": 307.0
+},
+{
+"id": "e18",
+"what": "LENSLY WALLETS",
+"x": 20,
+"top": 339.0,
+"bottom": 347.0
+},
+{
+"id": "e19",
+"what": "box",
+"x": 20,
+"top": 367.0,
+"bottom": 403.0
+},
+{
+"id": "e20",
+"what": "icon",
+"x": 24,
+"top": 367.0,
+"bottom": 403.0
+},
+{
+"id": "e21",
+"what": "Air 1",
+"x": 68,
+"top": 370.0,
+"bottom": 382.0
+},
+{
+"id": "e22",
+"what": "30 accounts \u00b7 paired 21 Nov",
+"x": 68,
+"top": 390.0,
+"bottom": 400.0
+},
+{
+"id": "e23",
+"what": "box",
+"x": 262,
+"top": 374.0,
+"bottom": 396.0
+},
+{
+"id": "e24",
+"what": "box",
+"x": 20,
+"top": 429.0,
+"bottom": 465.0
+},
+{
+"id": "e25",
+"what": "icon",
+"x": 24,
+"top": 429.0,
+"bottom": 465.0
+},
+{
+"id": "e26",
+"what": "Air 2",
+"x": 68,
+"top": 432.0,
+"bottom": 444.0
+},
+{
+"id": "e27",
+"what": "3 accounts \u00b7 paired 18 Nov",
+"x": 68,
+"top": 452.0,
+"bottom": 462.0
+},
+{
+"id": "e28",
+"what": "box",
+"x": 262,
+"top": 436.0,
+"bottom": 458.0
+},
+{
+"id": "e29",
+"what": "Pair Another Wallet",
+"x": 50,
+"top": 494.0,
+"bottom": 506.0
+},
+{
+"id": "e30",
+"what": "icon",
+"x": 26,
+"top": 495.0,
+"bottom": 507.0
+}
+]
+},
+"profile_panel": {
+"ref": null,
+"ymax": 720.0,
+"elements": [
+{
+"id": "e1",
+"what": "icon",
+"x": 20,
+"top": 18.0,
+"bottom": 46.0
+},
+{
+"id": "e2",
+"what": "Lumio",
+"x": 66,
+"top": 15.0,
+"bottom": 30.0
+},
+{
+"id": "e3",
+"what": "AirVault Companion",
+"x": 66,
+"top": 38.0,
+"bottom": 48.0
+},
+{
+"id": "e4",
+"what": "box",
+"x": 20,
+"top": 74.0,
+"bottom": 110.0
+},
+{
+"id": "e5",
+"what": "icon",
+"x": 27.5,
+"top": 74.0,
+"bottom": 110.0
+},
+{
+"id": "e6",
+"what": "Scan to Pay",
+"x": 68,
+"top": 77.0,
+"bottom": 90.0
+},
+{
+"id": "e7",
+"what": "Send to a scanned address",
+"x": 68,
+"top": 97.0,
+"bottom": 107.0
+},
+{
+"id": "e8",
+"what": "icon",
+"x": 268,
+"top": 87.0,
+"bottom": 97.0
+},
+{
+"id": "e9",
+"what": "NETWORKS",
+"x": 20,
+"top": 140.0,
+"bottom": 148.0
+},
+{
+"id": "e10",
+"what": "box",
+"x": 20,
+"top": 159.0,
+"bottom": 202.0
+},
+{
+"id": "e11",
+"what": "Mainnet",
+"x": 56.72,
+"top": 159.0,
+"bottom": 202.0
+},
+{
+"id": "e12",
+"what": "Testnet",
+"x": 189.16,
+"top": 159.0,
+"bottom": 202.0
+},
+{
+"id": "e13",
+"what": "box",
+"x": 153.5,
+"top": 159.0,
+"bottom": 202.0
+},
+{
+"id": "e14",
+"what": "Each chain uses its test network: Monad Testnet (EVM default), Bitcoin Testnet4, Solana Devnet and Algorand Testnet.",
+"x": 20,
+"top": 233.0,
+"bottom": 245.0
+},
+{
+"id": "e15",
+"what": "Choose Test Networks",
+"x": 20,
+"top": 295.0,
+"bottom": 307.0
+},
+{
+"id": "e16",
+"what": "4",
+"x": 248.45,
+"top": 296.0,
+"bottom": 306.0
+},
+{
+"id": "e17",
+"what": "icon",
+"x": 268,
+"top": 297.0,
+"bottom": 307.0
+},
+{
+"id": "e18",
+"what": "LENSLY WALLETS",
+"x": 20,
+"top": 339.0,
+"bottom": 347.0
+},
+{
+"id": "e19",
+"what": "box",
+"x": 20,
+"top": 367.0,
+"bottom": 403.0
+},
+{
+"id": "e20",
+"what": "icon",
+"x": 24,
+"top": 367.0,
+"bottom": 403.0
+},
+{
+"id": "e21",
+"what": "Air 1",
+"x": 68,
+"top": 370.0,
+"bottom": 382.0
+},
+{
+"id": "e22",
+"what": "30 accounts \u00b7 paired 21 Nov",
+"x": 68,
+"top": 390.0,
+"bottom": 400.0
+},
+{
+"id": "e23",
+"what": "box",
+"x": 262,
+"top": 374.0,
+"bottom": 396.0
+},
+{
+"id": "e24",
+"what": "box",
+"x": 20,
+"top": 429.0,
+"bottom": 465.0
+},
+{
+"id": "e25",
+"what": "icon",
+"x": 24,
+"top": 429.0,
+"bottom": 465.0
+},
+{
+"id": "e26",
+"what": "Air 2",
+"x": 68,
+"top": 432.0,
+"bottom": 444.0
+},
+{
+"id": "e27",
+"what": "3 accounts \u00b7 paired 18 Nov",
+"x": 68,
+"top": 452.0,
+"bottom": 462.0
+},
+{
+"id": "e28",
+"what": "box",
+"x": 262,
+"top": 436.0,
+"bottom": 458.0
+},
+{
+"id": "e29",
+"what": "Pair Another Wallet",
+"x": 50,
+"top": 494.0,
+"bottom": 506.0
+},
+{
+"id": "e30",
+"what": "icon",
+"x": 26,
+"top": 495.0,
+"bottom": 507.0
+}
+]
+},
+"explore": {
+"ref": [
+21,
+19,
+23
+],
+"ymax": 740.0,
+"elements": [
+{
+"id": "e0",
+"what": "box",
+"x": 12,
+"top": 8.0,
+"bottom": 44.0
+},
+{
+"id": "e1",
+"what": "icon",
+"x": 16,
+"top": 8.0,
+"bottom": 44.0
+},
+{
+"id": "e2",
+"what": "Explore",
+"x": 58,
+"top": 19.0,
+"bottom": 32.0
+},
+{
+"id": "e3",
+"what": "icon",
+"x": 275,
+"top": 18.0,
+"bottom": 35.0
+},
+{
+"id": "e4",
+"what": "icon",
+"x": 319,
+"top": 18.0,
+"bottom": 35.0
+},
+{
+"id": "e5",
+"what": "CHAINS AND L2S",
+"x": 20,
+"top": 69.0,
+"bottom": 77.0
+},
+{
+"id": "e6",
+"what": "All 55",
+"x": 301.25,
+"top": 66.0,
+"bottom": 76.0
+},
+{
+"id": "e7",
+"what": "box",
+"x": 20,
+"top": 100.0,
+"bottom": 136.0
+},
+{
+"id": "e8",
+"what": "icon",
+"x": 27.5,
+"top": 100.0,
+"bottom": 136.0
+},
+{
+"id": "e9",
+"what": "Ethereum",
+"x": 68,
+"top": 103.0,
+"bottom": 116.0
+},
+{
+"id": "e10",
+"what": "Layer 1 \u00b7 4 of your accounts",
+"x": 68,
+"top": 123.0,
+"bottom": 135.0
+},
+{
+"id": "e11",
+"what": "icon",
+"x": 324,
+"top": 113.0,
+"bottom": 123.0
+},
+{
+"id": "e12",
+"what": "box",
+"x": 20,
+"top": 162.0,
+"bottom": 198.0
+},
+{
+"id": "e13",
+"what": "icon",
+"x": 27.5,
+"top": 162.0,
+"bottom": 198.0
+},
+{
+"id": "e14",
+"what": "Base",
+"x": 68,
+"top": 166.0,
+"bottom": 178.0
+},
+{
+"id": "e15",
+"what": "L2 on Ethereum \u00b7 ID 8453",
+"x": 68,
+"top": 185.0,
+"bottom": 195.0
+},
+{
+"id": "e16",
+"what": "icon",
+"x": 324,
+"top": 175.0,
+"bottom": 185.0
+},
+{
+"id": "e17",
+"what": "box",
+"x": 20,
+"top": 224.0,
+"bottom": 260.0
+},
+{
+"id": "e18",
+"what": "icon",
+"x": 27.5,
+"top": 224.0,
+"bottom": 260.0
+},
+{
+"id": "e19",
+"what": "Solana",
+"x": 68,
+"top": 227.0,
+"bottom": 240.0
+},
+{
+"id": "e20",
+"what": "Layer 1 \u00b7 1 of your accounts",
+"x": 68,
+"top": 247.0,
+"bottom": 259.0
+},
+{
+"id": "e21",
+"what": "icon",
+"x": 324,
+"top": 237.0,
+"bottom": 247.0
+},
+{
+"id": "e22",
+"what": "DATA PROVIDERS",
+"x": 20,
+"top": 298.0,
+"bottom": 306.0
+},
+{
+"id": "e23",
+"what": "All 9",
+"x": 310.05,
+"top": 295.0,
+"bottom": 305.0
+},
+{
+"id": "e24",
+"what": "box",
+"x": 20,
+"top": 329.0,
+"bottom": 365.0
+},
+{
+"id": "e25",
+"what": "icon",
+"x": 28.5,
+"top": 329.0,
+"bottom": 365.0
+},
+{
+"id": "e26",
+"what": "Blockscout",
+"x": 68,
+"top": 332.0,
+"bottom": 344.0
+},
+{
+"id": "e27",
+"what": "\u00b7 EVM balances and history",
+"x": 136.7,
+"top": 352.0,
+"bottom": 363.0
+},
+{
+"id": "e28",
+"what": "Working",
+"x": 82.52,
+"top": 352.0,
+"bottom": 362.0
+},
+{
+"id": "e29",
+"what": "icon",
+"x": 324,
+"top": 342.0,
+"bottom": 352.0
+},
+{
+"id": "e30",
+"what": "box",
+"x": 20,
+"top": 391.0,
+"bottom": 427.0
+},
+{
+"id": "e31",
+"what": "icon",
+"x": 28.5,
+"top": 391.0,
+"bottom": 427.0
+},
+{
+"id": "e32",
+"what": "mempool.space",
+"x": 68,
+"top": 397.0,
+"bottom": 407.0
+},
+{
+"id": "e33",
+"what": "\u00b7 Bitcoin",
+"x": 165.67,
+"top": 413.0,
+"bottom": 423.0
+},
+{
+"id": "e34",
+"what": "Rate-Limited",
+"x": 80.38,
+"top": 414.0,
+"bottom": 424.0
+},
+{
+"id": "e35",
+"what": "icon",
+"x": 324,
+"top": 404.0,
+"bottom": 414.0
+},
+{
+"id": "e36",
+"what": "LEARN AIRVAULT",
+"x": 20,
+"top": 461.0,
+"bottom": 469.0
+},
+{
+"id": "e37",
+"what": "box",
+"x": 20,
+"top": 489.0,
+"bottom": 525.0
+},
+{
+"id": "e38",
+"what": "icon",
+"x": 28.5,
+"top": 489.0,
+"bottom": 525.0
+},
+{
+"id": "e39",
+"what": "How the Air Gap Works",
+"x": 68,
+"top": 493.0,
+"bottom": 505.0
+},
+{
+"id": "e40",
+"what": "4 min read",
+"x": 68,
+"top": 511.0,
+"bottom": 521.0
+},
+{
+"id": "e41",
+"what": "icon",
+"x": 324,
+"top": 502.0,
+"bottom": 512.0
+},
+{
+"id": "e42",
+"what": "box",
+"x": 20,
+"top": 551.0,
+"bottom": 587.0
+},
+{
+"id": "e43",
+"what": "icon",
+"x": 28.5,
+"top": 551.0,
+"bottom": 587.0
+},
+{
+"id": "e44",
+"what": "Reading a Review on Lensly",
+"x": 68,
+"top": 555.0,
+"bottom": 567.0
+},
+{
+"id": "e45",
+"what": "3 min read",
+"x": 68,
+"top": 574.0,
+"bottom": 584.0
+},
+{
+"id": "e46",
+"what": "icon",
+"x": 324,
+"top": 564.0,
+"bottom": 574.0
+},
+{
+"id": "e48",
+"what": "Home",
+"x": 25.17,
+"top": 701.0,
+"bottom": 710.0
+},
+{
+"id": "e49",
+"what": "icon",
+"x": 27.69,
+"top": 675.0,
+"bottom": 693.0
+},
+{
+"id": "e50",
+"what": "Accounts",
+"x": 87.47,
+"top": 701.0,
+"bottom": 710.0
+},
+{
+"id": "e51",
+"what": "icon",
+"x": 98.09,
+"top": 674.0,
+"bottom": 693.0
+},
+{
+"id": "e52",
+"what": "Portfolio",
+"x": 160.31,
+"top": 701.0,
+"bottom": 710.0
+},
+{
+"id": "e53",
+"what": "icon",
+"x": 168.48,
+"top": 675.0,
+"bottom": 692.0
+},
+{
+"id": "e54",
+"what": "Explore",
+"x": 231.42,
+"top": 701.0,
+"bottom": 711.0
+},
+{
+"id": "e55",
+"what": "icon",
+"x": 238.89,
+"top": 674.0,
+"bottom": 693.0
+},
+{
+"id": "e56",
+"what": "Settings",
+"x": 301.63,
+"top": 701.0,
+"bottom": 710.0
+}
+]
+}
+}

@@ -7,7 +7,9 @@ import app.lensly.app.autoAccountName
 import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingPayload
 import app.lensly.app.plainName
+import app.lensly.core.algorand.AlgorandAccount
 import app.lensly.core.btc.BtcWatchOnlyAccount
+import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.vault.VaultException
 import app.lensly.core.vault.VaultSession
 import app.lensly.core.vault.WalletRecordNames
@@ -63,8 +65,10 @@ data class PairedWallet(
         }
 
     /** The name that the Bitcoin account at [index] shows: its custom name or its Auto-Name. Null for a wallet built without names. */
-    fun bitcoinNameAt(index: Int): String? =
-        bitcoinNames.getOrElse(index) { return null } ?: autoAccountName(autoNameBase, (bitcoin[index].path.path[ACCOUNT_STEP] and INDEX_MASK).toInt())
+    fun bitcoinNameAt(index: Int): String? = bitcoinNames.getOrElse(index) { return null } ?: bitcoinAutoNameAt(index)
+
+    /** The Auto-Name of the Bitcoin account at [index]: [autoNameBase] and the account number in its path. */
+    fun bitcoinAutoNameAt(index: Int): String = autoAccountName(autoNameBase, (bitcoin[index].path.path[ACCOUNT_STEP] and INDEX_MASK).toInt())
 
     /** The name that the Solana account at [index] shows: its custom name or its Auto-Name. Null for a wallet built without names. */
     fun solanaNameAt(index: Int): String? = solanaNames.getOrElse(index) { return null } ?: autoAccountName(autoNameBase, index)
@@ -86,15 +90,24 @@ fun sharedAddressBook(wallets: List<PairedWallet>): List<AddressBookEntry> =
     wallets.sortedBy { it.bookRank }.flatMap { it.addressBook }.associateBy { it.id }.values.toList()
 
 /**
- * The Ethereum accounts of [wallets], each keyed by [addressKeyOf] its address, with the name and label the pairing sent for it. The Solana,
- * Algorand and Bitcoin accounts of a wallet are not listed here: their names reach the account list through [PairedWallet.solanaNames] and the
- * like. An account with no name keeps its Auto-Name, as Lensly names it.
+ * The accounts of [wallets], each keyed by [addressKeyOf] its address, with the name and label the pairing sent for it: an Ethereum, Solana or
+ * Algorand account by its address, and a Bitcoin account by its first receive address, the address the account list shows. An account with no
+ * name keeps its Auto-Name, as Lensly names it.
  */
 fun ownAccountsOf(wallets: List<PairedWallet>): Map<String, InternalAccount> = buildMap {
     wallets.forEach { wallet ->
         wallet.evmAccounts.forEach { account ->
             val autoName = autoAccountName(wallet.autoNameBase, account.index)
             put(addressKeyOf(account.address), InternalAccount(displayName = account.name, autoName = autoName, label = account.label))
+        }
+        wallet.bitcoin.forEachIndexed { index, account ->
+            put(addressKeyOf(account.receiveAddress(0)), InternalAccount(wallet.bitcoinNames.getOrNull(index), wallet.bitcoinAutoNameAt(index), null))
+        }
+        wallet.solana.forEachIndexed { index, key ->
+            put(addressKeyOf(SolanaAccount.addressOf(key)), InternalAccount(wallet.solanaNames.getOrNull(index), autoAccountName(wallet.autoNameBase, index), null))
+        }
+        wallet.algorand.forEachIndexed { index, key ->
+            put(addressKeyOf(AlgorandAccount.addressOf(key)), InternalAccount(wallet.algorandNames.getOrNull(index), autoAccountName(wallet.autoNameBase, index), null))
         }
     }
 }

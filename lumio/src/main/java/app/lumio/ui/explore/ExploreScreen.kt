@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -47,6 +48,7 @@ import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirGlyphDisc
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ROW_DESCRIPTION
+import app.lumio.ui.kit.inLineBox
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.ProviderStatus
 import app.lumio.ui.settings.providerName
@@ -126,6 +128,7 @@ fun ExploreScreen(
                     leading = { AssetDisc(chain.icon) },
                     onClick = onChains,
                     divider = index > 0,
+                    lineBox = true,
                 )
             }
         }
@@ -137,6 +140,7 @@ fun ExploreScreen(
                     leading = { ClearAirGlyphDisc(ClearAirGlyph.NODE, size = 19.dp) },
                     onClick = { onProvider(row.id) },
                     divider = index > 0,
+                    lineBox = true,
                 )
             }
         }
@@ -148,6 +152,7 @@ fun ExploreScreen(
                     leading = { ClearAirGlyphDisc(ClearAirGlyph.BOOK, size = 19.dp) },
                     onClick = { onArticle(article.id) },
                     divider = index > 0,
+                    lineBox = true,
                 )
             }
         }
@@ -171,12 +176,12 @@ private fun RowScope.ProviderLine(row: ProviderRow) {
     StatusMark(status, color)
     Text(
         text = providerStatusName(status),
-        style = ROW_DESCRIPTION.copy(fontFamily = ClearAirType.rowTitle.fontFamily, fontWeight = FontWeight.SemiBold),
+        style = ROW_DESCRIPTION.copy(fontFamily = ClearAirType.rowTitle.fontFamily, fontWeight = FontWeight.SemiBold).inLineBox(),
         color = color,
     )
     (providerStatusNote(status) ?: providerCoverage(row.id))?.let { note ->
         Spacer(Modifier.width(NOTE_GAP))
-        Text(text = "· $note", style = ROW_DESCRIPTION, color = palette.ink2)
+        Text(text = "· $note", style = ROW_DESCRIPTION.inLineBox(), color = palette.ink2)
     }
 }
 
@@ -223,7 +228,7 @@ private fun ExploreGroup(title: String, top: Dp, action: String?, onAction: () -
             modifier = Modifier.fillMaxWidth().height(HEADER_HEIGHT).padding(horizontal = ClearAirSpacing.gutter),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ClearAirEyebrow(text = title, modifier = Modifier.weight(1f), top = 0.dp, bottom = 0.dp)
+            ClearAirEyebrow(text = title, modifier = Modifier.weight(1f).offset(y = if (action != null) EYEBROW_DROP else 0.dp), top = 0.dp, bottom = 0.dp)
             if (action != null) {
                 Box(
                     modifier = Modifier
@@ -242,11 +247,14 @@ private fun ExploreGroup(title: String, top: Dp, action: String?, onAction: () -
 }
 
 /** The mock's spacing of the landing, from the top of the page and between groups. */
-private val FIRST_GROUP_TOP = 13.5.dp
+private val FIRST_GROUP_TOP = 12.5.dp
 private val GROUP_TOP = 21.dp
 private val LEARN_GROUP_TOP = 18.dp
 private val HEADER_HEIGHT = 14.dp
 private val HEADER_GAP = 8.dp
+
+/** In the mock the "All N" action's line is taller than the eyebrow's and the row centres both, so the eyebrow of a group with an action sits this much lower. */
+private val EYEBROW_DROP = 1.25.dp
 private val HEADER_GAP_BARE = 4.dp
 
 /** The size of the status mark's box, which sets where the word begins, and the gap before the note. */

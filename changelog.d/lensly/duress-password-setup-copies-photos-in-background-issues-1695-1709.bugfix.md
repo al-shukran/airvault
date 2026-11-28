@@ -1,0 +1,1 @@
+Setting a Duress Password now finishes in the time of its key derivation instead of waiting while every photo and video is copied, the copies finish in the background and are resumed at the next unlock if the app is closed first, and the progress row reads "Setting the Duress Password".

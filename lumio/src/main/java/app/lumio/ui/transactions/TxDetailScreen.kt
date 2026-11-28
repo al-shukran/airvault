@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,14 +31,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.app.AddressBookEntry
-import app.lensly.app.addressEnds
 import app.lensly.app.addressKeyOf
 import app.lensly.app.plainName
+import app.lensly.core.algorand.AlgorandAccount
+import app.lensly.core.solana.SolanaAccount
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
 import app.lensly.ui.theme.ClearAirPalette
@@ -49,11 +51,14 @@ import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxDirection
 import app.lumio.data.tx.TxStatus
+import app.lumio.data.net.Networks
 import app.lumio.home.Masking
+import app.lumio.pair.PairedWallet
 import app.lumio.portfolio.PortfolioFormat
 import app.lumio.transactions.ActivityText
 import app.lumio.transactions.TxDetail
 import app.lumio.ui.kit.ClearAirAddressGrid
+import app.lumio.ui.kit.AddressRow
 import app.lumio.ui.kit.ClearAirDialog
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
@@ -62,8 +67,12 @@ import app.lumio.ui.kit.ClearAirPrimaryButton
 import app.lumio.ui.kit.ClearAirTestnetHatch
 import app.lumio.ui.kit.ClearAirTextAction
 import app.lumio.ui.kit.LocalFiat
+import app.lumio.ui.kit.hashLineText
+import app.lumio.ui.kit.spokenHash
 import app.lumio.ui.kit.rememberCopyAction
 import app.lumio.ui.shell.LumioPageScreen
+import app.lumio.ui.wallets.unnamedMonogram
+import app.lumio.ui.wallets.unnamedTitle
 import java.math.BigDecimal
 import java.net.URI
 import java.time.Instant
@@ -109,6 +118,7 @@ fun TransactionDetailScreen(
     onBack: () -> Unit,
     onLock: () -> Unit,
     zone: ZoneId = ZoneId.systemDefault(),
+    unnamedAccount: AccountFace = AccountFace.UNKNOWN,
 ) {
     val palette = LocalClearAirPalette.current
     val tx = detail.tx
@@ -129,15 +139,15 @@ fun TransactionDetailScreen(
                 )
             }
             Sectioned(label = if (incoming) "To" else "From")
-            AddressRow(
-                line = ownLine(tx.account, name = accountNames[addressKeyOf(tx.account)]),
+            PartyRow(
+                line = ownLine(tx.account, name = accountNames[addressKeyOf(tx.account)], unnamed = unnamedAccount),
                 onClick = { onAddress(tx.account) },
             )
             tx.asset.contract?.let { contract ->
                 Sectioned(label = "Token Contract")
                 val entry = entryOf(contract, book)
-                AddressRow(
-                    line = AddressLine(
+                PartyRow(
+                    line = PartyLine(
                         name = tx.asset.name,
                         detail = entry?.let(::addressBookSourceOf) ?: "Tap to add it on Lensly",
                         named = true,
@@ -188,7 +198,14 @@ fun TransactionDetailScreen(
 }
 
 /** What an address reads as on the page: its name, the line under it, and whether the name is a known one that gets a sunk monogram. */
-internal data class AddressLine(val name: String, val detail: String, val named: Boolean)
+internal data class PartyLine(val name: String, val detail: String, val named: Boolean, val address: String? = null, val monogram: String? = null)
+
+/** The name and monogram of an own account that has no name: the wallet list's "Account 1" and "E1", or "Account" and "?" when the wallet does not hold it. */
+data class AccountFace(val title: String, val monogram: String) {
+    companion object {
+        val UNKNOWN = AccountFace(title = "Account", monogram = "?")
+    }
+}
 
 /** The title of the page: the transaction's line, its amount and its ticker, such as "Sent 0.25 MON". The amount is hidden when balances are. */
 private fun titleOf(detail: TxDetail, zone: ZoneId, shown: Boolean): String {
@@ -203,17 +220,36 @@ private fun entryOf(address: String, book: List<AddressBookEntry>): AddressBookE
     book.firstOrNull { addressKeyOf(it.address) == addressKeyOf(address) }
 
 /** The other side's line: its entry's name, as plain text, when the address book has it, and otherwise "Not in Address Book", with the invitation to add it. */
-private fun counterpartyLine(entry: AddressBookEntry?): AddressLine = if (entry != null) {
-    AddressLine(name = entry.plainName(), detail = addressBookSourceOf(entry), named = true)
+private fun counterpartyLine(entry: AddressBookEntry?): PartyLine = if (entry != null) {
+    PartyLine(name = entry.plainName(), detail = addressBookSourceOf(entry), named = true)
 } else {
-    AddressLine(name = "Not in Address Book", detail = "Tap to add it on Lensly", named = false)
+    PartyLine(name = "Not in Address Book", detail = "Tap to add it on Lensly", named = false)
 }
 
-/** The wallet's own account: its name when it has one, and the line that says it is the owner's, with the ends of its address. */
-private fun ownLine(address: String, name: String?): AddressLine = AddressLine(
-    name = name ?: ActivityText.shortAddress(address),
-    detail = "Your account · ${addressEnds(address)}",
+/** The face of the account at [address] when it has no name: its place among [wallet]'s accounts of its chain, or [AccountFace.UNKNOWN] when the wallet does not hold it. */
+internal fun unnamedFaceOf(wallet: PairedWallet?, address: String): AccountFace {
+    if (wallet == null) return AccountFace.UNKNOWN
+    val key = addressKeyOf(address)
+    val places = listOf(
+        Networks.EIP155 to wallet.evmAccounts.map { it.index to addressKeyOf(it.address) },
+        Networks.BIP122 to wallet.bitcoin.mapIndexed { index, account -> index to addressKeyOf(account.receiveAddress(0)) },
+        Networks.SOLANA to wallet.solana.mapIndexed { index, key -> index to addressKeyOf(SolanaAccount.addressOf(key)) },
+        Networks.ALGORAND to wallet.algorand.mapIndexed { index, key -> index to addressKeyOf(AlgorandAccount.addressOf(key)) },
+    )
+    for ((namespace, accounts) in places) {
+        val index = accounts.firstOrNull { it.second == key }?.first ?: continue
+        return AccountFace(title = unnamedTitle(index), monogram = unnamedMonogram(namespace, index))
+    }
+    return AccountFace.UNKNOWN
+}
+
+/** The wallet's own account: its name, or the face of an unnamed one, the line that says it is the owner's, and its address on a line of its own. */
+internal fun ownLine(address: String, name: String?, unnamed: AccountFace): PartyLine = PartyLine(
+    name = name ?: unnamed.title,
+    detail = "Your account",
     named = true,
+    address = address,
+    monogram = if (name == null) unnamed.monogram else null,
 )
 
 /**
@@ -288,7 +324,7 @@ private fun heroColor(tx: LumioTx, palette: ClearAirPalette): Color = when {
  * full address in groups of four. The whole card opens the address's sheet.
  */
 @Composable
-private fun CheckCard(eyebrow: String, address: String, line: AddressLine, onClick: () -> Unit) {
+private fun CheckCard(eyebrow: String, address: String, line: PartyLine, onClick: () -> Unit) {
     val palette = LocalClearAirPalette.current
     val shape = RoundedCornerShape(CARD_CORNER)
     Column(
@@ -314,17 +350,15 @@ private fun CheckCard(eyebrow: String, address: String, line: AddressLine, onCli
 
 /** A row of an address on the page: its monogram, its name with the line under it, and a chevron, since the row opens the address's sheet. */
 @Composable
-private fun AddressRow(line: AddressLine, onClick: () -> Unit) {
+private fun PartyRow(line: PartyLine, onClick: () -> Unit) {
     val palette = LocalClearAirPalette.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .defaultMinSize(minHeight = ADDRESS_ROW_MIN_HEIGHT)
-            .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick)
-            .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
+    AddressRow(
+        minHeight = ADDRESS_ROW_MIN_HEIGHT,
+        addressInset = ADDRESS_DISC + ClearAirSpacing.sm,
+        footerAddress = line.address,
+        press = Modifier.lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick),
     ) {
-        Monogram(text = monogramOf(line.name, named = line.named), known = line.named)
+        Monogram(text = line.monogram ?: monogramOf(line.name, named = line.named), known = line.named)
         Spacer(Modifier.width(ClearAirSpacing.sm))
         AddressText(line = line, modifier = Modifier.weight(1f))
         ClearAirIcon(glyph = ClearAirGlyph.CHEVRON, color = palette.ink3)
@@ -333,7 +367,7 @@ private fun AddressRow(line: AddressLine, onClick: () -> Unit) {
 
 /** The name of an address with the line under it, as a column that wraps to a second line rather than clipping. */
 @Composable
-private fun AddressText(line: AddressLine, modifier: Modifier = Modifier) {
+private fun AddressText(line: PartyLine, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     Column(modifier = modifier) {
         Text(text = line.name, style = ClearAirType.rowTitle, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -357,12 +391,17 @@ private fun Details(detail: TxDetail) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(text = "Hash", style = ClearAirType.body, color = palette.ink2, modifier = Modifier.weight(1f))
-        Text(
-            text = if (copy.copied) "Hash copied" else ActivityText.shortAddress(detail.tx.hash),
-            style = ClearAirType.rowValue,
-            color = palette.ink,
-            textAlign = TextAlign.End,
-        )
+        if (copy.copied) {
+            Text(text = "Hash copied", style = ClearAirType.rowValue, color = palette.ink, textAlign = TextAlign.End)
+        } else {
+            Text(
+                text = hashLineText(detail.tx.hash),
+                style = ClearAirType.rowValue,
+                color = palette.ink,
+                textAlign = TextAlign.End,
+                modifier = Modifier.clearAndSetSemantics { text = spokenHash(detail.tx.hash) },
+            )
+        }
     }
 }
 

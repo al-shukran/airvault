@@ -149,6 +149,10 @@ internal object V4SwapSteps {
             val buy = if (amount.signum() == 0) "all ${c.symbolOf(tokenOut)} the router owes" else "exactly ${c.amount(amount, tokenOut)}"
             "Swap up to ${c.amount(limit, tokenIn)} for $buy"
         }
+        // A native input is paid from the ETH the router holds: an exact input spends its amount, and any other swap spends some of it.
+        if (tokenIn == NATIVE_COIN) {
+            if (exactIn && amount.signum() != 0) c.spendFromRouter(NATIVE_COIN, amount) else c.spendUnknownFromRouter(NATIVE_COIN)
+        }
         return CallSteps(listOf("$sentence ${viaV4(c, route)}"), hookWarnings(hooks))
     }
 
@@ -182,7 +186,10 @@ internal object V4SwapSteps {
             v[2].word() == BigInteger.ONE -> " from ${c.callerName}"
             else -> " from the router"
         }
-        if (v[2].word() != BigInteger.ONE) {
+        // A native coin comes from the router whoever is named as payer. The swap that owes it has already spent its stated amount.
+        if (currency == NATIVE_COIN) {
+            if (amount == CONTRACT_BALANCE) c.emptyRouterOf(currency)
+        } else if (v[2].word() != BigInteger.ONE) {
             if (amount == CONTRACT_BALANCE) c.emptyRouterOf(currency) else c.spendFromRouter(currency, amount)
         }
         return CallSteps(listOf("Pay $what$payer to $V4"), emptyList())
