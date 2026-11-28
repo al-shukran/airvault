@@ -2,6 +2,8 @@ package app.lumio.ui.screenshot
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import app.airvault.core.model.AccountId
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.RegistryLoader
@@ -45,11 +47,11 @@ class AssetScreenshotTest {
     val compose = createComposeRule()
 
     @Test
-    fun assetPage() = compose.clearAirSnapshot("asset_page") { EthereumPage(held = held()) }
+    fun assetPage() = compose.clearAirSnapshot("asset_page", frame = FRAME) { EthereumPage(held = held()) }
 
     @Test
     @Config(qualifiers = LUMIO_LIGHT_QUALIFIERS)
-    fun assetPageLight() = compose.clearAirSnapshot("asset_page_light") { EthereumPage(held = held()) }
+    fun assetPageLight() = compose.clearAirSnapshot("asset_page_light", frame = FRAME) { EthereumPage(held = held()) }
 
     @Test
     fun assetPageNotHeld() = compose.clearAirSnapshot("asset_page_not_held") { EthereumPage(held = null) }
@@ -81,14 +83,14 @@ class AssetScreenshotTest {
         chainIcons = listOf(42161L, 8453L, 1L).map { AssetIconSpec.Chain(registry.network(it)) },
     )
 
-    /** The frame's activity: one receive of 1 ETH, from a name in the address book, on Base. */
+    /** The frame's activity: one receive of 1 ETH, from a name in the address book, on Base, 2 hours ago. */
     private fun receive(): TxFeedItem = TxFeedItem(
         tx = LumioTx(
             id = "tx-in",
             network = NetworkId(Networks.evm(8453L), testnet = false),
             account = "0x" + "a1".repeat(20),
             hash = "0x" + "02".repeat(32),
-            timestampMs = 1_700_000_000_000L,
+            timestampMs = RECEIVED_MS,
             asset = TxAsset(contract = null, symbol = "ETH", name = "Ether", decimals = 18),
             amount = BigInteger("1000000000000000000"),
             direction = TxDirection.IN,
@@ -103,13 +105,12 @@ class AssetScreenshotTest {
         chain = "Base",
     )
 
-    /** The frame's chart: 65 prices that fall over the day, the last one a little above the lowest, where the frame puts its diamond. */
-    private fun series(): PriceSeries {
-        val prices = List(SAMPLE_POINTS) { i -> 4_200.0 + (i % 7) * 12.5 - i * 4.0 }
-        val low = prices.min()
-        val last = low + LAST_ABOVE_LOW * (prices.max() - low)
-        return PriceSeries((prices.dropLast(1) + last).mapIndexed { i, usd -> PricePoint(timeMs = i * HOUR_MS, usd = usd) })
-    }
+    /**
+     * The frame's chart: 65 prices whose ticks, each from one price to the next, come nearest the frame's 64 ticks. A price is [CHART_TOP] less its
+     * height in dp under the top of the frame's 120 dp chart box, so the highest one sits at 6 dp and the lowest at 114 dp, as the frame's do, and the
+     * last one, where the diamond sits, at 67.6 dp.
+     */
+    private fun series(): PriceSeries = PriceSeries(FRAME_CHART.mapIndexed { i, y -> PricePoint(timeMs = i * HOUR_MS, usd = CHART_TOP - y) })
 
     @Composable
     private fun EthereumPage(held: CoinHeld?) {
@@ -131,7 +132,7 @@ class AssetScreenshotTest {
             onLock = {},
             onAllActivity = {},
             activity = {
-                ActivityRowItem(item = receive(), names = mapOf(SENDER to "Exchange Deposit"), zone = ZoneOffset.UTC, shown = true, onClick = {}, frame = true)
+                ActivityRowItem(item = receive(), names = mapOf(SENDER to "Exchange Deposit"), zone = ZoneOffset.UTC, shown = true, onClick = {}, frame = true, nowMs = RECEIVED_MS + 2 * HOUR_MS)
             },
         )
     }
@@ -171,9 +172,15 @@ class AssetScreenshotTest {
     )
 
     private companion object {
-        const val SAMPLE_POINTS = 65
-        const val LAST_ABOVE_LOW = 0.063
+        val FRAME = DpSize(360.dp, 740.dp)
+        const val CHART_TOP = 4_400.0
+        val FRAME_CHART = listOf(
+            60.6, 76.8, 57.7, 83.7, 74.8, 49.8, 80.6, 71.5, 87.9, 64.4, 114.0, 93.8, 79.6, 66.0, 90.0, 80.0, 89.8, 71.2, 88.3, 66.0, 79.8, 57.2,
+            72.7, 63.5, 81.8, 52.9, 71.4, 52.8, 76.6, 54.6, 82.5, 69.3, 83.0, 70.3, 53.3, 76.4, 44.0, 64.1, 21.6, 56.1, 36.2, 15.1, 36.2, 6.0,
+            20.4, 42.2, 32.7, 28.3, 45.6, 31.5, 11.9, 37.8, 11.1, 46.2, 24.8, 71.8, 41.4, 65.7, 81.8, 48.4, 57.9, 80.3, 60.7, 52.9, 67.6,
+        )
         const val HOUR_MS = 3_600_000L
+        const val RECEIVED_MS = 1_700_000_000_000L
         const val SENDER = "0x9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f"
     }
 }

@@ -233,6 +233,8 @@ internal fun AssetRoute(
         activity = {
             coinActivity?.let { page ->
                 val rows = page.items.take(COIN_ACTIVITY_ROWS)
+                // The rows have no day sections over them, so each says how long ago it was, as of the read that listed it.
+                val now = remember(page) { System.currentTimeMillis() }
                 if (rows.isEmpty()) {
                     Text(
                         text = "No activity yet. Your first receive will appear here.",
@@ -249,6 +251,7 @@ internal fun AssetRoute(
                         shown = display.showAssets,
                         onClick = { wallet?.let { navController.navigate(LumioRoute.transaction(it.id, item.tx.account, item.tx.id)) } },
                         frame = true,
+                        nowMs = now,
                     )
                 }
             }

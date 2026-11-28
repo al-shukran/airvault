@@ -62,6 +62,18 @@ class ActivityViewTest {
     }
 
     @Test
+    fun aRowReadWithTheTimeNowEndsWithItsAgeAsTheAssetFrameHasIt() {
+        val hour = 60 * 60 * 1000L
+        val line = ActivityText.line(tx(TxDirection.IN, "1000000000000000000", timestampMs = now - 2 * hour), chain = "Base", usd = 4285.7, party = "Exchange Deposit", zone = zone, nowMs = now)
+
+        assertEquals("From Exchange Deposit · Base · 2 h", line.detail)
+        assertEquals("1 min", ActivityText.age(now - 10_000L, now, zone))
+        assertEquals("59 min", ActivityText.age(now - hour + 1, now, zone))
+        assertEquals("23 h", ActivityText.age(now - 24 * hour + 1, now, zone))
+        assertEquals("20 Nov", ActivityText.age(now - 24 * hour, now, zone))
+    }
+
+    @Test
     fun rowsAreSectionedByTodayYesterdayOrTheirDay() {
         val day = 24 * 60 * 60 * 1000L
         assertEquals("Today", ActivityText.section(now, now, zone))

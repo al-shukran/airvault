@@ -57,14 +57,15 @@ private val FRAME_ROW_MIN_HEIGHT = 62.dp
  * One row of the activity: its direction mark in a sunk disc, what it is and to or from whom, and the amount with its value in dollars on the right.
  * Money in is vault blue and money out is ink, never red. A pending row leads its line with the spark, and says "Confirming" in that line. [names] names
  * the parties by their address key, and [shown] hides the amounts. A [frame] row is set at the approved Asset frame's measures: a 62 dp row, an ink mark on
- * the disc, the detail in the caption face and the value in dollars in the mono face, each in the frame's line box.
+ * the disc, the detail in the caption face and the value in dollars in the mono face, each in the frame's line box. A row given [nowMs] ends its detail
+ * with the transaction's age at that time, such as "2 h", instead of its clock time, for a list with no day sections.
  */
 @Composable
-fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, shown: Boolean, onClick: () -> Unit, frame: Boolean = false) {
+fun ActivityRowItem(item: TxFeedItem, names: Map<String, String>, zone: ZoneId, shown: Boolean, onClick: () -> Unit, frame: Boolean = false, nowMs: Long? = null) {
     val palette = LocalClearAirPalette.current
     val tx = item.tx
     val party = tx.counterparty?.let { names[addressKeyOf(it)] }
-    val line = remember(item, party, zone) { ActivityText.line(tx, chain = item.chain, usd = item.usd, party = party, zone = zone) }
+    val line = remember(item, party, zone, nowMs) { ActivityText.line(tx, chain = item.chain, usd = item.usd, party = party, zone = zone, nowMs = nowMs) }
     AddressRow(
         minHeight = if (frame) FRAME_ROW_MIN_HEIGHT else ROW_MIN_HEIGHT,
         addressInset = DISC + ClearAirSpacing.sm,
