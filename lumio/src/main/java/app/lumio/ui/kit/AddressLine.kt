@@ -73,12 +73,31 @@ internal fun spokenAddress(address: String, lead: String? = "address "): Annotat
 /** What a screen reader says of a transaction [hash]: its groups verbatim, as [spokenAddress] says an address, with no lead. */
 internal fun spokenHash(hash: String): AnnotatedString = spoken(AddressGroups.ends(hash), lead = null)
 
+private const val GROUP = "[A-Za-z0-9]{1,4}"
+private val MINT_NAME = Regex("(?<![A-Za-z0-9])$GROUP(?:$NO_BREAK$GROUP)*$NO_BREAK$ELLIPSIS $GROUP(?:$NO_BREAK$GROUP)*")
+
 /**
- * What a screen reader says of a token [name] that is an unlisted mint written by [addressLineText]: its groups verbatim, as [spokenAddress] says an
- * address, with no lead. Null for any other name, which is read as it is written.
+ * What a screen reader says of [text] when it holds an unlisted mint written by [addressLineText], on its own as a row title or within a line such as
+ * "1.5 EPjF … Dt1v": each mint's groups verbatim, as [spokenAddress] says an address, with no lead, and the rest of the text as it is written. Null
+ * for text with no mint, which is read as it is written. The one place a mint is read, so a screen that shows one has only to apply [spokenMint].
  */
-internal fun spokenMintName(name: String): AnnotatedString? =
-    if (name.contains(ELLIPSIS) && name.contains(NO_BREAK)) spoken(name.replace(NO_BREAK, ' '), lead = null) else null
+internal fun spokenMintName(text: String): AnnotatedString? {
+    val mints = MINT_NAME.findAll(text).toList()
+    if (mints.isEmpty()) return null
+    return buildAnnotatedString {
+        var from = 0
+        mints.forEach { mint ->
+            append(text.substring(from, mint.range.first))
+            append(spoken(mint.value.replace(NO_BREAK, ' '), lead = null))
+            from = mint.range.last + 1
+        }
+        append(text.substring(from))
+    }
+}
+
+/** A screen reader reads the [text] this modifier sits on as [spokenMintName] says it, and as it is written when it holds no mint. */
+internal fun Modifier.spokenMint(text: String): Modifier =
+    spokenMintName(text)?.let { spoken -> clearAndSetSemantics { this.text = spoken } } ?: this
 
 private fun spoken(ends: String, lead: String?): AnnotatedString = buildAnnotatedString {
     lead?.let(::append)

@@ -1,0 +1,1 @@
+TalkBack reads an unlisted Solana token's name in groups of four on the asset page, the page header, the send amount, review and asset choice, as it already does in lists.

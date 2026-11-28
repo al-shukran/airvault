@@ -29,9 +29,10 @@ fun ClearAirStatusMark(glyph: String, text: String, tone: ClearAirTone, modifier
         ClearAirTone.Pending -> palette.sparkText
         ClearAirTone.Failed -> palette.rose
     }
+    val line = "$glyph $text"
     Text(
-        text = "$glyph $text",
-        modifier = modifier,
+        text = line,
+        modifier = modifier.spokenMint(line),
         style = ClearAirType.label,
         color = color,
         maxLines = 1,
