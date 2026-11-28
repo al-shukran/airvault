@@ -101,7 +101,7 @@ object PairImport {
         // An account on a chain that no installed wallet serves is left out, because Lumio cannot show it.
         val accounts = payload.accounts.filter { walletRegistry.byChain(it.export.chain) != null }
         if (accounts.isEmpty()) throw PairingRefusal(NO_ACCOUNTS)
-        checkAccounts(accounts, payload.name)
+        checkAccounts(accounts, payload.autoNameBase)
         return payload.copy(accounts = accounts, addressBook = addressBookOf(payload.addressBook))
     }
 
@@ -206,7 +206,7 @@ object PairImport {
 
     /** The custom names of the accounts of [namespace] in [payload], in account order. A null is an account that shows its Auto-Name. */
     internal fun customNamesOf(payload: PairingPayload, namespace: String): List<String?> =
-        accountsOf(payload, namespace).map { customNameOf(it, payload.name) }
+        accountsOf(payload, namespace).map { customNameOf(it, payload.autoNameBase) }
 
     /** The accounts of a pairing on the chains of [namespace], in the order of the pairing. */
     internal fun accountsOf(payload: PairingPayload, namespace: String): List<PairingAccount> =

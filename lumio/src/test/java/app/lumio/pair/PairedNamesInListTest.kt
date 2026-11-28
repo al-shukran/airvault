@@ -108,6 +108,28 @@ class PairedNamesInListTest {
         assertEquals(listOf<String?>("Payroll"), wallet.solanaNames.filterNotNull())
     }
 
+    @Test
+    fun aRenamedWalletWhoseAccountsKeepTheirAutoNamesPairsAndShowsTheNamesLenslyShows() {
+        val base = "B".repeat(90)
+        val sent = PairFixtures.payloadOf(
+            (0 until 60).map { PairFixtures.solanaAccount(it, autoAccountName(base, it)) },
+            name = "Renamed",
+            base = base,
+        )
+
+        PairedWallets.save(session, pairingOf(PairingCodec.urParts(sent, brotli = null)), nowMs = 1L)
+        val wallet = PairedWallets.list(session).single()
+        val accounts = WalletAccounts.of(
+            wallet, NetworkMode.MAINNET, evmChains = listOf(EVM_MAINNET), evmCache = emptyList(), addressCount = 1,
+            bitcoin = emptyList(), coins = emptyList(), nativeCache = emptyList(),
+        )
+
+        assertEquals("Renamed", wallet.name)
+        assertEquals(base, wallet.autoNameBase)
+        assertEquals((0 until 60).map { autoAccountName(base, it) }, accounts.map { it.name })
+        assertEquals(List(60) { null }, wallet.solanaNames)
+    }
+
     private companion object {
         val EVM_MAINNET = app.lumio.evm.EvmChain(1L, "Ethereum", "ETH", 18, testnet = false, explorerUrl = null)
     }

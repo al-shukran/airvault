@@ -25,17 +25,19 @@ data class PairedAccount(val index: Int, val address: String, val name: String?,
 /**
  * A paired wallet: one Lensly wallet, identified by its master fingerprint, with the public data of its Apps. It holds no key material.
  * [evmAccounts] are the Ethereum accounts, each with its address. [bitcoin] holds the watch-only Bitcoin Accounts, if any.
+ * [autoNameBase] is the base of the Auto-Name of an account, which Lensly keeps when the wallet is renamed, so it can differ from [name].
  * [addressBook] is the Address Book that Lensly sent with the pairing, in the order it was sent. It is empty when there is none.
  * [solana] holds the public key of each Solana account, 32 bytes, in account order. Lumio shows each one's base58 address.
  * [algorand] holds the public key of each Algorand account, 32 bytes, in account order. Lumio shows each one's address.
  * [bitcoinNames], [solanaNames] and [algorandNames] are the names Lensly's owner gave those accounts, one per account in account order, and null
- * for an account that has its Auto-Name, which [bitcoinNameAt], [solanaNameAt] and [algorandNameAt] build from [name] and the account index. They are empty only for a
+ * for an account that has its Auto-Name, which [bitcoinNameAt], [solanaNameAt] and [algorandNameAt] build from [autoNameBase] and the account index. They are empty only for a
  * wallet built without them. Ethereum accounts carry their names in [evmAccounts].
  * [bookRank] is how recently the wallet's Address Book was paired: the higher, the later. A wallet with no book has -1.
  */
 data class PairedWallet(
     val id: String,
     val name: String,
+    val autoNameBase: String = name,
     val fingerprint: Long,
     val createdAtMs: Long,
     val bitcoin: List<BtcWatchOnlyAccount>,
@@ -62,13 +64,13 @@ data class PairedWallet(
 
     /** The name that the Bitcoin account at [index] shows: its custom name or its Auto-Name. Null for a wallet built without names. */
     fun bitcoinNameAt(index: Int): String? =
-        bitcoinNames.getOrElse(index) { return null } ?: autoAccountName(name, (bitcoin[index].path.path[ACCOUNT_STEP] and INDEX_MASK).toInt())
+        bitcoinNames.getOrElse(index) { return null } ?: autoAccountName(autoNameBase, (bitcoin[index].path.path[ACCOUNT_STEP] and INDEX_MASK).toInt())
 
     /** The name that the Solana account at [index] shows: its custom name or its Auto-Name. Null for a wallet built without names. */
-    fun solanaNameAt(index: Int): String? = solanaNames.getOrElse(index) { return null } ?: autoAccountName(name, index)
+    fun solanaNameAt(index: Int): String? = solanaNames.getOrElse(index) { return null } ?: autoAccountName(autoNameBase, index)
 
     /** The name that the Algorand account at [index] shows: its custom name or its Auto-Name. Null for a wallet built without names. */
-    fun algorandNameAt(index: Int): String? = algorandNames.getOrElse(index) { return null } ?: autoAccountName(name, index)
+    fun algorandNameAt(index: Int): String? = algorandNames.getOrElse(index) { return null } ?: autoAccountName(autoNameBase, index)
 
     private companion object {
         const val ACCOUNT_STEP = 2
@@ -91,7 +93,7 @@ fun sharedAddressBook(wallets: List<PairedWallet>): List<AddressBookEntry> =
 fun ownAccountsOf(wallets: List<PairedWallet>): Map<String, InternalAccount> = buildMap {
     wallets.forEach { wallet ->
         wallet.evmAccounts.forEach { account ->
-            val autoName = autoAccountName(wallet.name, account.index)
+            val autoName = autoAccountName(wallet.autoNameBase, account.index)
             put(addressKeyOf(account.address), InternalAccount(displayName = account.name, autoName = autoName, label = account.label))
         }
     }
@@ -191,6 +193,7 @@ object PairedWallets {
             fingerprint = pairing.fingerprint,
             createdAtMs = createdAtMs,
             name = pairing.name,
+            autoNameBase = pairing.autoNameBase,
             addresses = PairImport.ethereumAddressesOf(pairing),
             bitcoinNames = PairImport.customNamesOf(pairing, Networks.BIP122),
             solanaNames = PairImport.customNamesOf(pairing, Networks.SOLANA),
@@ -272,6 +275,7 @@ object PairedWallets {
         return PairedWallet(
             id = id,
             name = meta.name,
+            autoNameBase = meta.autoNameBase,
             fingerprint = meta.fingerprint,
             createdAtMs = meta.createdAtMs,
             bitcoin = bitcoin,

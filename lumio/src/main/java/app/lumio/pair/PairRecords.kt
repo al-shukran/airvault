@@ -19,7 +19,7 @@ import java.nio.ByteBuffer
  */
 internal object PairRecords {
     /** The layout of the META and account records. */
-    private const val VERSION: Byte = 5
+    private const val VERSION: Byte = 6
 
     /** The layout of the Bitcoin record. */
     private const val BITCOIN_VERSION: Byte = 2
@@ -50,15 +50,15 @@ internal object PairRecords {
 
     /**
      * The room in the META record for the names of the Bitcoin, Solana and Algorand accounts, each counted as [nameRoom] counts it. The record holds
-     * 8192 bytes and its other fields at most 4314, so this leaves a margin.
+     * 8192 bytes and its other fields at most 4411, so this leaves a margin.
      */
-    const val MAX_NAME_ROOM = 3800
+    const val MAX_NAME_ROOM = 3700
 
     /** The bytes that [names] take in the META record: one length byte and the text of each name. */
     fun nameRoom(names: List<String?>): Int = names.sumOf { 1 + it.orEmpty().toByteArray(Charsets.UTF_8).size }
 
     /**
-     * The META record: the wallet's master fingerprint, when Lumio first paired it, its creation time, its name, and the address of each of its
+     * The META record: the wallet's master fingerprint, when Lumio first paired it, its creation time, its name, the base of its Auto-Names, and the address of each of its
      * Ethereum accounts. The number of accounts is the number of addresses, which is zero for a wallet with no Ethereum account.
      * Each address is in its EIP-55 form. The name of each Bitcoin, Solana and Algorand account follows, in account order: Ethereum accounts keep
      * their names in their own records. A null name is stored empty.
@@ -67,6 +67,7 @@ internal object PairRecords {
         val fingerprint: Long,
         val createdAtMs: Long,
         val name: String,
+        val autoNameBase: String,
         val addresses: List<String>,
         val bitcoinNames: List<String?>,
         val solanaNames: List<String?>,
@@ -78,6 +79,8 @@ internal object PairRecords {
     fun encodeMeta(meta: Meta): ByteArray {
         val name = meta.name.toByteArray(Charsets.UTF_8)
         require(name.size in 1..PairingCodec.MAX_NAME_BYTES) { "A wallet name holds 1 to ${PairingCodec.MAX_NAME_BYTES} bytes." }
+        val base = meta.autoNameBase.toByteArray(Charsets.UTF_8)
+        require(base.size <= PairingCodec.MAX_NAME_BYTES) { "An Auto-Name base holds at most ${PairingCodec.MAX_NAME_BYTES} bytes." }
         require(meta.addresses.size in 0..PairingCodec.MAX_ETHEREUM_ACCOUNTS) {
             "A wallet holds 0 to ${PairingCodec.MAX_ETHEREUM_ACCOUNTS} accounts."
         }
@@ -88,12 +91,14 @@ internal object PairRecords {
         }
         require(meta.otherNames.sumOf { nameRoom(it) } <= MAX_NAME_ROOM) { "The account names take more room than the wallet record holds." }
         val namesBytes = names.sumOf { list -> META_COUNT_BYTES + list.sumOf { 1 + it.size } }
-        val buffer = ByteBuffer.allocate(META_HEADER_BYTES + name.size + META_COUNT_BYTES + meta.addresses.size * ADDRESS_CHARS + namesBytes)
+        val buffer = ByteBuffer.allocate(META_HEADER_BYTES + name.size + 1 + base.size + META_COUNT_BYTES + meta.addresses.size * ADDRESS_CHARS + namesBytes)
             .put(VERSION)
             .putInt(meta.fingerprint.toInt())
             .putLong(meta.createdAtMs)
             .put(name.size.toByte())
             .put(name)
+            .put(base.size.toByte())
+            .put(base)
             .put(meta.addresses.size.toByte())
         meta.addresses.forEach { buffer.put(it.toByteArray(Charsets.US_ASCII)) }
         names.forEach { list ->
@@ -110,9 +115,13 @@ internal object PairRecords {
         val fingerprint = buffer.int.toLong() and UINT32_MASK
         val createdAtMs = buffer.long
         val length = buffer.get().toInt() and UNSIGNED_BYTE_MASK
-        require(length in 1..PairingCodec.MAX_NAME_BYTES && buffer.remaining() >= length + META_COUNT_BYTES) { "Not a pairing record." }
+        require(length in 1..PairingCodec.MAX_NAME_BYTES && buffer.remaining() >= length + 1) { "Not a pairing record." }
         val name = String(bytes, buffer.position(), length, Charsets.UTF_8)
         buffer.position(buffer.position() + length)
+        val baseLength = buffer.get().toInt() and UNSIGNED_BYTE_MASK
+        require(baseLength <= PairingCodec.MAX_NAME_BYTES && buffer.remaining() >= baseLength + META_COUNT_BYTES) { "Not a pairing record." }
+        val autoNameBase = String(bytes, buffer.position(), baseLength, Charsets.UTF_8)
+        buffer.position(buffer.position() + baseLength)
         val accountCount = buffer.get().toInt() and UNSIGNED_BYTE_MASK
         require(accountCount in 0..PairingCodec.MAX_ETHEREUM_ACCOUNTS && buffer.remaining() >= accountCount * ADDRESS_CHARS) {
             "Not a pairing record."
@@ -123,7 +132,7 @@ internal object PairRecords {
         require(addresses.all { evmAddressOf(it) == it }) { "Not a pairing record." }
         val (bitcoin, solana, algorand) = List(3) { namesIn(buffer) }
         require(!buffer.hasRemaining()) { "Not a pairing record." }
-        return Meta(fingerprint, createdAtMs, name, addresses, bitcoin, solana, algorand)
+        return Meta(fingerprint, createdAtMs, name, autoNameBase, addresses, bitcoin, solana, algorand)
     }
 
     /** The account names that follow the addresses of a META record: a count, then each name with its length. Empty text is a null name. */

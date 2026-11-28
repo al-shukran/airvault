@@ -28,6 +28,13 @@ class OwnAccountsTest {
     }
 
     @Test
+    fun aRenamedWalletNamesAnAccountWithNoNameFromItsAutoNameBase() {
+        val renamed = wallet("New", PairedAccount(1, trading, null, null, null)).copy(autoNameBase = "Old")
+
+        assertEquals("Old 1", ownAccountsOf(listOf(renamed))[addressKeyOf(trading)]?.autoName)
+    }
+
+    @Test
     fun anEthereumAddressIsFoundInAnyLetterCase() {
         val accounts = ownAccountsOf(listOf(wallet("Vault", PairedAccount(0, savings, "Savings", null, null))))
 
