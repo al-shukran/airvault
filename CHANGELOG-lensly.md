@@ -4,6 +4,10 @@ All notable changes to Lensly. The format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+### Fixed
+
+- A batch of the form `multicall(bytes[])` on an approved contract that is not Uniswap's SwapRouter02 is now read as ordinary calls made by that contract, so its steps name the contract (not you) as the sender and the payee warnings fire. [Issue #1753](https://github.com/al-shukran/airvault/issues/1753)
+
 ## [1.3.0] - 2026-11-28
 
 **Upgrading:** Vaults from earlier versions of Lensly are erased on the first unlock after updating, because the vault format changed for security. Keep your recovery phrases (and passphrases, if you set any) so you can restore your wallets.
