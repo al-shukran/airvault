@@ -53,6 +53,7 @@ internal fun TabRoute(
     listVersion: Int,
     onLock: () -> Unit,
     title: String = tab.label,
+    sheet: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as LumioApp
@@ -86,6 +87,7 @@ internal fun TabRoute(
         search = { onClose ->
             SearchRoute(navController = navController, holder = holder, selection = selection, listVersion = listVersion, onClose = onClose)
         },
+        sheet = sheet,
         content = content,
     )
 }

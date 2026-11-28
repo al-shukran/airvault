@@ -116,6 +116,8 @@ data class PortfolioRow(
     val contract: String? = null,
     /** The time of the oldest last price kept among the holdings the value is made from, or null when every price is fresh. */
     val staleAsOfMs: Long? = null,
+    /** How many holdings the row adds up: on one network, each is an account that holds the coin. */
+    val holdings: Int = 1,
 ) {
     val merged: Boolean get() = networks.size > 1
 }
@@ -211,6 +213,7 @@ object PortfolioView {
             bridged = first.bridged,
             contract = first.contract,
             staleAsOfMs = priced.mapNotNull { it.staleAsOfMs }.minOrNull(),
+            holdings = items.size,
         )
     }
 

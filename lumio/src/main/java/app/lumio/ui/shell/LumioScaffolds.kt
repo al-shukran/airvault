@@ -37,7 +37,8 @@ import java.util.Date
 /**
  * The root of a tab: the root top bar, the offline band under it when [offline] is set, the tab's [content], and the tab bar. The top bar's emblem
  * and title open the profile panel, and its search icon opens the search sheet. Both overlays belong to this root, and only one of them is open at a
- * time, so a sheet never opens over the panel or over another sheet.
+ * time, so a sheet never opens over the panel or over another sheet. [sheet] is the tab's own sheet, drawn over the whole root, top bar and tab bar
+ * included.
  */
 @Composable
 fun LumioRootScreen(
@@ -59,6 +60,7 @@ fun LumioRootScreen(
     onPair: () -> Unit,
     onLock: () -> Unit,
     search: @Composable (onClose: () -> Unit) -> Unit,
+    sheet: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     var panelOpen by remember { mutableStateOf(DebugDemoData.flag("panel")) }
@@ -77,6 +79,7 @@ fun LumioRootScreen(
             Column(modifier = Modifier.weight(1f).fillMaxWidth(), content = content)
             ClearAirTabBar(selected = tab, onSelect = onTab)
         }
+        sheet()
         ProfilePanel(
             visible = panelOpen,
             mode = mode,

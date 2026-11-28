@@ -6,6 +6,7 @@ import app.lumio.portfolio.PortfolioFormat
 import app.lumio.portfolio.PortfolioHolding
 import app.lumio.transactions.evmChainsByNetwork
 import app.lumio.transactions.evmNetwork
+import app.lumio.ui.home.AssetIconSpec
 import java.math.BigDecimal
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -31,7 +32,7 @@ class PortfolioRoutesTest {
 
     @Test
     fun theCardNamesItsChainByTheNameTheFeedShowsNotByItsChainId() {
-        val card = otherSideOf(holding(monad, "MON", "12.5"), chains, NetworkMode.TESTNET) {}
+        val card = otherSideOf(holding(monad, "MON", "12.5"), chains, NetworkMode.TESTNET, AssetIconSpec.Letter("M")) {}
 
         assertEquals("Monad Testnet", card.network)
         assertTrue(card.testnet)
@@ -39,7 +40,7 @@ class PortfolioRoutesTest {
 
     @Test
     fun theCardReadsItsAmountAsTheHoldingsDo() {
-        val card = otherSideOf(holding(monad, "MON", "12.5"), chains, NetworkMode.TESTNET) {}
+        val card = otherSideOf(holding(monad, "MON", "12.5"), chains, NetworkMode.TESTNET, AssetIconSpec.Letter("M")) {}
 
         assertEquals("${PortfolioFormat.coins(BigDecimal("12.5"))} MON", card.amount)
     }
@@ -47,7 +48,7 @@ class PortfolioRoutesTest {
     @Test
     fun aMainnetCardIsNotTestnetAndSwitchesToTheSideItNames() {
         var switched = false
-        val card = otherSideOf(holding(ethereum, "ETH", "1"), chains, NetworkMode.MAINNET) { switched = true }
+        val card = otherSideOf(holding(ethereum, "ETH", "1"), chains, NetworkMode.MAINNET, AssetIconSpec.Letter("E")) { switched = true }
 
         assertEquals("Ethereum", card.network)
         assertFalse(card.testnet)

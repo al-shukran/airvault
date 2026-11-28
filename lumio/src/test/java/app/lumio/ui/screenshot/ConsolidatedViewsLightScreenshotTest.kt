@@ -18,7 +18,7 @@ class ConsolidatedViewsLightScreenshotTest {
     val compose = createComposeRule()
 
     @Test
-    fun portfolioBalancesLight() = compose.lumioSnapshot("portfolio_balances_light") { PortfolioSample(PortfolioFilter()) }
+    fun portfolioBalancesLight() = compose.portfolioFrame("portfolio_balances_light") { PortfolioSample(PortfolioFilter()) }
 
     @Test
     fun activityListLight() = compose.lumioSnapshot("activity_list_light") { ActivitySample() }
