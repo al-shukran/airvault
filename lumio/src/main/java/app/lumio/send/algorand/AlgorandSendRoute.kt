@@ -51,6 +51,7 @@ import app.lumio.nameWithEnds
 import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.pair.ownAccountsOf
 import app.lumio.rememberTransactions
 import app.lumio.send.ArrivalWatch
 import app.lumio.send.SubmitFailure
@@ -165,10 +166,11 @@ internal fun AlgorandSendRoute(
     }
     if (session == null) return
     val scope = rememberCoroutineScope()
-    val paired by produceState<PairedWallet?>(initialValue = null, session, walletId) {
-        value = onVault(null) { PairedWallets.list(session).firstOrNull { it.id == walletId } }
+    val wallets by produceState<List<PairedWallet>>(initialValue = emptyList(), session) {
+        value = onVault(emptyList()) { PairedWallets.list(session) }
     }
-    val wallet = paired ?: return
+    val wallet = wallets.firstOrNull { it.id == walletId } ?: return
+    val own = remember(wallets) { ownAccountsOf(wallets) }
     val accountIndex = WalletAccounts.indexOf(wallet, account) ?: return
     val signer = wallet.algorand[accountIndex]
     val address = AlgorandAccount.addressOf(signer)
@@ -270,7 +272,7 @@ internal fun AlgorandSendRoute(
         busy = true
         notice = null
         scope.launch {
-            val name = nameOrAddress(addressNotesOf(recipient, ALGORAND_FAMILY, emptyMap(), wallet.addressBook), recipient)
+            val name = nameOrAddress(addressNotesOf(recipient, ALGORAND_FAMILY, own, wallet.addressBook), recipient)
             val outcome = withContext(Dispatchers.IO) {
                 runCatching { reviewPlan(scheduler, network, address, asset, recipient, amount, wallet.fingerprint, accountIndex, signer, name) }
             }
@@ -433,7 +435,7 @@ internal fun AlgorandSendRoute(
             onCancel = { step = AlgorandSendStep.Recipient },
         )
         AlgorandSendStep.Amount -> {
-            val notes = remember(recipient, wallet.addressBook) { addressNotesOf(recipient, ALGORAND_FAMILY, emptyMap(), wallet.addressBook) }
+            val notes = remember(recipient, own, wallet.addressBook) { addressNotesOf(recipient, ALGORAND_FAMILY, own, wallet.addressBook) }
             val toName = nameOrAddress(notes, recipient)
             val fee = feeEstimate
             val leaves = if (loaded != null && isAlgo && fee != null) {
@@ -500,8 +502,8 @@ internal fun AlgorandSendRoute(
         }
         is AlgorandSendStep.Review -> {
             val optIn = current.plan is AsaSendPlan && current.plan.isOptIn
-            val notes = remember(optIn, current.plan.toAddress, wallet.addressBook) {
-                if (optIn) null else addressNotesOf(current.plan.toAddress, ALGORAND_FAMILY, emptyMap(), wallet.addressBook)
+            val notes = remember(optIn, current.plan.toAddress, own, wallet.addressBook) {
+                if (optIn) null else addressNotesOf(current.plan.toAddress, ALGORAND_FAMILY, own, wallet.addressBook)
             }
             val toName = if (optIn) fromName else nameOrAddress(notes, current.plan.toAddress)
             val toAddress = if (optIn) current.plan.fromAddress else current.plan.toAddress
