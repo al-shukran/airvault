@@ -42,6 +42,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
@@ -56,12 +57,15 @@ import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
 import app.lumio.ui.kit.ClearAirSegmented
 import app.lumio.ui.kit.ClearAirWalletEmblem
+import app.lumio.ui.kit.CssCentre
 import app.lumio.ui.kit.WalletEmblemTone
+import app.lumio.ui.kit.cssLine
+import app.lumio.ui.kit.inLineBox
 
 /** The width of the profile panel, from the proposal. */
 private val PANEL_WIDTH = 304.dp
 
-/** The corner radius of the panel's open edge. */
+/** The corner radius of the panel's open edge. The mock sets the panel past the top of the screen, so only its bottom corner shows. */
 private val PANEL_CORNER = 28.dp
 
 /** A row of the panel is at least as tall as a Clear Air row, and the test networks row is 48 dp, as the mock draws it. */
@@ -84,9 +88,22 @@ private val RADIO_SIZE = 22.dp
 private val RADIO_STROKE = 2.dp
 private val RADIO_DOT = 10.dp
 
-/** The mock's text sizes for the panel: the caption under the Lumio name, the sentence under the control and a row's description. */
-private val CAPTION: TextStyle = ClearAirType.body.copy(fontSize = 13.sp, lineHeight = 18.sp)
-private val DESCRIPTION: TextStyle = ClearAirType.body.copy(fontSize = 12.5.sp, lineHeight = 17.sp)
+/**
+ * The mock's text sizes for the panel, each in the line box of the mock's browser: the caption under the Lumio name, the sentence under the control and a
+ * row's description, the title of Lumio, a row's title and the label of a text action.
+ */
+private val CAPTION: TextStyle = ClearAirType.body.copy(fontSize = 13.sp, lineHeight = 18.sp).inLineBox()
+private val DESCRIPTION: TextStyle = ClearAirType.body.copy(fontSize = 12.5.sp, lineHeight = 17.sp).inLineBox()
+private val BRAND_TITLE: TextStyle = ClearAirType.titleL.copy(fontSize = 19.sp, lineHeight = 25.sp).inLineBox()
+private val ROW_TITLE: TextStyle = ClearAirType.rowTitle.inLineBox()
+private val COMPACT_ROW_TITLE: TextStyle = ClearAirType.rowTitle.copy(fontSize = 14.sp).inLineBox()
+private val COUNT: TextStyle = ClearAirType.address.copy(fontSize = 13.sp, lineHeight = 18.sp, letterSpacing = (-0.02).em).inLineBox()
+private val PAIR_TITLE: TextStyle = ClearAirType.rowTitle.copy(lineHeight = 21.sp).inLineBox()
+
+/** The height of an eyebrow's line, and the sentence's space under the control and after it, as the mock sets them. */
+private val EYEBROW_LINE = 14.dp
+private val SENTENCE_TOP = 10.dp
+private val SENTENCE_BOTTOM = 12.dp
 
 /** The EVM test network that Send starts on, which the sentence marks as the default. */
 private const val EVM_DEFAULT = "Monad Testnet"
@@ -151,7 +168,7 @@ fun ProfilePanel(
                 modifier = Modifier
                     .fillMaxHeight()
                     .width(PANEL_WIDTH)
-                    .clip(RoundedCornerShape(topEnd = PANEL_CORNER, bottomEnd = PANEL_CORNER))
+                    .clip(RoundedCornerShape(bottomEnd = PANEL_CORNER))
                     .background(palette.sheet)
                     .statusBarsPadding()
                     .navigationBarsPadding()
@@ -169,7 +186,7 @@ fun ProfilePanel(
                         }
                     },
                 )
-                ClearAirEyebrow("Networks", modifier = Modifier.padding(start = ClearAirSpacing.gutter), top = 14.dp, bottom = ClearAirSpacing.xxs)
+                ClearAirEyebrow("Networks", modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = 14.dp, bottom = ClearAirSpacing.xxs).cssLine(EYEBROW_LINE), top = 0.dp, bottom = 0.dp)
                 Column(modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = ClearAirSpacing.xxs, end = ClearAirSpacing.gutter)) {
                     ClearAirSegmented(
                         options = NetworkMode.entries,
@@ -180,22 +197,22 @@ fun ProfilePanel(
                             onDismiss()
                         },
                     )
-                    // The mock draws the sentence on the Testnet side only, and a paragraph's 13 dp margin under it.
+                    // The mock draws the sentence on the Testnet side only.
                     if (mode == NetworkMode.TESTNET) {
-                        Text(text = networkSentence, style = CAPTION, color = palette.ink2, modifier = Modifier.padding(top = 10.dp, bottom = 13.dp))
+                        Text(text = networkSentence, style = CAPTION, color = palette.ink2, modifier = Modifier.padding(top = SENTENCE_TOP, bottom = SENTENCE_BOTTOM))
                     }
                 }
                 PanelRow(
                     title = "Choose Test Networks",
-                    titleStyle = ClearAirType.rowTitle.copy(fontSize = 14.sp),
-                    trailing = { Text(text = testNetworks.toString(), style = ClearAirType.address, color = palette.ink2) },
+                    titleStyle = COMPACT_ROW_TITLE,
+                    trailing = { Text(text = testNetworks.toString(), style = COUNT, color = palette.ink2) },
                     minHeight = COMPACT_ROW_MIN_HEIGHT,
                     onClick = {
                         onDismiss()
                         onTestNetworks()
                     },
                 )
-                ClearAirEyebrow("Lensly Wallets", modifier = Modifier.padding(start = ClearAirSpacing.gutter), top = 10.dp, bottom = ClearAirSpacing.xxs)
+                ClearAirEyebrow("Lensly Wallets", modifier = Modifier.padding(start = ClearAirSpacing.gutter, top = 10.dp, bottom = ClearAirSpacing.xxs).cssLine(EYEBROW_LINE), top = 0.dp, bottom = 0.dp)
                 wallets.forEachIndexed { index, wallet ->
                     val chosen = wallet.id == activeWalletId
                     PanelRow(
@@ -233,7 +250,7 @@ private fun Brand() {
         LumioMark(size = 34.dp)
         Spacer(Modifier.width(ClearAirSpacing.sm))
         Column {
-            Text(text = "Lumio", style = ClearAirType.titleL.copy(fontSize = 19.sp, lineHeight = 25.sp), color = palette.ink)
+            Text(text = "Lumio", style = BRAND_TITLE, color = palette.ink)
             Text(text = "AirVault Companion", style = CAPTION, color = palette.ink2)
         }
     }
@@ -254,7 +271,7 @@ private fun PanelRow(
     trailing: (@Composable () -> Unit)? = null,
     selected: Boolean? = null,
     divider: Boolean = false,
-    titleStyle: TextStyle = ClearAirType.rowTitle,
+    titleStyle: TextStyle = ROW_TITLE,
     minHeight: Dp = ROW_MIN_HEIGHT,
 ) {
     val palette = LocalClearAirPalette.current
@@ -276,7 +293,7 @@ private fun PanelRow(
             leading()
             Spacer(Modifier.width(ClearAirSpacing.sm))
         }
-        Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f).align(CssCentre)) {
             Text(text = title, style = titleStyle, color = palette.ink)
             if (description != null) {
                 Text(text = description, style = DESCRIPTION, color = palette.ink2)
@@ -344,7 +361,7 @@ private fun PairAction(onClick: () -> Unit) {
     ) {
         ClearAirIcon(glyph = ClearAirGlyph.PLUS, color = palette.ink, size = 18.dp)
         Spacer(Modifier.width(6.dp))
-        Text(text = "Pair Another Wallet", style = ClearAirType.rowTitle, color = palette.ink)
+        Text(text = "Pair Another Wallet", style = PAIR_TITLE, color = palette.ink)
     }
 }
 
