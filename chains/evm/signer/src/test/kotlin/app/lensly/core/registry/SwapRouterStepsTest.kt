@@ -13,6 +13,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
+import org.web3j.crypto.Hash
 import org.web3j.utils.Numeric
 
 private const val SWAP_ROUTER = "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45"
@@ -33,6 +34,7 @@ private const val MULTICALL_DEADLINE_SIG = "multicall(uint256,bytes[])"
 private const val FLAG_SIGNER = "0x0000000000000000000000000000000000000001"
 private const val FLAG_ROUTER = "0x0000000000000000000000000000000000000002"
 private const val FUZZ_ROUNDS = 1000
+private const val SELECTOR_CHARS = 10
 
 /** The sender of each vector. The steps name the sender as "you", so a vector is read as its sender signed it. */
 private const val SENDER_EXACT_INPUT_SINGLE = "0x75465a384de0bad0733ff1f8398f6de4d3230ecf"
@@ -525,5 +527,116 @@ class SwapRouterStepsTest {
         assertEquals(emptyList(), steps.warnings)
         val other = multicallOf(sweepItem(USDC, "0x7546" + "00000000000000000000000000000000" + "0ecf"))
         assertEquals(1, other.warnings.size)
+    }
+
+    private val feeRecipient = "0x" + "ab".repeat(20)
+    private val sender = SENDER_EXACT_INPUT_SINGLE
+    private val fee50 = abiWord(BigInteger.valueOf(50))
+
+    /** One fee call of the router: its signature, its selector as keccak gives it, and the item that calls it with a 0.5% fee. */
+    private class FeeCall(val signature: String, val selector: String, val item: (recipient: String) -> ByteArray)
+
+    private val feeCalls = listOf(
+        FeeCall("unwrapWETH9(uint256)", "0x49616997") { item("0x49616997", abiWord(BigInteger.ZERO)) },
+        FeeCall("unwrapWETH9WithFee(uint256,address,uint256,address)", "0x9b2c0a37") {
+            item("0x9b2c0a37", abiWord(BigInteger.ZERO), abiAddressWord(it), fee50, abiAddressWord(feeRecipient))
+        },
+        FeeCall("unwrapWETH9WithFee(uint256,uint256,address)", "0xd4ef38de") {
+            item("0xd4ef38de", abiWord(BigInteger.ZERO), fee50, abiAddressWord(feeRecipient))
+        },
+        FeeCall("sweepTokenWithFee(address,uint256,address,uint256,address)", "0xe0e189a0") {
+            item("0xe0e189a0", abiAddressWord(USDC), abiWord(BigInteger.ZERO), abiAddressWord(it), fee50, abiAddressWord(feeRecipient))
+        },
+        FeeCall("sweepTokenWithFee(address,uint256,uint256,address)", "0x3068c554") {
+            item("0x3068c554", abiAddressWord(USDC), abiWord(BigInteger.ZERO), fee50, abiAddressWord(feeRecipient))
+        },
+    )
+
+    /** A swap of USDT into [token] that keeps the output in the router. */
+    private fun swapInto(token: String): ByteArray = item(
+        EXACT_INPUT_SINGLE,
+        abiAddressWord(USDT),
+        abiAddressWord(token),
+        abiWord(BigInteger.valueOf(100)),
+        abiAddressWord(FLAG_ROUTER),
+        abiWord(BigInteger.valueOf(93_600_000)),
+        abiWord(BigInteger.ZERO),
+        abiWord(BigInteger.ZERO),
+    )
+
+    @Test
+    fun theSwapRouterFeeSelectorsAreTheKeccakOfTheirSignatures() {
+        feeCalls.forEach { assertEquals(it.selector, Hash.sha3String(it.signature).take(SELECTOR_CHARS), it.signature) }
+    }
+
+    @Test
+    fun aFeeCallTakesTheSwapOutputOutOfTheRouterAndNamesTheFeeRecipientAndBips() {
+        feeCalls.forEach { call ->
+            val output = if (call.signature.startsWith("unwrap")) WETH else USDC
+            val steps = multicallOf(swapInto(output), call.item(sender))
+
+            assertFalse(steps.leavesInRouter, call.signature)
+            assertEquals(2, steps.lines.size, call.signature)
+            if (call.signature.contains("WithFee")) {
+                assertTrue(steps.lines.last().contains("less a 0.5% fee for ${shortAddress(feeRecipient)}"), steps.lines.last())
+                assertEquals(listOf("This pays the fee to ${shortAddress(feeRecipient)}, not you"), steps.warnings, call.signature)
+                assertEquals(listOf(feeRecipient), steps.addresses, call.signature)
+            } else {
+                assertEquals(emptyList(), steps.warnings, call.signature)
+            }
+        }
+    }
+
+    @Test
+    fun aFeeCallEmptiesOnlyTheTokenItMoves() {
+        assertTrue(multicallOf(swapInto(USDT), feeCalls[1].item(sender)).leavesInRouter)
+        assertTrue(multicallOf(swapInto(WETH), feeCalls[3].item(sender)).leavesInRouter)
+    }
+
+    @Test
+    fun aFeeCallToAnotherRecipientNamesThemAndWarnsOfBothAddresses() {
+        val other = "0x" + "cd".repeat(20)
+        val steps = multicallOf(swapInto(USDC), feeCalls[3].item(other))
+
+        assertTrue(steps.lines.last().startsWith("Sweep all USDC held by the router to ${shortAddress(other)}, less a 0.5% fee"), steps.lines.last())
+        assertEquals(
+            listOf("This sweeps the router's tokens to ${shortAddress(other)}, not you", "This pays the fee to ${shortAddress(feeRecipient)}, not you"),
+            steps.warnings,
+        )
+        assertEquals(listOf(other, feeRecipient), steps.addresses)
+    }
+
+    @Test
+    fun theMessageSenderFormsPayTheBatchContractInsideABatchAndYouOtherwise() {
+        val multicall3 = "0xca11bde05977b3631167028862be2a173976ca11"
+        val calls = listOf(feeCalls[0], feeCalls[2], feeCalls[4])
+        calls.forEach { call ->
+            val args = listOf(DecodedParam(MULTICALL_PARAMS[0], AbiValue.Items(listOf(AbiValue.Dynamic(call.item(sender).toHex())))))
+            fun steps(caller: String) = assertNotNull(
+                CallSteps.describe(STEP_REGISTRY, 1, SWAP_ROUTER, MULTICALL, MULTICALL_SIG, sender, BigInteger.ZERO, args, caller),
+            )
+            assertTrue(" for you" in steps(sender).lines.single() || " to you" in steps(sender).lines.single(), call.signature)
+            assertTrue(steps(multicall3).lines.single().contains("Multicall3"), call.signature)
+            assertTrue(steps(multicall3).warnings.any { it.contains(shortAddress(multicall3)) }, call.signature)
+            assertTrue(steps(sender).warnings.none { it.contains(shortAddress(multicall3)) }, call.signature)
+        }
+    }
+
+    @Test
+    fun aFeeOutsideOneToAHundredBipsIsNotReadAndWarns() {
+        listOf(BigInteger.ZERO, BigInteger.valueOf(101)).forEach { bips ->
+            val steps = multicallOf(item("0xd4ef38de", abiWord(BigInteger.ZERO), abiWord(bips), abiAddressWord(feeRecipient)))
+            assertTrue(steps.lines.single().startsWith("Router call 0xd4ef38de could not be read"), steps.lines.single())
+            assertEquals(1, steps.warnings.size)
+        }
+    }
+
+    @Test
+    fun aRouterCallWithAnUnknownSelectorStillWarnsAndLeavesTheOutput() {
+        val steps = multicallOf(swapInto(USDC), item("0x12345678"))
+
+        assertTrue(steps.lines.last().startsWith("Unknown router call 0x12345678"), steps.lines.last())
+        assertEquals(listOf("Lensly cannot read router call 0x12345678 in this multicall. Its raw input is under Details."), steps.warnings)
+        assertTrue(steps.leavesInRouter)
     }
 }

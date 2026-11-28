@@ -767,14 +767,22 @@ class VaultSession constructor(
      */
     internal fun ensurePhotoKey(): Unit = synchronized(this) {
         layout.makePhotoFolders()
-        val privateKey = getVaultRecord(VaultRecordNames.PHOTO_KEY)
-            ?: MediaEnvelope.newPrivateKey().also { putVaultRecord(VaultRecordNames.PHOTO_KEY, it) }
-        val publicKey = MediaEnvelope.publicKeyOf(privateKey)
-        privateKey.fill(0)
+        val publicKey = ensurePhotoKeyRecord()
         val file = layout.photoKeyFile(side)
         if (!file.isFile || !file.readBytes().contentEquals(publicKey)) writeAtomically(file, publicKey)
         val otherFile = layout.photoKeyFile(1 - side)
         if (!otherFile.isFile) writeAtomically(otherFile, placeholderPhotoKey())
+    }
+
+    /** Makes this vault's photo key pair if it has none, and returns the public half. Writes no key file, so a caller can choose when. */
+    internal fun ensurePhotoKeyRecord(): ByteArray = synchronized(this) {
+        val privateKey = getVaultRecord(VaultRecordNames.PHOTO_KEY)
+            ?: MediaEnvelope.newPrivateKey().also { putVaultRecord(VaultRecordNames.PHOTO_KEY, it) }
+        try {
+            MediaEnvelope.publicKeyOf(privateKey)
+        } finally {
+            privateKey.fill(0)
+        }
     }
 
     /**
