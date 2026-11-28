@@ -6,7 +6,7 @@ import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.FieldPath
 import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.Warning
-import app.airvault.core.model.isPrintableCodePoint
+import app.airvault.core.model.isPrintableText
 import app.lensly.core.registry.Amounts
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
@@ -146,7 +146,7 @@ private fun valueText(type: String, value: TypedValue): String = when (value) {
  * show the same.
  */
 internal fun printableOrHex(text: String): String =
-    if (text.codePoints().allMatch(::isPrintableCodePoint)) {
+    if (isPrintableText(text)) {
         text.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
             .replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
     } else {

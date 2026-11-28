@@ -18,7 +18,7 @@ import app.airvault.core.model.SectionStyle
 import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.Warning
 import app.airvault.core.model.checked
-import app.airvault.core.model.isPrintableCodePoint
+import app.airvault.core.model.isPrintableText
 import app.airvault.core.model.isSingleLinePrintable
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ParserLimits
@@ -1120,7 +1120,7 @@ private fun messageValue(bytes: ByteArray): DisplayValue =
 
 /** The message as UTF-8 text, when every character is one a reader can see. Otherwise null. */
 private fun printableMessage(bytes: ByteArray): String? =
-    utf8OrNull(bytes)?.takeIf { text -> text.codePoints().allMatch(::isPrintableCodePoint) }
+    utf8OrNull(bytes)?.takeIf { text -> isPrintableText(text) }
 
 private fun utf8OrNull(bytes: ByteArray): String? = try {
     StandardCharsets.UTF_8.newDecoder()
