@@ -1,1 +1,0 @@
-Settings, Display, Transactions, Networks and Data Providers follow the approved design. Display has one Hide Balances switch for every amount, and a Theme row to follow the phone or keep Light or Dark. Networks lists the EVM networks with a search field, and the Bitcoin servers moved to their own page below it. Data Providers groups the providers by what they serve.

@@ -1,1 +1,0 @@
-A text that a sender fills with stacked combining marks can no longer paint over the rows next to it on a review. Each row of a review now draws inside its own area, and a text with more than four such marks in a row is refused as an origin and shown as its bytes elsewhere.

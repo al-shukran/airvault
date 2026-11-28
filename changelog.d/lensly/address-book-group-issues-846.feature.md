@@ -1,1 +1,0 @@
-Address Book entries take a group, which the owner sets on the add and edit form. A pairing now carries groups in format 8, so Lumio shows them after the wallet is paired again, and entries saved by earlier versions of Lensly keep working.

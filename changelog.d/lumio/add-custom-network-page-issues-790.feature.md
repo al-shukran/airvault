@@ -1,1 +1,0 @@
-Networks has an Add Custom Network page for an EVM network the registry does not list, with a name, RPC URL, chain ID, symbol and an optional explorer. Lumio checks that the RPC URL answers with that chain ID before it saves the network, and a chain ID the registry already lists is refused.

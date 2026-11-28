@@ -1,1 +1,0 @@
-The wallet page keeps its notice when a read or a scan did not answer, even while a chain that did not answer is named under its island. A failed scan or a failed custom network no longer hides the notice.

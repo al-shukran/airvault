@@ -1,1 +1,0 @@
-TalkBack no longer reads out every part count while a pairing or reply code is scanned, only the unreadable-code and move-closer notices. A cached coin logo is no longer deleted when the phone is short of memory, and a new logo is decoded once instead of twice.

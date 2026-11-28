@@ -1,1 +1,0 @@
-The asset chart offers five time frames, 5m, 15m, 1h, 4h and 1d, in place of window lengths. The label is the interval of one point, and each frame draws a fixed count of points, so the chart reads as a line in every frame.

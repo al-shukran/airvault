@@ -1,1 +1,0 @@
-A review now shows "First time. Check every group." for an address that is not saved, shows "Saved for all EVM networks" under a saved EVM address, and warns in amber when an unsaved address shares its first and last 4 characters with a saved entry. Names are shown as plain text.

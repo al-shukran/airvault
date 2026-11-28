@@ -1,1 +1,0 @@
-The Portfolio tab shows the wallet chosen in the profile panel, with its balances, its Bitcoin accounts and its recent activity, instead of every wallet together. Its All link opens the activity of that wallet.

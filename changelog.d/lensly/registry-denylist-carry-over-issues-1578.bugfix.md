@@ -1,1 +1,0 @@
-A signed denylist entry for one address no longer hides the built-in entry for another address, and a registry store upgraded from Lensly 1.2.0 now keeps the denylist of its installed update when a later update omits one, or says so when that list is lost.

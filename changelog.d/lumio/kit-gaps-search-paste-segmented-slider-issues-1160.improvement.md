@@ -1,1 +1,0 @@
-Lumio, the search sheet, the Add Token paste, the segmented control and the Display slider now match the Clear Air mockups: the search field fills the sheet with the tabs under a hairline, Paste is the clipboard icon, the Mainnet and Testnet track is 42 dp tall, and the Hide Small Balances slider draws no stop dots.

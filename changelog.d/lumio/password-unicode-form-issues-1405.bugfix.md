@@ -1,1 +1,0 @@
-The App Password and the Duress Password now unlock the same vault whichever Unicode form the keyboard types an accented letter in, and a try counts once toward erase. Passwords you set in 1.2.0 keep unlocking.

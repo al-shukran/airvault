@@ -1,1 +1,0 @@
-A coin logo is now decoded within a size limit, and a logo that is no image or declares too many pixels is neither kept nor shown. A failed write to the cache no longer crashes Lumio while a logo loads.

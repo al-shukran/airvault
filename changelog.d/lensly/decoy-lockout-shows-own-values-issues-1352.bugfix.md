@@ -1,1 +1,0 @@
-Changing the wrong password lockout in the Decoy Vault now shows the new values, and before any change it shows the defaults instead of the real vault's lockout, so the decoy looks the same as the real vault.

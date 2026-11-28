@@ -1,1 +1,0 @@
-Lumio now refreshes all of its saved-data files together whenever it saves something, so their times no longer show which files changed. [Issue #1596](https://github.com/al-shukran/airvault/issues/1596)

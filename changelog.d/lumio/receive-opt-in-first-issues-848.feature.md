@@ -1,1 +1,0 @@
-Receive into an Algorand account that has not opted in to an asset shows Opt In First in place of Copy Address, and a tap opens the opt-in of that asset. Search finds an Algorand asset by its ticker or ID, even with no balance, and opens its page, where Receive offers Opt In First.

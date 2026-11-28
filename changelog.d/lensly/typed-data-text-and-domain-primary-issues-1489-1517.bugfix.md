@@ -1,1 +1,0 @@
-Typed-data text now shows a backslash and the Unicode line and paragraph separators as escapes, so two different strings never read the same, and typed data whose primary type is the domain itself is refused because wallets built on eth-sig-util sign it differently.

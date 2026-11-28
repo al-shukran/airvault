@@ -1,1 +1,0 @@
-Send screens word the same things the same way on every chain: an amount above the balance is named in the field and Review stays unavailable, the recipient field has a clear icon while it holds text and a scan icon otherwise, and the scan of Lensly's reply has its own copy, a taller frame and brackets in the paper colour.

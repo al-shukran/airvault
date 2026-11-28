@@ -1,1 +1,0 @@
-Portfolio, a row whose price is the last one kept, older than the price refresh or from a failed read, shows its value in the secondary colour with the time of that price under it, such as "as of 14:05", or the day when it is not today.

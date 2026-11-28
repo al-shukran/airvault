@@ -1,1 +1,0 @@
-A scanned QR code whose multi-part frame ends in a slash or has an extra slash is now refused like any frame that declares too many parts, so a hostile code can no longer stall the scan for tens of seconds.

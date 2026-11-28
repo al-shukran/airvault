@@ -1,1 +1,0 @@
-A full disk or other write failure during a registry update no longer leaves the new package in use when the install is reported as failed; the previous catalog stays in effect and the update can be tried again.

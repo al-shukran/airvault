@@ -1,1 +1,0 @@
-The signed registry store now flags a deleted installed package like any lost store and lets the same package be installed again to repair it, no longer refuses every install after an interrupted first install, and a package that would leave the kept whitelist without its network is refused, with the built-in catalog used instead of a crash if such a store is found.

@@ -1,1 +1,0 @@
-The coin page opened from Home now matches the approved Ethereum frame: a 48 dp logo disc, the price with its dimmed cents, a centred 320 dp tick chart with a solid spark diamond, range labels in mono with the chosen one marked, one 52 dp Send capsule with Receive beside it as text, and holdings and activity rows set to the frame's spacing and type.

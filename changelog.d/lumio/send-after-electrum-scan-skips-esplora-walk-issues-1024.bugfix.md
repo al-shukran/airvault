@@ -1,1 +1,0 @@
-A send right after a Bitcoin scan through the Electrum servers no longer asks the public Esplora servers for each address in the account, so Send opens sooner and is less likely to hit their rate limits.

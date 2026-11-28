@@ -1,1 +1,0 @@
-A Single Key wallet no longer asked to install the Solana or Algorand App to sign a request for it, which a Single Key wallet cannot do. The sign request is refused with the wallet's lack of a Solana or Algorand account, and nothing is signed.

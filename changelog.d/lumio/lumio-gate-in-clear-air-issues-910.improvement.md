@@ -1,1 +1,0 @@
-Lumio now draws its App Password gate, and the unavailable page, in Clear Air, as the rest of Lumio is. After a wrong password the gate shows the tries left before Lumio is erased, and while a failure delay runs it counts the wait down before the next try.

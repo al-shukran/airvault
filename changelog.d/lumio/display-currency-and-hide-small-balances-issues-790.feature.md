@@ -1,1 +1,0 @@
-Settings → Display has a Currency choice (US dollar, euro, pound, yen or Swiss franc) for prices and totals, and a Hide Small Balances slider that leaves balances worth less than the chosen amount out of the portfolio and account lists, from $0 to $10.

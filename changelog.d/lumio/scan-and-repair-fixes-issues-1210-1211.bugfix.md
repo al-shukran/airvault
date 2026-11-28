@@ -1,1 +1,0 @@
-A normal Send that scans a payment code for a network on the other side of the Mainnet and Testnet switch now says to choose that network, not to switch sides, and Settings, Address Book and the activity show the renamed copy of a shared entry after you pair a wallet again, whichever wallet you paired first.

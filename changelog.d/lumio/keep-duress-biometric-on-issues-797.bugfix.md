@@ -1,1 +1,0 @@
-Switching Biometric Unlock on from a Duress Password session opened the App Password step, where the real password could be typed on screen while an observer watched. In a Duress Password session, switching it on now changes nothing, as switching it off already did.

@@ -1,1 +1,0 @@
-A send that failed because its signed transaction expired, after an earlier attempt that could not be confirmed, no longer says Try Again sends the same signed transaction. It now says the transaction can no longer be sent and that the send starts again with a fresh signature.

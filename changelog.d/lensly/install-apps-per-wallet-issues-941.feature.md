@@ -1,1 +1,0 @@
-Wallets hold only the chain apps the user installs. A new Mnemonic wallet starts with Bitcoin only, and each Mnemonic wallet has an Apps screen with Install and Uninstall. Uninstalling an app removes its accounts, and their names, labels and groups for that chain are lost.
