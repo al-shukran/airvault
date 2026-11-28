@@ -776,12 +776,66 @@ class VaultSession constructor(
 
     /** Makes this vault's photo key pair if it has none, and returns the public half. Writes no key file, so a caller can choose when. */
     internal fun ensurePhotoKeyRecord(): ByteArray = synchronized(this) {
-        val privateKey = getVaultRecord(VaultRecordNames.PHOTO_KEY)
+        val privateKey = photoPrivateKey()
             ?: MediaEnvelope.newPrivateKey().also { putVaultRecord(VaultRecordNames.PHOTO_KEY, it) }
         try {
             MediaEnvelope.publicKeyOf(privateKey)
         } finally {
             privateKey.fill(0)
+        }
+    }
+
+    /**
+     * The private half of this vault's photo key, or null when it has none. The caller zeroes it. The record holds the key, and while the
+     * photo copies of a Duress Password are not all made (see [photoCopiesPending]) the decoy's public key after it.
+     */
+    fun photoPrivateKey(): ByteArray? = synchronized(this) {
+        val record = getVaultRecord(VaultRecordNames.PHOTO_KEY) ?: return@synchronized null
+        try {
+            record.copyOfRange(0, minOf(record.size, MediaEnvelope.KEY_BYTES))
+        } finally {
+            record.fill(0)
+        }
+    }
+
+    /**
+     * The public photo key of the decoy that the copies of the cover's photos are still being made for, or null when no copy is pending. It
+     * sits in the photo key record, behind the private half, so the record file keeps its name and size and no other file shows it, and only
+     * this vault's key opens it. [Vault] sets it before it queues the copies and clears it when the last one is made.
+     */
+    internal fun photoCopiesPending(): ByteArray? = synchronized(this) {
+        val record = getVaultRecord(VaultRecordNames.PHOTO_KEY) ?: return@synchronized null
+        try {
+            if (record.size == 2 * MediaEnvelope.KEY_BYTES) record.copyOfRange(MediaEnvelope.KEY_BYTES, record.size) else null
+        } finally {
+            record.fill(0)
+        }
+    }
+
+    /**
+     * Marks the copies for the decoy with public key [decoyPublicKey] as pending, or clears the mark when it is null. It changes an existing
+     * photo key record only, so it never adds a file.
+     *
+     * @throws VaultException when the vault has no photo key record.
+     */
+    internal fun setPhotoCopiesPending(decoyPublicKey: ByteArray?): Unit = synchronized(this) {
+        val record = getVaultRecord(VaultRecordNames.PHOTO_KEY) ?: throw VaultException("The vault has no photo key.")
+        val next = record.copyOfRange(0, minOf(record.size, MediaEnvelope.KEY_BYTES)) + (decoyPublicKey ?: ByteArray(0))
+        try {
+            if (!next.contentEquals(record)) putVaultRecord(VaultRecordNames.PHOTO_KEY, next)
+        } finally {
+            record.fill(0)
+            next.fill(0)
+        }
+    }
+
+    /** Clears the mark of [photoCopiesPending] when it is the one for [decoyPublicKey]: a later Duress Password has its own mark. */
+    internal fun clearPhotoCopiesPending(decoyPublicKey: ByteArray): Unit = synchronized(this) {
+        val pending = photoCopiesPending() ?: return@synchronized
+        try {
+            if (pending.contentEquals(decoyPublicKey)) setPhotoCopiesPending(null)
+        } finally {
+            pending.fill(0)
         }
     }
 

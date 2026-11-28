@@ -20,6 +20,8 @@ import java.security.MessageDigest
 import java.security.ProviderException
 import java.security.SecureRandom
 import java.util.Arrays
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import javax.crypto.AEADBadTagException
 import javax.crypto.SecretKey
 import kotlin.random.asKotlinRandom
@@ -247,6 +249,20 @@ class Vault constructor(
      */
     suspend fun awaitCleanup() {
         cleanup?.join()
+    }
+
+    /** The job that clears the mark of the last Duress Password set's photo copies (see [clearMarkAfter]). */
+    @Volatile
+    private var markClear: Job? = null
+
+    /**
+     * Waits for the photo copies that [setDuress] and [removeDuress] queue, and for the clearing of the mark that says they are pending.
+     * They end by themselves, so the app never calls this; a caller that reads the photo folders right after one of them does, such as a
+     * test or a benchmark. Never call it while holding a vault lock.
+     */
+    suspend fun awaitPhotoCopies() {
+        withContext(Dispatchers.IO) { while (photoCopiesRunning.get() > 0) PhotoStore.whileNoSaveRuns {} }
+        markClear?.join()
     }
 
     /** True once a vault has been created and not wiped. An erase under way counts as a wipe (see [VaultLayout.exists]). */
@@ -701,8 +717,66 @@ class Vault constructor(
         // A kill leaves temp files or a photo without its twin, either of which would show that a Duress Password was set. Queued, never awaited:
         // the sealer may be busy with a video, and an unlock must not wait for it.
         PhotoStore.sealer.execute { bestEffort { repairPhotoFolders(layout) } }
+        // The copies of a Duress Password that a kill cut short are made again, here and not at the decoy's unlock, which has no key for them.
+        if (finishPromotion) bestEffort { resumePhotoCopies(session) }
         if (finishPromotion) startPromotionCleanup(session)
         return session
+    }
+
+    /**
+     * Makes the photo copies again that a kill left pending: the real photo key record holds the decoy's public key while the copies of the
+     * last Duress Password set are not all made (see [VaultSession.photoCopiesPending]). Only the real vault can read the mark, so the decoy
+     * side shows nothing of it. The copies are queued on the sealer and never awaited here. Nothing is done when a copy run is under way in
+     * this process: it clears the mark itself. A mark or a key that cannot be read leaves things as they are.
+     */
+    private fun resumePhotoCopies(session: VaultSession) {
+        if (photoCopiesRunning.get() > 0) return
+        val decoyPublicKey = session.photoCopiesPending() ?: return
+        val realPhotoKey = session.photoPrivateKey() ?: return
+        val onEnd = clearMarkAfter(session.copyOfVaultKey(), session.side, decoyPublicKey)
+        val decoySide = 1 - session.side
+        PhotoStore.sealer.execute {
+            try {
+                startPhotoCopies(layout, decoySide, decoyPublicKey, realPhotoKey, onEnd)
+            } catch (e: Exception) {
+                // The mark stays and the next unlock tries again. The keys were zeroed.
+            }
+        }
+    }
+
+    /**
+     * What a run of photo copies does when it ends, as the argument of [dropSidePhotos]: when every copy was made, it clears the mark of
+     * [decoyPublicKey] in the real vault of [vaultKey] and then zeroes [vaultKey]. A run that a later Duress Password set or removal replaced
+     * leaves the mark to that one. The clearing takes the vault's lock in the background, never on the sealer, which the lock's holders wait for.
+     * A mark that cannot be cleared stays, and the next unlock makes the copies again.
+     */
+    private fun clearMarkAfter(vaultKey: ByteArray, side: Int, decoyPublicKey: ByteArray): (Boolean) -> Unit = { completed ->
+        if (completed) {
+            markClear = cleanupScope.launch {
+                try {
+                    mutex.withLock { clearMarkLocked(vaultKey, side, decoyPublicKey) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // The mark stays.
+                } finally {
+                    Arrays.fill(vaultKey, 0)
+                }
+            }
+        } else {
+            Arrays.fill(vaultKey, 0)
+        }
+    }
+
+    /** Clears the mark when [vaultKey] still opens a slot of the key file: a promotion or a wipe since the copies began leaves it alone. */
+    private fun clearMarkLocked(vaultKey: ByteArray, side: Int, decoyPublicKey: ByteArray) {
+        if (VaultKeyFile.ownerIndex(VaultKeyFile.decode(readVaultFile(layout.vaultKey)), vaultKey) < 0) return
+        val session = VaultSession(layout, keys, vaultKey.copyOf(), side = side)
+        try {
+            session.clearPhotoCopiesPending(decoyPublicKey)
+        } finally {
+            session.close()
+        }
     }
 
     /**
@@ -1173,8 +1247,9 @@ class Vault constructor(
             // at its first unlock, which is the promotion: a cover photo saved from here on is then readable by the decoy after it.
             // Without that key the file holds a placeholder, as it does when no decoy exists.
             val decoySession = VaultSession(layout, keys, decoyKey.copyOf(), side = decoySide)
+            var decoyKeyMade = false
             val photoKey = try {
-                decoySession.ensurePhotoKeyRecord()
+                decoySession.ensurePhotoKeyRecord().also { decoyKeyMade = true }
             } catch (e: IOException) {
                 placeholderPhotoKey()
             } catch (e: GeneralSecurityException) {
@@ -1187,8 +1262,23 @@ class Vault constructor(
             // The photos taken so far are sealed on the decoy side to a key nobody holds. They are sealed again to the decoy's key from
             // the real side's copy, which the real photo key opens now, while this session is the real vault's.
             val realSession = VaultSession(layout, keys, vaultKey.copyOf(), side = side)
+            // The copies are only in the sealer's queue, which a kill empties. The real vault holds a mark first, which the last copy clears
+            // and the next unlock finds (see [resumePhotoCopies]). Without a mark the setup waits for the copies, as it would for a file it
+            // must not lose.
+            var marked = false
             val realPhotoKey = try {
-                realSession.getVaultRecord(VaultRecordNames.PHOTO_KEY)
+                realSession.photoPrivateKey()?.also {
+                    marked = decoyKeyMade && try {
+                        realSession.setPhotoCopiesPending(photoKey)
+                        true
+                    } catch (e: IOException) {
+                        false
+                    } catch (e: GeneralSecurityException) {
+                        false
+                    } catch (e: VaultException) {
+                        false
+                    }
+                }
             } catch (e: IOException) {
                 null
             } catch (e: GeneralSecurityException) {
@@ -1198,7 +1288,8 @@ class Vault constructor(
             } finally {
                 realSession.close()
             }
-            dropSidePhotos(layout, decoySide, photoKey, realPhotoKey)
+            dropSidePhotos(layout, decoySide, photoKey, realPhotoKey, if (marked) clearMarkAfter(vaultKey.copyOf(), side, photoKey) else { _ -> })
+            if (realPhotoKey != null && !marked) while (photoCopiesRunning.get() > 0) PhotoStore.whileNoSaveRuns {}
         }
         return DuressResult.Enabled
     }
@@ -1234,6 +1325,8 @@ class Vault constructor(
                 throw VaultException("The vault key file could not be changed.", e)
             }
             // The slot is already replaced, so a purge that fails leaves the old decoy's files for a later purge.
+            // No copy is pending for a decoy that is gone.
+            bestEffort { session.setPhotoCopiesPending(null) }
             bestEffort {
                 purgeUnowned(listOf(vaultKey), session.side)
                 dropSidePhotos(layout, 1 - session.side)
@@ -1893,59 +1986,116 @@ private fun overwriteFiles(dir: File) {
  * as a twin sealed to an unknown key. A file with no photo of the same name beside it is shredded, and a photo with no twin gets one.
  * A key file that cannot be written keeps its old bytes, which reveal nothing without the decoy's password.
  *
- * Only the key file, the shredding and the listing are done when this returns. The copies are made after it, one task for each photo on
- * the sealer, so a Duress Password is set in about the time of its key derivation however many photos and videos there are, and the
- * cover's saves and the gallery's deletes run between the tasks. Until the last task ends the decoy cannot open the photos whose copy is
- * not made yet, and they are in the folder with the size and name of a twin. This function takes [realPhotoKey] over and zeroes it after the
- * last task.
+ * Only the key file, the shredding and the listing are done when this returns. The copies are made after it, as one task on the sealer for
+ * each photo, and a task queues the next when it ends (see [runPhotoCopies]). So a Duress Password is set in about the time of its key
+ * derivation however many photos and videos there are, and the cover's saves, the gallery's deletes and the camera's start run between
+ * the tasks, not after all of them. Until the last task ends the decoy cannot open the photos whose copy is not made yet, and they are in
+ * the folder with the size and name of a twin. A kill empties the queue, so the caller marks the copies as pending in the real vault
+ * before this is called and clears the mark in [onEnd] (see [resumePhotoCopies]).
+ *
+ * This function takes [realPhotoKey] over and zeroes it when the run ends. [onEnd] is called once, on the sealer, when the run ends, with
+ * true when every copy was made and false when a later call of this function took over, or when this one failed.
  */
-private fun dropSidePhotos(layout: VaultLayout, side: Int, keyFile: ByteArray = placeholderPhotoKey(), realPhotoKey: ByteArray? = null) {
+private fun dropSidePhotos(
+    layout: VaultLayout,
+    side: Int,
+    keyFile: ByteArray = placeholderPhotoKey(),
+    realPhotoKey: ByteArray? = null,
+    onEnd: (completed: Boolean) -> Unit = {},
+) {
+    PhotoStore.whileNoSaveRuns { startPhotoCopies(layout, side, keyFile, realPhotoKey, onEnd) }
+}
+
+/** The first half of [dropSidePhotos]. It runs on the sealer and queues the copies. See there for the arguments. */
+private fun startPhotoCopies(layout: VaultLayout, side: Int, keyFile: ByteArray, realPhotoKey: ByteArray?, onEnd: (Boolean) -> Unit) {
     val folder = layout.photoDir(side)
     val source = layout.photoDir(1 - side)
     try {
         var keyWritten = false
-        val (kept, twinless) = PhotoStore.whileNoSaveRuns {
-            try {
-                writeAtomically(layout.photoKeyFile(side), keyFile)
-                keyWritten = true
-            } catch (e: IOException) {
-                // The next unlock of the decoy would replace it anyway; the drop itself must not fail half way.
-            }
-            val photos = source.listFiles().orEmpty().filter { it.isFile }
-            val names = photos.map { it.name }.toSet()
-            val twins = folder.listFiles().orEmpty().partition { it.name in names }
-            twins.second.forEach(::shredPhotoFile)
-            twins.first.map { it.name } to photos.filter { !File(folder, it.name).exists() }
+        try {
+            writeAtomically(layout.photoKeyFile(side), keyFile)
+            keyWritten = true
+        } catch (e: IOException) {
+            // The next unlock of the decoy would replace it anyway; the drop itself must not fail half way.
         }
+        val photos = source.listFiles().orEmpty().filter { it.isFile }
+        val names = photos.map { it.name }.toSet()
+        val (kept, strays) = folder.listFiles().orEmpty().partition { it.name in names }
+        strays.forEach(::shredPhotoFile)
+        val keptNames = kept.map { it.name }.toSet()
         // The cover clears the modification time of every photo it saves, so a file written here gets the same time.
-        fun resealed(name: String) =
-            keyWritten && realPhotoKey != null && resealTwin(File(source, name), realPhotoKey, keyFile, File(folder, name))
-        // A photo that was deleted since the listing has no twin to make: the gallery's delete shredded both files.
-        fun later(name: String, task: () -> Unit) = PhotoStore.sealer.execute {
-            resealHookForTesting?.invoke(File(source, name))
-            if (File(source, name).exists()) {
-                try {
-                    task()
-                } catch (e: Exception) {
-                    // The twin keeps its old bytes, which no key opens. A task must not end the sealer's thread.
+        fun resealed(photo: File) =
+            keyWritten && realPhotoKey != null && resealTwin(photo, realPhotoKey, keyFile, File(folder, photo.name))
+        val copies = photos.map { photo ->
+            val copy = if (photo.name in keptNames) {
+                {
+                    if (!resealed(photo)) File(folder, photo.name).let {
+                        overwriteBestEffort(it)
+                        it.setLastModified(0L)
+                    }
                 }
+            } else {
+                { if (!resealed(photo)) writeRandomTwin(photo, File(folder, photo.name)) }
+            }
+            photo to copy
+        }
+        // The generation is taken here, on the sealer, so a run that an earlier call queued stops at its next task.
+        runPhotoCopies(photoCopyGeneration.incrementAndGet(), copies) { completed ->
+            try {
+                onEnd(completed)
+            } finally {
+                realPhotoKey?.fill(0)
             }
         }
-        kept.forEach { name ->
-            later(name) {
-                if (!resealed(name)) File(folder, name).let {
-                    overwriteBestEffort(it)
-                    it.setLastModified(0L)
-                }
-            }
-        }
-        twinless.forEach { photo -> later(photo.name) { if (!resealed(photo.name)) writeRandomTwin(photo, File(folder, photo.name)) } }
     } catch (e: Throwable) {
         realPhotoKey?.fill(0)
+        onEnd(false)
         throw e
     }
-    PhotoStore.sealer.execute { realPhotoKey?.fill(0) }
 }
+
+/** Counts the runs of photo copies that have not ended, so a caller can wait for them (see [Vault.awaitPhotoCopies]). */
+private val photoCopiesRunning = AtomicInteger()
+
+/** Which run of copies is the latest. A run stops when this is no longer its own number. */
+private val photoCopyGeneration = AtomicLong()
+
+/**
+ * Makes the [copies] one task at a time: each task, when it ends, queues the next at the back of the sealer's queue, so whatever was
+ * queued meanwhile runs before it. A photo that was deleted since the listing has no twin to make: the gallery's delete shredded both
+ * files, so its task is skipped. A task that fails leaves its twin with its old bytes, which no key opens, and must not end the sealer's thread.
+ * [end] is called after the last task, or at the first task of a run that a later one replaced, with whether this run was the latest.
+ */
+private fun runPhotoCopies(generation: Long, copies: List<Pair<File, () -> Unit>>, end: (Boolean) -> Unit) {
+    photoCopiesRunning.incrementAndGet()
+    fun queue(index: Int): Unit = PhotoStore.sealer.execute {
+        var queuedNext = false
+        try {
+            if (photoCopiesKilledForTesting) return@execute
+            val latest = photoCopyGeneration.get() == generation
+            if (latest && index < copies.size) {
+                val (photo, copy) = copies[index]
+                try {
+                    resealHookForTesting?.invoke(photo)
+                    if (photo.exists()) copy()
+                } catch (e: Exception) {
+                    // See above.
+                }
+                queuedNext = true
+                queue(index + 1)
+            } else {
+                end(latest)
+            }
+        } finally {
+            if (!queuedNext) photoCopiesRunning.decrementAndGet()
+        }
+    }
+    queue(0)
+}
+
+/** Test hook: when true, the copies stop where they are and nothing is cleared, as if the process died. */
+@Volatile
+internal var photoCopiesKilledForTesting = false
 
 /**
  * Seals the photo [source], opened with [realPhotoKey], to [publicKey] as a temp file beside [target], clears its modification time and

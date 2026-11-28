@@ -135,7 +135,7 @@ class VaultDuressSetupTest {
         val sizesBefore = photoSizes()
 
         runBlocking { vault.removeDuress(real) }
-        PhotoStore.whileNoSaveRuns {}
+        runBlocking { vault.awaitPhotoCopies() }
 
         assertEquals(sizesBefore, photoSizes())
         assertFoldersAlike()
@@ -223,7 +223,7 @@ class VaultDuressSetupTest {
         }
         assertEquals(DuressResult.Enabled, result)
         // The photo copies are made after the setup returns.
-        PhotoStore.whileNoSaveRuns {}
+        runBlocking { vault.awaitPhotoCopies() }
         return key
     }
 
