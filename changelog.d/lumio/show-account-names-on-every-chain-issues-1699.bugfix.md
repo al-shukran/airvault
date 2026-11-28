@@ -1,0 +1,1 @@
+Names for your Solana, Algorand and Bitcoin accounts now come across when you pair with Lensly, so each account shows the name you gave it. Pair your wallets again after updating, because the stored pairing format changed.
