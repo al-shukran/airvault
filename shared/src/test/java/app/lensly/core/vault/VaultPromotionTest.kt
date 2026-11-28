@@ -94,7 +94,6 @@ class VaultPromotionTest {
 
     @Test
     fun aChainOfPromotionsKeepsOnlyTheNewestVaultAndNothingAccumulates() {
-        val fresh = freshShape()
         create(P[0])
         var session = unlocked(P[0])
         session.createWallet()
@@ -104,7 +103,7 @@ class VaultPromotionTest {
         for (generation in 0 until 4) {
             gone += session.copyOfVaultKey() to session.listWallets()
             val next = setDuress(session, P[generation + 1])
-            // The setup cleared the decoy's folder, and the cover shoots into both from now on.
+            // The cover shoots into both folders.
             savePhotos(layout, "g$generation")
             session.close()
             session = unlocked(P[generation + 1])
@@ -117,7 +116,7 @@ class VaultPromotionTest {
             for (older in 0..generation) assertRejected(attempt(P[older]))
             session.close()
             session = unlocked(P[generation + 1])
-            assertSameShape(fresh, shape(layout, keys), "after promotion ${generation + 1} the files are those of a vault that never had a Duress Password")
+            assertSameShape(freshShape("before", *Array(generation + 1) { "g$it" }), shape(layout, keys), "after promotion ${generation + 1} the files are those of a vault that never had a Duress Password")
         }
 
         gone.forEach { (key, wallets) ->
@@ -133,7 +132,7 @@ class VaultPromotionTest {
 
     @Test
     fun aCrashRightAfterTheCommitIsFinishedByTheNextUnlock() {
-        val fresh = freshShape()
+        val fresh = freshShape("before", "after")
         create(P1)
         val real = unlocked(P1)
         val realWallet = real.createWallet()
@@ -189,7 +188,7 @@ class VaultPromotionTest {
 
     @Test
     fun aCrashAtTheCommitOfAMiddleGenerationIsFinishedAndTheChainGoesOn() {
-        val fresh = freshShape()
+        val fresh = freshShape("before", "g0", "g1", "g2", "g3")
         create(P[0])
         var session = unlocked(P[0])
         session.createWallet()
@@ -717,7 +716,7 @@ class VaultPromotionTest {
 
     @Test
     fun aCrashHalfWayThroughTheCleanupIsFinishedByTheNextUnlockAndTheVaultIsThatOfOneThatNeverHadADuressPassword() {
-        val fresh = freshShape()
+        val fresh = freshShape("before", "after")
         create(P1)
         val real = unlocked(P1)
         val wallets = List(3) { real.createWallet() }
@@ -727,13 +726,13 @@ class VaultPromotionTest {
         savePhotos(layout, "after")
         real.close()
 
-        // The process dies while the second wallet folder of the old vault is released.
-        var releases = 0
+        // The process dies as the second wallet folder of the old vault is released. Unused slots are released too, in any order.
         var armed = false
         val dying = object : KeystoreBackend by keys {
             override fun deleteFolderKey(keyId: String) {
-                if (armed && ++releases == 2) throw IllegalStateException("The process died.")
+                val before = wallets.count { ownsWallet(keys, layout, realKey, it) }
                 keys.deleteFolderKey(keyId)
+                if (armed && before == 2 && wallets.count { ownsWallet(keys, layout, realKey, it) } == 1) throw IllegalStateException("The process died.")
             }
         }
         vault = Vault(layout, dying, clock, KDF)
@@ -839,7 +838,7 @@ class VaultPromotionTest {
 
     @Test
     fun theCleanupWithSixteenWalletsLeavesTheShapeOfAFreshVaultAndNeverBlocksTheSessionLong() {
-        val fresh = freshShape()
+        val fresh = freshShape("before", "after")
         create(P1)
         val real = unlocked(P1)
         repeat(16) { real.createWallet() }
@@ -990,17 +989,19 @@ class VaultPromotionTest {
         }
     }
 
+    private var freshCount = 0
+
     private fun layoutAt(name: String) = VaultLayout(File(tmp.root, name), File(tmp.root, "$name-photos"))
 
     /** What a vault that never had a Duress Password looks like with one wallet and the two photos. */
-    private fun freshShape(): Shape {
-        val freshLayout = layoutAt("fresh")
+    private fun freshShape(vararg photoTags: String = arrayOf("x")): Shape {
+        val freshLayout = layoutAt("fresh${freshCount++}")
         val freshKeys = MemoryKeystore()
         val freshVault = Vault(freshLayout, freshKeys, FakeClock(), KDF)
         runBlocking { freshVault.create(P[0].toCharArray()) }
         val session = (runBlocking { freshVault.unlock(P[0].toCharArray()) } as UnlockResult.Unlocked).session
         session.createWallet()
-        savePhotos(freshLayout)
+        photoTags.forEach { savePhotos(freshLayout, it) }
         val shape = shape(freshLayout, freshKeys)
         session.close()
         return shape

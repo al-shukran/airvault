@@ -285,12 +285,10 @@ class WalletPad(
      */
     fun release(ids: Collection<String>): Boolean {
         if (ids.isEmpty()) return true
-        val free = freeSlots()
-        val turned = ids.filter { it !in free }
-        if (turned.isEmpty()) return true
+        // A slot that is listed as free is retired too: a folder a wallet was written into stays a wallet's until it is overwritten.
         val dirs = folderDirs()
-        val erased = turned.map { id -> WalletFolder.makeUnused(layout.walletDir(id), keys) }
-        write(free + turned.filter { id -> dirs.any { it.name == id } })
+        val erased = ids.map { id -> WalletFolder.makeUnused(layout.walletDir(id), keys) }
+        write(freeSlots() + ids.filter { id -> dirs.any { it.name == id } })
         return erased.all { it }
     }
 
@@ -347,11 +345,8 @@ class WalletPad(
     private fun readFile(): ByteArray? =
         if (file.isFile && file.length() == PAD_FILE_BYTES.toLong()) file.readBytes() else null
 
-    /** The free-slot list this section holds, as this vault's key reads it. For tests only. */
-    internal fun freeSlotsForTesting(): Set<String> = freeSlots()
-
     /** The unused slots of this vault that still have a folder. A missing or damaged list reads as no unused slot, which is safe. */
-    private fun freeSlots(): Set<String> {
+    internal fun freeSlots(): Set<String> {
         val bytes = readFile() ?: return emptySet()
         val plain = try {
             Aead.open(padKey, aad(), bytes.copyOfRange(section * PAD_SECTION_BYTES, (section + 1) * PAD_SECTION_BYTES))
@@ -375,7 +370,7 @@ class WalletPad(
      * Seals [free] as this vault's unused-slot list and writes the file with the other section kept byte for byte. The file has a
      * fixed size, so a write never changes what the storage shows about the store.
      */
-    private fun write(free: Set<String>) {
+    internal fun write(free: Set<String>) {
         val dirs = folderDirs().map { it.name }.toSet()
         val ids = free.filter { it in dirs }.sorted().take(PAD_CAPACITY)
         val plain = ByteArray(PAD_PLAIN_BYTES)
