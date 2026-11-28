@@ -99,9 +99,13 @@ class PhotoStore(
 
     /**
      * Overwrites a saved photo or video, then deletes it. This also shreds the twin copy of the same name in the other side's folder, so a
-     * deleted cover photo is not left readable under the Duress Password.
+     * deleted cover photo is not left readable under the Duress Password. The file goes before its twin: a twin that is written meanwhile
+     * (see `commitIfSourceStays` in the vault) finds the file gone.
      */
-    fun delete(file: File): Boolean = (twinDirectory?.let { shredFile(File(it, file.name)) } ?: true) && shredFile(file)
+    fun delete(file: File): Boolean {
+        val shredded = shredFile(file)
+        return (twinDirectory?.let { shredFile(File(it, file.name)) } ?: true) && shredded
+    }
 
     /** Zeroes the private key, so that no key outlives the gallery that held it. */
     fun close() {

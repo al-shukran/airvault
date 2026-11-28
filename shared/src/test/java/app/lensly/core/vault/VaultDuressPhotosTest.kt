@@ -82,6 +82,47 @@ class VaultDuressPhotosTest {
         promoted.close()
     }
 
+    @Test
+    fun anUnlockSweepsTempFilesFromBothPhotoFoldersSoTheirNamesStayEqual() {
+        val photo = shoot()
+        File(layout.photoDir(1), "${photo.name}.123.tmp").writeBytes(PHOTO)
+        File(layout.photoDir(0), "other.456.tmp").writeBytes(PHOTO)
+
+        unlocked(APP).close()
+
+        assertEquals(setOf(photo.name), layout.photoDir(0).list().orEmpty().toSet())
+        assertEquals(setOf(photo.name), layout.photoDir(1).list().orEmpty().toSet())
+    }
+
+    @Test
+    fun aPhotoDeletedBetweenItsResealAndItsRenameLeavesNoCopyOnTheDecoySide() {
+        assertDeletedDuringSetupLeavesNoTwin(twinFirst = false)
+    }
+
+    @Test
+    fun aPhotoDeletedBetweenItsRandomTwinAndItsRenameLeavesNoCopyOnTheDecoySide() {
+        assertDeletedDuringSetupLeavesNoTwin(twinFirst = true)
+    }
+
+    private fun assertDeletedDuringSetupLeavesNoTwin(twinFirst: Boolean) {
+        val session = unlocked(APP)
+        session.createWallet()
+        val photo = shoot()
+        // A photo with no side-1 twin is given a random one; otherwise its twin is sealed again.
+        if (twinFirst) assertTrue(File(layout.photoDir(1), photo.name).delete())
+        val gallery = PhotoStore.of(layout, side = 0)
+        resealCommitHookForTesting = { source -> assertTrue(gallery.delete(source)) }
+        try {
+            assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+        } finally {
+            resealCommitHookForTesting = null
+        }
+        session.close()
+
+        assertEquals(emptySet(), layout.photoDir(0).list().orEmpty().toSet())
+        assertEquals(emptySet(), layout.photoDir(1).list().orEmpty().toSet())
+    }
+
     private fun shoot(): File {
         assertTrue(PhotoStore.forCover(layout).savePhoto(PHOTO.copyOf(), nowMs = 1_000L))
         return layout.photoDir(0).listFiles().orEmpty().single()
