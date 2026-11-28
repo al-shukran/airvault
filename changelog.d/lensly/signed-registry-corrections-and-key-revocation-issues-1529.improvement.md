@@ -1,1 +1,0 @@
-A signed catalog package can now correct a built-in network or token, revoke a signing key that has leaked, and carry the Solana fee constants behind the Max Fee, so these no longer wait for a Lensly update.

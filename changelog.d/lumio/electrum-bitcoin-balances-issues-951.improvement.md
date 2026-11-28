@@ -1,1 +1,0 @@
-Bitcoin balances on mainnet load faster after a restore: Lumio reads them in batches from public Electrum servers, and it falls back to the Esplora server when none of them answers. A network with a server of your own is read from that server alone.

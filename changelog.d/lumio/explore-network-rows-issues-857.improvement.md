@@ -1,1 +1,0 @@
-Explore's chains group now has a row for each network your accounts sit on, with its kind (Layer 1, or L2 on Ethereum) and its count of accounts, and it features Base, Arbitrum One, Optimism and Polygon PoS even before an account sits on them.

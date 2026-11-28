@@ -1,1 +1,0 @@
-The Solana review now counts the signatures that signature-verify instructions check in its Base Fee and Max Fee, and no longer refuses a transaction that sets a heap size or an account data limit, which do not change the fee.

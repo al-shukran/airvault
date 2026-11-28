@@ -1,1 +1,0 @@
-A Uniswap router call that leaves its swap output in the router, where anyone can take it, now shows a danger warning with a check to tick, unless a later step in the same call sweeps, unwraps or transfers it out.

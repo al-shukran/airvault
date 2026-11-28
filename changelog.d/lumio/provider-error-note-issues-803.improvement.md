@@ -1,1 +1,0 @@
-A chain that cannot be reached now shows a note under its eyebrow on the wallet page, which says that the last known balance is shown. Its accounts keep the balances they were last read with, and the rest of the page stays live. The wallet page no longer shows the general refresh notice for it.

@@ -1,1 +1,0 @@
-Transaction pages name the Address Book group of a known address, such as Address book · Group Friends, and the address sheet lists the group. Pair the wallet again to see groups, since older pairings are refused.

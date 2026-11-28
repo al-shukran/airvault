@@ -1,1 +1,0 @@
-Lumio no longer overwrites your Display or EVM settings with defaults when the saved record cannot be read, and a wallet whose display name is invisible shows its auto-name instead of a blank in Receive, Portfolio and Transaction detail.

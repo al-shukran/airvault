@@ -1,1 +1,0 @@
-A transaction sent through a public node with two addresses is no longer handed to the second address after the first may have taken it, so the result page no longer says nothing left your account for a sent transaction.

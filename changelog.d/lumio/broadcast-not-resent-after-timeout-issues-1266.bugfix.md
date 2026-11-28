@@ -1,1 +1,0 @@
-A signed transaction that a provider may have accepted is no longer sent again after a timeout or a dropped connection. Before, the second send could come back as already known, and the send showed Failed for a transaction that was sent. Now the send fails after the first try, and Try Again sends it through another provider.

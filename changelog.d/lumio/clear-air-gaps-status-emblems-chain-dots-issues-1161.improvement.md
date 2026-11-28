@@ -1,1 +1,0 @@
-Explore shows each data provider's status in its colour, a second paired wallet gets the stone emblem next to the blue one, and rows that add up several chains show their chain logos with a clean ring between them.

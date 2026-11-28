@@ -1,1 +1,0 @@
-Settings → Transactions now has a Hide Spam switch, on by default, that keeps spam and scam transfers out of Activity, and a Last Chance slider from 0 to 300 seconds, 60 seconds by default, for the pause after a send is signed and before it is broadcast. Both apply at once, and 0 seconds sends at once.

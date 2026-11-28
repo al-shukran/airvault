@@ -1,1 +1,0 @@
-A Bitcoin send now asks the server for its change address when you build it, and a send that was just broadcast keeps its change address, so two sends in a row no longer pay change to the same address.

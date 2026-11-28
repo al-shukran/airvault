@@ -1,1 +1,0 @@
-Change Password and the Auto-Lock password prompt now clear every password field once a submit finishes and when the screen closes, so a typed App Password no longer stays on screen after a change, a refusal or a close.

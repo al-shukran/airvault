@@ -1,1 +1,0 @@
-The offline registry update no longer lets an old package copied over the installed one lower the sequence floor, and a package signed by a key that a later app version lists as revoked no longer blocks every later registry update.

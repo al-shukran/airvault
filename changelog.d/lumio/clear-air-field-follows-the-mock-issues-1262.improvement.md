@@ -1,1 +1,0 @@
-Every Clear Air field now follows the locked mock more closely: its label sits against the outline where the mock puts it, a field with an eye or other action is the mock's height, the error line is the mock's height, and a hidden password shows round dots spaced as the mock draws them.

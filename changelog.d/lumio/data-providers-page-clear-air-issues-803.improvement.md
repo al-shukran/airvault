@@ -1,1 +1,0 @@
-The Data Providers page uses the Clear Air design. Each provider has a Details action that opens its Provider page, where its API key is typed, so the key field no longer sits on the Data Providers page.

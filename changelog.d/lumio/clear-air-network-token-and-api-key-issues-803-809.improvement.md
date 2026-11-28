@@ -1,1 +1,0 @@
-The Network page of each chain, the Add Token page and the Bitcoin and Ethereum sections of Networks use the Clear Air design. A provider's API key is typed on its Provider page, and the pair scan says where Pair is on Lensly.

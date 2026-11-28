@@ -1,1 +1,0 @@
-The Network page now shows the status of each chain's own custom RPC address, so a failing address on one chain no longer marks another chain's address as rate-limited or working, and the status refreshes while the page stays open.

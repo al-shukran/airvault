@@ -1,1 +1,0 @@
-Locking Lumio now ends the watches on sent transactions. Before, a watch outlived the lock and could ask the explorers about the real transaction through a decoy vault's provider settings, or stay pending after the next unlock. A transaction that lands while Lumio is locked no longer posts an arrival notice, and the activity list shows its status on the next unlock.

@@ -9,8 +9,8 @@ laptop, and the signing keys never enter the repository.
 2. Tag the master commit you are releasing, then push only that tag:
 
    ```sh
-   git tag lensly-v0.1.0      # or lumio-v0.1.0
-   git push origin lensly-v0.1.0
+   git tag lensly-v1.3.0      # or lumio-v1.1.0
+   git push origin lensly-v1.3.0
    ```
 
 3. The workflow runs three kinds of job on separate runners:
