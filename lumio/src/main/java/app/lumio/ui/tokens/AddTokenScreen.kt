@@ -11,7 +11,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lumio.tokens.Token
-import app.lumio.ui.kit.AddressGroups
+import app.lumio.ui.kit.AddressFieldGroups
 import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIconButton
@@ -70,7 +70,7 @@ fun AddTokenScreen(
                 onValueChange = addressChanged,
                 placeholder = "0x…",
                 monospace = true,
-                transformation = AddressGroups,
+                transformation = AddressFieldGroups,
                 error = problem,
                 onCommit = { if (address.isNotBlank() && !busy) onLookUp() },
                 inputTag = "token-address",

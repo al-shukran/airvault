@@ -32,7 +32,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import app.lensly.app.addressEnds
 import app.lensly.ui.qr.AnimatedQr
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
@@ -81,9 +80,6 @@ fun SendOptionSheet(visible: Boolean, heading: String, options: List<SendOption>
         }
     }
 }
-
-/** The words of a row's description: the non-blank parts, joined with a middle dot. */
-private fun joined(vararg parts: String): String = parts.filter { it.isNotBlank() }.joinToString(" · ")
 
 /** Why [text] is not a recipient the EVM send can pay, or null when it is one. The words are the ones the send refuses with. */
 internal fun recipientError(text: String): String? = runCatching { SendInput.recipient(text) }
@@ -208,7 +204,8 @@ fun SendRecipientPage(
             accounts.forEachIndexed { index, choice ->
                 ClearAirRow(
                     title = choice.title,
-                    description = joined(choice.detail, addressEnds(choice.address)),
+                    description = choice.detail.ifBlank { null },
+                    address = choice.address,
                     leading = { ClearAirMonogram(text = monogramOf(choice.title)) },
                     onClick = { onPick(choice) },
                     divider = index > 0,
@@ -221,7 +218,8 @@ fun SendRecipientPage(
             addressBook.forEachIndexed { index, choice ->
                 ClearAirRow(
                     title = choice.title,
-                    description = joined(choice.detail, addressEnds(choice.address)),
+                    description = choice.detail.ifBlank { null },
+                    address = choice.address,
                     leading = { ClearAirMonogram(text = monogramOf(choice.title)) },
                     onClick = { onPick(choice) },
                     divider = index > 0,
@@ -283,7 +281,8 @@ fun SendAmountPage(
         SendGroupHeading(text = "To", top = ClearAirSpacing.md)
         ClearAirRow(
             title = toTitle,
-            description = joined(toDetail, addressEnds(toAddress)),
+            description = toDetail.ifBlank { null },
+            address = toAddress,
             leading = { ClearAirMonogram(text = monogramOf(toTitle)) },
             trailing = { ClearAirTextAction(text = "Change", onClick = onChangeRecipient) },
             compact = true,

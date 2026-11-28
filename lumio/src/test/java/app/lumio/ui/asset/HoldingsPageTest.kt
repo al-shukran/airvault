@@ -28,7 +28,8 @@ class HoldingsPageTest {
         accountId = AccountId("eip155:1:0x" + "a1".repeat(20)),
         chain = "Ethereum",
         name = "Cold Storage",
-        detail = "Air 1 #11 · 0x1020…122b",
+        detail = "Air 1 #11",
+        address = "0x" + "a1".repeat(20),
         amount = BigDecimal("2"),
     )
 

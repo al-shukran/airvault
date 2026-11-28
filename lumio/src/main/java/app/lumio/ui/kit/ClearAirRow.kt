@@ -1,6 +1,7 @@
 package app.lumio.ui.kit
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -58,7 +59,8 @@ private val INDEX = ClearAirType.address.copy(fontSize = 11.5.sp, lineHeight = 1
  * sits after the description's text on its line, such as a row of chain logos. A [descriptionLine] takes the place of the [description] when its parts are
  * separate elements, such as a status glyph, its word and a note. A [tag] and an [index] follow the title. A [divider] is a hairline on the
  * row's top edge, which starts at the text when the row has a [leading] mark and at the gutter when it has none, so a list sets it on every row but the
- * first. The row is full-bleed with the page gutter on each side, and it scales to 0.98 while pressed. A [destructive] row has its title in rose.
+ * first. The row is full-bleed with the page gutter on each side, and it scales to 0.98 while pressed. A [destructive] row has its title in rose. An
+ * [address] is the row's last line, a [ClearAirAddressLine] under the title, the description and any trailing value, from the text's edge to the gutter.
  */
 @Composable
 fun ClearAirRow(
@@ -76,10 +78,11 @@ fun ClearAirRow(
     divider: Boolean = false,
     compact: Boolean = false,
     chevron: Boolean = onClick != null,
+    address: String? = null,
 ) {
     val palette = LocalClearAirPalette.current
     val inset = if (leading != null) ClearAirSpacing.gutter + DISC + ClearAirSpacing.sm else ClearAirSpacing.gutter
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .drawBehind {
@@ -101,57 +104,62 @@ fun ClearAirRow(
                 },
             )
             .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.Center,
     ) {
-        if (leading != null) {
-            leading()
-            Spacer(Modifier.width(ClearAirSpacing.sm))
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = title,
-                    style = ClearAirType.rowTitle,
-                    color = if (destructive) palette.rose else palette.ink,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (index != null) {
-                    Text(text = index, style = INDEX, color = palette.ink2, maxLines = 1, modifier = Modifier.padding(start = ClearAirSpacing.xxs))
-                }
-                if (tag != null) {
-                    ClearAirTag(text = tag, modifier = Modifier.padding(start = 6.dp))
-                }
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            if (leading != null) {
+                leading()
+                Spacer(Modifier.width(ClearAirSpacing.sm))
             }
-            if (descriptionLine != null) {
-                Row(verticalAlignment = Alignment.CenterVertically, content = descriptionLine)
-            } else if (description != null) {
+            Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = description,
-                        style = ROW_DESCRIPTION,
-                        color = palette.ink2,
-                        modifier = if (descriptionSuffix == null) Modifier else Modifier.weight(1f, fill = false),
+                        text = title,
+                        style = ClearAirType.rowTitle,
+                        color = if (destructive) palette.rose else palette.ink,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
-                    if (descriptionSuffix != null) {
-                        Spacer(Modifier.width(SUFFIX_GAP))
-                        descriptionSuffix()
+                    if (index != null) {
+                        Text(text = index, style = INDEX, color = palette.ink2, maxLines = 1, modifier = Modifier.padding(start = ClearAirSpacing.xxs))
+                    }
+                    if (tag != null) {
+                        ClearAirTag(text = tag, modifier = Modifier.padding(start = 6.dp))
+                    }
+                }
+                if (descriptionLine != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically, content = descriptionLine)
+                } else if (description != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = description,
+                            style = ROW_DESCRIPTION,
+                            color = palette.ink2,
+                            modifier = if (descriptionSuffix == null) Modifier else Modifier.weight(1f, fill = false),
+                        )
+                        if (descriptionSuffix != null) {
+                            Spacer(Modifier.width(SUFFIX_GAP))
+                            descriptionSuffix()
+                        }
                     }
                 }
             }
+            if (trailing != null) {
+                Spacer(Modifier.width(ClearAirSpacing.sm))
+                trailing()
+            }
+            if (chevron) {
+                Spacer(Modifier.width(ClearAirSpacing.sm))
+                val mirrored = LocalLayoutDirection.current == LayoutDirection.Rtl
+                ClearAirIcon(
+                    glyph = ClearAirGlyph.CHEVRON,
+                    color = palette.ink3,
+                    size = 16.dp,
+                    modifier = Modifier.graphicsLayer { scaleX = if (mirrored) -1f else 1f },
+                )
+            }
         }
-        if (trailing != null) {
-            Spacer(Modifier.width(ClearAirSpacing.sm))
-            trailing()
-        }
-        if (chevron) {
-            Spacer(Modifier.width(ClearAirSpacing.sm))
-            val mirrored = LocalLayoutDirection.current == LayoutDirection.Rtl
-            ClearAirIcon(
-                glyph = ClearAirGlyph.CHEVRON,
-                color = palette.ink3,
-                size = 16.dp,
-                modifier = Modifier.graphicsLayer { scaleX = if (mirrored) -1f else 1f },
-            )
+        if (address != null) {
+            ClearAirAddressLine(address = address, modifier = Modifier.padding(start = inset - ClearAirSpacing.gutter, top = ADDRESS_LINE_GAP))
         }
     }
 }

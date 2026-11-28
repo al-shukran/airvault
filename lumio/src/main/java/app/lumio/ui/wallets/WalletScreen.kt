@@ -272,6 +272,7 @@ private fun AccountItem(
         title = accountTitle(account),
         index = accountIndex(account),
         description = accountLine(account, tokens),
+        address = account.address,
         leading = { ClearAirMonogram(text = monogramOf(account)) },
         trailing = { AccountValue(account = account, usd = usd, showTotal = showTotal, showBalances = showBalances, slot = slot, clock = clock) },
         onClick = onClick,

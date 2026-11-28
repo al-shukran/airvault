@@ -76,7 +76,9 @@ class ActivityViewTest {
         )
 
         assertEquals("Contract Call", line.title)
-        assertEquals("Confirming · To 0x1234…5678 · Monad Testnet", line.detail)
+        assertEquals("the address has a line of its own", "Confirming · Monad Testnet", line.detail)
+        assertEquals("To", line.direction)
+        assertEquals(counterparty, line.address)
         assertEquals("−0.25 ETH", line.amount)
         assertEquals(null, line.usd)
         assertTrue(line.pending)
@@ -91,9 +93,17 @@ class ActivityViewTest {
     }
 
     @Test
-    fun anAddressShortensOnlyWhenItIsLong() {
-        assertEquals("0xabc", ActivityText.shortAddress("0xabc"))
-        assertEquals("0x1020…122b", ActivityText.shortAddress("0x1020" + "0".repeat(32) + "122b"))
+    fun aNamedPartyHasNoAddressLine() {
+        val line = ActivityText.line(tx(TxDirection.IN, "1"), chain = "Base", usd = null, party = "FelixStone", zone = zone)
+
+        assertEquals(null, line.address)
+        assertEquals("From", line.direction)
+    }
+
+    @Test
+    fun aHashShortensOnlyWhenItIsLong() {
+        assertEquals("0xabc", shortHash("0xabc"))
+        assertEquals("0x1020…122b", shortHash("0x1020" + "0".repeat(32) + "122b"))
     }
 
     @Test

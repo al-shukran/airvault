@@ -126,7 +126,7 @@ class AssetScreenshotTest {
             onWatch = {},
             held = held,
             onHoldings = {},
-            accounts = listOf(CoinAccount(title = "Savings", detail = "Air 1 #0 · 0x1020…122b", trailing = "4 ETH", onSend = {}, onReceive = {})),
+            accounts = listOf(CoinAccount(title = "Savings", detail = "Air 1 #0", address = "0x102030405060708090a0b0c0d0e0f0101112122b", trailing = "4 ETH", onSend = {}, onReceive = {})),
             onBack = {},
             onLock = {},
             onAllActivity = {},
@@ -142,30 +142,31 @@ class AssetScreenshotTest {
             network = NetworkId(Networks.evm(42161L), testnet = false),
             total = BigDecimal("13.23"),
             accounts = listOf(
-                holding("Arbitrum", "PulsarNova", "Air 1 #5 · 0x1020…122b", BigDecimal("10"), chainId = 42161L),
-                holding("Arbitrum", "FelixStone", "Air 1 #0 · 0x1020…122D", BigDecimal("3.23"), chainId = 42161L),
+                holding("Arbitrum", "PulsarNova", "Air 1 #5", "0x102030405060708090a0b0c0d0e0f0101112122b", BigDecimal("10"), chainId = 42161L),
+                holding("Arbitrum", "FelixStone", "Air 1 #0", "0x102030405060708090a0b0c0d0e0f0101112122D", BigDecimal("3.23"), chainId = 42161L),
             ),
         ),
         ChainHolding(
             chain = "Base",
             network = NetworkId(Networks.evm(8453L), testnet = false),
             total = BigDecimal("4.0"),
-            accounts = listOf(holding("Base", "Unnamed", "Air 1 #2 · 0x1020…127a", BigDecimal("3"), chainId = 8453L)),
+            accounts = listOf(holding("Base", "Unnamed", "Air 1 #2", "0x102030405060708090a0b0c0d0e0f0101112127a", BigDecimal("3"), chainId = 8453L)),
         ),
         ChainHolding(
             chain = "Ethereum",
             network = NetworkId(Networks.evm(1L), testnet = false),
             total = BigDecimal("5"),
-            accounts = listOf(holding("Ethereum", "PulsarNova", "Air 1 #5 · 0x1020…122b", BigDecimal("1"), chainId = 1L)),
+            accounts = listOf(holding("Ethereum", "PulsarNova", "Air 1 #5", "0x102030405060708090a0b0c0d0e0f0101112122b", BigDecimal("1"), chainId = 1L)),
         ),
     )
 
-    private fun holding(chain: String, name: String, detail: String, amount: BigDecimal, chainId: Long): AccountHolding = AccountHolding(
+    private fun holding(chain: String, name: String, detail: String, address: String, amount: BigDecimal, chainId: Long): AccountHolding = AccountHolding(
         walletId = "wallet",
-        accountId = AccountId.of(Networks.evm(chainId), "0x1020304050607080901011121314151617"),
+        accountId = AccountId.of(Networks.evm(chainId), address),
         chain = chain,
         name = name,
         detail = detail,
+        address = address,
         amount = amount,
     )
 

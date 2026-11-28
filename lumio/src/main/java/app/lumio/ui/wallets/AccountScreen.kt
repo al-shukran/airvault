@@ -26,7 +26,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.lensly.app.familyLabel
-import app.lensly.ui.components.groupAddress
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
 import app.lensly.ui.theme.ClearAirPalette
@@ -39,6 +38,8 @@ import app.lumio.data.net.Networks
 import app.lumio.home.HomeFormat
 import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.home.AssetDisc
+import app.lumio.ui.kit.ROW_ADDRESS
+import app.lumio.ui.kit.addressLineText
 import app.lumio.ui.kit.ClearAirAmount
 import app.lumio.ui.kit.ClearAirCapsuleSmall
 import app.lumio.ui.kit.ClearAirEyebrow
@@ -196,20 +197,26 @@ private fun AccountAddress(address: String) {
         if (copy.copied) {
             Text(text = "Address copied", style = ClearAirType.label, color = palette.ink2)
         } else {
-            Text(text = addressText(address, palette), style = ClearAirType.address)
+            Text(text = addressText(address, palette), style = ROW_ADDRESS)
             Spacer(Modifier.width(ClearAirSpacing.xs))
             ClearAirIcon(glyph = ClearAirGlyph.COPY, color = palette.ink2)
         }
     }
 }
 
-/** The abbreviated address: the first and last two of [groupAddress]'s groups in ink, with an ellipsis between them in secondary ink. */
+/**
+ * The abbreviated address, as [addressLineText] writes it for every row: its two ends in ink, with the ellipsis between them in secondary ink. At a large
+ * font the line breaks only after the ellipsis.
+ */
 private fun addressText(address: String, palette: ClearAirPalette): AnnotatedString {
-    val groups = groupAddress(address).split(' ')
+    val text = addressLineText(address)
+    val cut = text.indexOf('…')
     return buildAnnotatedString {
-        withStyle(SpanStyle(color = palette.ink)) { append(groups.take(2).joinToString(" ")) }
-        withStyle(SpanStyle(color = palette.ink2)) { append(" … ") }
-        withStyle(SpanStyle(color = palette.ink)) { append(groups.takeLast(2).joinToString(" ")) }
+        withStyle(SpanStyle(color = palette.ink)) { append(if (cut < 0) text else text.substring(0, cut)) }
+        if (cut >= 0) {
+            withStyle(SpanStyle(color = palette.ink2)) { append("…") }
+            withStyle(SpanStyle(color = palette.ink)) { append(text.substring(cut + 1)) }
+        }
     }
 }
 

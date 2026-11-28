@@ -2,6 +2,7 @@ package app.lumio.ui.kit
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,7 +31,7 @@ import app.lensly.ui.theme.LocalClearAirPalette
 
 /**
  * One choice of a [ClearAirChoiceSheet]: its [title], the line under it, the value at its end, whether it is the current choice, and whether it can be
- * picked. [onPick] applies it, and the caller closes the sheet.
+ * picked. [onPick] applies it, and the caller closes the sheet. An [address] is the row's last line, a [ClearAirAddressLine] that runs under the value.
  */
 class ChoiceRow(
     val title: String,
@@ -39,6 +40,7 @@ class ChoiceRow(
     val trailing: String? = null,
     val selected: Boolean = false,
     val enabled: Boolean = true,
+    val address: String? = null,
 )
 
 /** The choices under one [label], or with no label. */
@@ -75,7 +77,7 @@ fun ClearAirChoiceSheet(title: String, groups: List<ChoiceGroup>) {
 private fun ChoiceRowItem(row: ChoiceRow, divider: Boolean) {
     val palette = LocalClearAirPalette.current
     val titleColor = if (row.enabled) palette.ink else palette.ink.copy(alpha = DISABLED_ALPHA)
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .drawBehind {
@@ -87,18 +89,21 @@ private fun ChoiceRowItem(row: ChoiceRow, divider: Boolean) {
             .defaultMinSize(minHeight = ROW_HEIGHT)
             .clickable(enabled = row.enabled, role = Role.RadioButton, onClick = row.onPick)
             .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.Center,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = row.title, style = ClearAirType.rowTitle, color = titleColor)
-            row.detail?.let { Text(text = it, style = ClearAirType.body, color = palette.ink2) }
-        }
-        row.trailing?.let {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = row.title, style = ClearAirType.rowTitle, color = titleColor)
+                row.detail?.let { Text(text = it, style = ClearAirType.body, color = palette.ink2) }
+            }
+            row.trailing?.let {
+                Spacer(Modifier.width(ClearAirSpacing.sm))
+                Text(text = it, style = ClearAirType.rowValue, color = palette.ink, textAlign = TextAlign.End)
+            }
             Spacer(Modifier.width(ClearAirSpacing.sm))
-            Text(text = it, style = ClearAirType.rowValue, color = palette.ink, textAlign = TextAlign.End)
+            ClearAirRadio(selected = row.selected, enabled = row.enabled)
         }
-        Spacer(Modifier.width(ClearAirSpacing.sm))
-        ClearAirRadio(selected = row.selected, enabled = row.enabled)
+        row.address?.let { ClearAirAddressLine(address = it, modifier = Modifier.padding(top = ADDRESS_LINE_GAP)) }
     }
 }
 

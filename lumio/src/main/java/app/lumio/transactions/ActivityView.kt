@@ -35,7 +35,10 @@ fun ActivityFilter.sentence(): List<SentencePart> = listOf(
     SentencePart.Text(" first."),
 )
 
-/** One row of the activity as it reads: its title, its line under it, its amount, and its value in dollars when a price is known. */
+/**
+ * One row of the activity as it reads: its title, its line under it, its amount, and its value in dollars when a price is known. An other side that no
+ * name is known for is its [address], after the [direction] word "From" or "To", on a line of its own.
+ */
 data class ActivityLine(
     val title: String,
     val detail: String,
@@ -44,6 +47,10 @@ data class ActivityLine(
     val usd: Double?,
     val incoming: Boolean,
     val pending: Boolean,
+    /** The other side's address when no name is known for it, else null. */
+    val address: String? = null,
+    /** "From" or "To", the word before [address]. */
+    val direction: String = if (incoming) "From" else "To",
 )
 
 /** The text of the activity rows: what each one is, who it went to or came from, when, and how much. */
@@ -67,7 +74,7 @@ object ActivityText {
 
     /**
      * The line of [tx]. [party] names the other side of a transfer, from the address book or the wallet's own accounts, or null when neither
-     * knows it, and the address is then shortened. [chain] is the network's name and [usd] the value in dollars, or null without a price.
+     * knows it, and the address then goes on a line of its own. [chain] is the network's name and [usd] the value in dollars, or null without a price.
      */
     fun line(tx: LumioTx, chain: String, usd: Double?, party: String?, zone: ZoneId): ActivityLine {
         val incoming = tx.direction == TxDirection.IN
@@ -76,13 +83,13 @@ object ActivityText {
             tx.direction == TxDirection.OUT && isContractCall(tx) -> "Contract Call"
             else -> "Sent"
         }
-        val who = (tx.counterparty?.let { party ?: shortAddress(it) })
+        val named = party?.takeIf { tx.counterparty != null }
         val time = CLOCK.format(Instant.ofEpochMilli(tx.timestampMs).atZone(zone))
         val pending = tx.status == TxStatus.PENDING
         val direction = when {
-            who == null -> null
-            incoming -> "From $who"
-            else -> "To $who"
+            named == null -> null
+            incoming -> "From $named"
+            else -> "To $named"
         }
         val parts = listOfNotNull(
             if (pending) "Confirming" else null,
@@ -103,15 +110,10 @@ object ActivityText {
             usd = usd,
             incoming = incoming,
             pending = pending,
+            address = tx.counterparty?.takeIf { named == null },
         )
     }
 
     /** Whether [tx] calls a contract: an outgoing transaction that carries call data. A plain transfer carries none. */
     private fun isContractCall(tx: LumioTx): Boolean = tx.inputData?.let { it.isNotEmpty() && it != "0x" } == true
-
-    /** The first six and the last four characters of [address], with an ellipsis between, such as "0x1020…122b". */
-    fun shortAddress(address: String): String =
-        if (address.length <= SHORT_LIMIT) address else "${address.take(6)}…${address.takeLast(4)}"
-
-    private const val SHORT_LIMIT = 12
 }

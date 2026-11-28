@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,7 +38,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lensly.app.AddressBookEntry
-import app.lensly.app.addressEnds
 import app.lensly.app.addressKeyOf
 import app.lensly.app.plainName
 import app.lensly.ui.components.lumioPress
@@ -53,7 +53,10 @@ import app.lumio.home.Masking
 import app.lumio.portfolio.PortfolioFormat
 import app.lumio.transactions.ActivityText
 import app.lumio.transactions.TxDetail
+import app.lumio.transactions.shortHash
+import app.lumio.ui.kit.ADDRESS_LINE_GAP
 import app.lumio.ui.kit.ClearAirAddressGrid
+import app.lumio.ui.kit.ClearAirAddressLine
 import app.lumio.ui.kit.ClearAirDialog
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
@@ -187,8 +190,11 @@ fun TransactionDetailScreen(
     }
 }
 
-/** What an address reads as on the page: its name, the line under it, and whether the name is a known one that gets a sunk monogram. */
-internal data class AddressLine(val name: String, val detail: String, val named: Boolean)
+/**
+ * What an address reads as on the page: its name, the line under it, whether the name is a known one that gets a sunk monogram, and the [address] on a
+ * line of its own when the row shows it.
+ */
+internal data class AddressLine(val name: String, val detail: String?, val named: Boolean, val address: String? = null)
 
 /** The title of the page: the transaction's line, its amount and its ticker, such as "Sent 0.25 MON". The amount is hidden when balances are. */
 private fun titleOf(detail: TxDetail, zone: ZoneId, shown: Boolean): String {
@@ -209,11 +215,12 @@ private fun counterpartyLine(entry: AddressBookEntry?): AddressLine = if (entry 
     AddressLine(name = "Not in Address Book", detail = "Tap to add it on Lensly", named = false)
 }
 
-/** The wallet's own account: its name when it has one, and the line that says it is the owner's, with the ends of its address. */
+/** The wallet's own account: its name and the line that says it is the owner's, or "Your Account" when it has no name, and its address under them. */
 private fun ownLine(address: String, name: String?): AddressLine = AddressLine(
-    name = name ?: ActivityText.shortAddress(address),
-    detail = "Your account · ${addressEnds(address)}",
+    name = name ?: "Your Account",
+    detail = if (name != null) "Your account" else null,
     named = true,
+    address = address,
 )
 
 /**
@@ -316,18 +323,23 @@ private fun CheckCard(eyebrow: String, address: String, line: AddressLine, onCli
 @Composable
 private fun AddressRow(line: AddressLine, onClick: () -> Unit) {
     val palette = LocalClearAirPalette.current
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = ADDRESS_ROW_MIN_HEIGHT)
             .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onClick)
             .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.Center,
     ) {
-        Monogram(text = monogramOf(line.name, named = line.named), known = line.named)
-        Spacer(Modifier.width(ClearAirSpacing.sm))
-        AddressText(line = line, modifier = Modifier.weight(1f))
-        ClearAirIcon(glyph = ClearAirGlyph.CHEVRON, color = palette.ink3)
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Monogram(text = monogramOf(line.name, named = line.named), known = line.named)
+            Spacer(Modifier.width(ClearAirSpacing.sm))
+            AddressText(line = line, modifier = Modifier.weight(1f))
+            ClearAirIcon(glyph = ClearAirGlyph.CHEVRON, color = palette.ink3)
+        }
+        line.address?.let {
+            ClearAirAddressLine(address = it, modifier = Modifier.padding(start = ADDRESS_DISC + ClearAirSpacing.sm, top = ADDRESS_LINE_GAP))
+        }
     }
 }
 
@@ -337,7 +349,7 @@ private fun AddressText(line: AddressLine, modifier: Modifier = Modifier) {
     val palette = LocalClearAirPalette.current
     Column(modifier = modifier) {
         Text(text = line.name, style = ClearAirType.rowTitle, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(text = line.detail, style = ClearAirType.body, color = palette.ink2)
+        line.detail?.let { Text(text = it, style = ClearAirType.body, color = palette.ink2) }
     }
 }
 
@@ -358,7 +370,7 @@ private fun Details(detail: TxDetail) {
     ) {
         Text(text = "Hash", style = ClearAirType.body, color = palette.ink2, modifier = Modifier.weight(1f))
         Text(
-            text = if (copy.copied) "Hash copied" else ActivityText.shortAddress(detail.tx.hash),
+            text = if (copy.copied) "Hash copied" else shortHash(detail.tx.hash),
             style = ClearAirType.rowValue,
             color = palette.ink,
             textAlign = TextAlign.End,

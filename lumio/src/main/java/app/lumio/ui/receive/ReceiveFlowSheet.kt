@@ -1,6 +1,7 @@
 package app.lumio.ui.receive
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -45,8 +46,9 @@ import app.lumio.receive.ReceiveFlow
 import app.lumio.receive.ReceiveNetwork
 import app.lumio.receive.ReceiveStep
 import app.lumio.receive.monogramOf
-import app.lumio.receive.shortAddress
 import app.lumio.ui.home.AssetIcon
+import app.lumio.ui.kit.ADDRESS_LINE_GAP
+import app.lumio.ui.kit.ClearAirAddressLine
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirIcon
@@ -269,6 +271,7 @@ private fun ReceiveAccountStep(
             RadioRow(
                 title = account.name,
                 detail = accountLine(account),
+                address = account.address,
                 leading = { Monogram(initials = monogramOf(account.name)) },
                 onPick = { onPick(account) },
             )
@@ -279,27 +282,32 @@ private fun ReceiveAccountStep(
 
 /**
  * One choice of the network and account steps, as the mock draws it: its logo or monogram, its name with a line under it, and a radio at its end. A tap
- * picks it, and the step goes on, so the radio is never filled here.
+ * picks it, and the step goes on, so the radio is never filled here. An account's [address] is the row's last line, from the text's edge to the gutter.
  */
 @Composable
-private fun RadioRow(title: String, detail: String?, leading: @Composable () -> Unit, onPick: () -> Unit) {
+private fun RadioRow(title: String, detail: String?, leading: @Composable () -> Unit, onPick: () -> Unit, address: String? = null) {
     val palette = LocalClearAirPalette.current
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = CHOICE_MIN_HEIGHT)
             .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onPick)
             .padding(horizontal = ClearAirSpacing.gutter, vertical = ClearAirSpacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.Center,
     ) {
-        leading()
-        Spacer(Modifier.width(ClearAirSpacing.sm))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = ClearAirType.rowTitle, color = palette.ink)
-            detail?.let { Text(text = it, style = ClearAirType.body, color = palette.ink2) }
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            leading()
+            Spacer(Modifier.width(ClearAirSpacing.sm))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = title, style = ClearAirType.rowTitle, color = palette.ink)
+                detail?.let { Text(text = it, style = ClearAirType.body, color = palette.ink2) }
+            }
+            Spacer(Modifier.width(ClearAirSpacing.sm))
+            ClearAirRadio(selected = false)
         }
-        Spacer(Modifier.width(ClearAirSpacing.sm))
-        ClearAirRadio(selected = false)
+        if (address != null) {
+            ClearAirAddressLine(address = address, modifier = Modifier.padding(start = ROW_LOGO + ClearAirSpacing.sm, top = ADDRESS_LINE_GAP))
+        }
     }
 }
 
@@ -344,9 +352,9 @@ private fun Monogram(initials: String) {
  */
 private fun networkDetail(network: ReceiveNetwork): String? = network.name.removePrefix(network.label).trim().ifEmpty { null }
 
-/** The line under an account's name: its label, its group, and its short address, as in "Trading · Group DeFi · 0x1020…122b". */
-private fun accountLine(account: ReceiveAccount): String =
-    listOfNotNull(account.label, account.group?.let { "Group $it" }, shortAddress(account.address)).joinToString(" · ")
+/** The line under an account's name: its label and its group, as in "Trading · Group DeFi", or null when it has neither. Its address is a line of its own. */
+private fun accountLine(account: ReceiveAccount): String? =
+    listOfNotNull(account.label, account.group?.let { "Group $it" }).joinToString(" · ").ifEmpty { null }
 
 private fun ReceiveCoin.matches(query: String): Boolean {
     val needle = query.trim()

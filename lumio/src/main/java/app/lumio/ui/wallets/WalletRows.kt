@@ -87,9 +87,6 @@ internal fun updatedAgo(ageMs: Long): String {
     }
 }
 
-/** An address as a list shows it: its first eight and last six characters. */
-internal fun shortAddress(address: String): String = "${address.take(8)}…${address.takeLast(6)}"
-
 /** The title of an account: the name the owner gave it in Lensly, or "Account" and its place in the wallet. */
 internal fun accountTitle(account: WalletAccount): String = account.name ?: "Account ${account.index + 1}"
 
@@ -113,14 +110,10 @@ internal fun monogramOf(account: WalletAccount): String {
 }
 
 /**
- * The line under an account's title: its short address, then its script for Bitcoin or its count of assets for the rest. The count needs a read of
- * the native coin, so an account no read has reached shows its address alone.
+ * The line under an account's title: its script for Bitcoin, or its count of assets for the rest. The count needs a read of the native coin, so an
+ * account no read has reached has no line, and shows its address alone, which is the row's last line.
  */
-internal fun accountLine(account: WalletAccount, tokens: Int): String {
-    val address = shortAddress(account.address)
-    val detail = account.script ?: account.balance?.let { plural(1 + tokens, "asset") }
-    return if (detail == null) address else "$address · $detail"
-}
+internal fun accountLine(account: WalletAccount, tokens: Int): String? = account.script ?: account.balance?.let { plural(1 + tokens, "asset") }
 
 /** The sum of the dollar values [usdOf] gives the [accounts], or null when none of them has a price. */
 internal fun groupUsd(accounts: List<WalletAccount>, usdOf: (WalletAccount) -> Double?): Double? =

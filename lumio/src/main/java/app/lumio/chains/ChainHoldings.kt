@@ -12,6 +12,7 @@ import app.lumio.data.provider.SplBalance
 import app.lumio.data.provider.SplTokenBalances
 import app.lumio.data.sched.Priority
 import app.lumio.data.sched.Scheduler
+import app.airvault.core.model.AddressGroups
 import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
 
@@ -30,9 +31,6 @@ data class ChainHolding(val symbol: String, val network: String, val amount: Big
  */
 object ChainHoldings {
     private const val SOLANA_TOKENS = "registry/solana-tokens.json"
-
-    /** A mint longer than this is shortened to its first and last four characters when the token list does not name it. */
-    private const val SHORT_MINT = 12
 
     @Volatile
     private var tokenNames: SolanaTokenList? = null
@@ -86,5 +84,6 @@ object ChainHoldings {
         return scheduler.run(AsaAssetInfo(network, assetId), Priority.FOREGROUND).also { paramsCache[key] = it }
     }
 
-    internal fun shortened(mint: String): String = if (mint.length <= SHORT_MINT) mint else mint.take(4) + "..." + mint.takeLast(4)
+    /** A mint as a token's name when the token list does not name it: [AddressGroups.short], as in "EPjFWd…Dt1v". */
+    internal fun shortened(mint: String): String = AddressGroups.short(mint)
 }

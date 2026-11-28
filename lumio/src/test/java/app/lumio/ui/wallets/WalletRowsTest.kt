@@ -97,19 +97,17 @@ class WalletRowsTest {
     }
 
     @Test
-    fun accountLineShowsTheAddressWithItsScriptOrItsAssetCount() {
+    fun accountLineShowsItsScriptOrItsAssetCount() {
         val held = account(Networks.evm(10143L), balance = coins("12.5"))
-        assertEquals(shortAddress(held.address), accountLine(held, tokens = 0).substringBefore(" · "))
-        assertEquals("1 asset", accountLine(held, tokens = 0).substringAfter(" · "))
-        assertEquals("3 assets", accountLine(held, tokens = 2).substringAfter(" · "), "the coin and two tokens")
+        assertEquals("1 asset", accountLine(held, tokens = 0))
+        assertEquals("3 assets", accountLine(held, tokens = 2), "the coin and two tokens")
         val bitcoin = account(Networks.BTC_TESTNET4, script = "Native SegWit")
-        assertEquals("Native SegWit", accountLine(bitcoin, tokens = 0).substringAfter(" · "))
+        assertEquals("Native SegWit", accountLine(bitcoin, tokens = 0))
     }
 
     @Test
-    fun accountLineShowsOnlyTheAddressWhileNoReadHasLanded() {
-        val unread = account(Networks.evm(10143L), balance = null)
-        assertEquals(shortAddress(unread.address), accountLine(unread, tokens = 0))
+    fun accountLineIsEmptyWhileNoReadHasLanded() {
+        assertEquals(null, accountLine(account(Networks.evm(10143L), balance = null), tokens = 0), "the row shows its address alone")
     }
 
     @Test

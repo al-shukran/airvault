@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Every short display of an address goes through AddressGroups (core/model), so an EVM 0x address reads in groups of 4 on every screen (#1684).
-# Only app/, shared/, core/, chains/ and abi/ are checked for now: Lumio's address display waits for a design decision. Fails when a Kotlin file under a module's src/main, outside the exceptions below, cuts a string with take(..), an
+# app/, lumio/, shared/, core/, chains/ and abi/ are checked. Fails when a Kotlin file under a module's src/main, outside the exceptions below, cuts a string with take(..), an
 # ellipsis ("…" or "...") and takeLast(..) on one line, or with substring(0, N) and an ellipsis, which is how a local 4…4 helper is written.
 #
 # The exceptions are files that never show an 0x address: AddressGroups itself, the Solana review (base58 only), the sentence helper of the
-# Lensly review (it shortens non-0x addresses only, after an 0x address has gone to AddressGroups), and the CoW order digest, which is a
-# hash.
+# Lensly review (it shortens non-0x addresses only, after an 0x address has gone to AddressGroups), and the CoW order digest and Lumio's
+# transaction hash, which are hashes.
 #
 # Usage: scripts/ci/check-address-short.sh [root]   (root defaults to the repository root)
 set -euo pipefail
@@ -22,8 +22,9 @@ EXEMPT = {
     "chains/solana/signer/src/main/kotlin/app/airvault/chains/solana/signer/SolanaReview.kt",
     "app/src/main/java/app/lensly/ui/sign/ReviewBlocks.kt",
     "chains/evm/signer/src/main/kotlin/app/lensly/core/registry/CowSteps.kt",
+    "lumio/src/main/java/app/lumio/transactions/TxHash.kt",
 }
-CHECKED = {"app", "shared", "core", "chains", "abi"}
+CHECKED = {"app", "lumio", "shared", "core", "chains", "abi"}
 SKIP_DIRS = {".git", ".gradle", "build", "node_modules"}
 CUT = re.compile(r"\btake\([^\n]*(…|\.\.\.)[^\n]*\btakeLast\(|\bsubstring\(0, ?[0-9A-Z_]+\)[^\n]*(…|\.\.\.)")
 root = sys.argv[1]

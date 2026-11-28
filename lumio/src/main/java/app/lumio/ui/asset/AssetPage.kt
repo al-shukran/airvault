@@ -85,8 +85,11 @@ internal data class CoinHeld(val amount: String, val summary: String, val value:
 /** A price's change over the chart's window: its text, and whether it rose. */
 internal data class PriceChange(val text: String, val rising: Boolean)
 
-/** An account that the Send and Receive pickers offer: its [title] and [detail], what it holds in [trailing], and what each action opens. A null [onSend] is an account that cannot send the coin. */
-internal class CoinAccount(val title: String, val detail: String, val trailing: String?, val onSend: (() -> Unit)?, val onReceive: () -> Unit)
+/**
+ * An account that the Send and Receive pickers offer: its [title], [detail] and [address], what it holds in [trailing], and what each action opens. A null
+ * [onSend] is an account that cannot send the coin.
+ */
+internal class CoinAccount(val title: String, val detail: String, val address: String, val trailing: String?, val onSend: (() -> Unit)?, val onReceive: () -> Unit)
 
 /** The picker that the Send or the Receive action opened. */
 private enum class CoinPicker { SEND, RECEIVE }
@@ -231,6 +234,7 @@ internal fun AssetPage(
                             ChoiceRow(
                                 title = account.title,
                                 detail = account.detail,
+                                address = account.address,
                                 trailing = account.trailing,
                                 onPick = { picker = null; account.onSend?.invoke() },
                             )
@@ -249,6 +253,7 @@ internal fun AssetPage(
                             ChoiceRow(
                                 title = account.title,
                                 detail = account.detail,
+                                address = account.address,
                                 trailing = account.trailing,
                                 onPick = { picker = null; account.onReceive() },
                             )
