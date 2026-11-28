@@ -89,6 +89,12 @@ internal object LumioRoute {
 
     fun provider(id: String): String = "settings/providers/$id"
 
+    /** A Learn AirVault article, opened from the Explore tab, by its ID. */
+    const val ARTICLE = "learn/{article}"
+    const val ARTICLE_ARG = "article"
+
+    fun article(id: String): String = "learn/$id"
+
     /** The roots of the tabs, which the tab bar opens. Home is the start screen. */
     const val HOME = "home"
     const val PORTFOLIO = "portfolio"
@@ -825,6 +831,13 @@ private fun LumioNavGraph(debugHiddenRequest: Int, modifier: Modifier, controlle
             ) { entry ->
                 val id = entry.arguments?.getString(LumioRoute.PROVIDER_ARG).orEmpty()
                 LumioBackdrop(selection) { ProviderRoute(navController = navController, holder = holder, id = id, onLock = { lock() }) }
+            }
+            lumioComposable(
+                route = LumioRoute.ARTICLE,
+                arguments = listOf(navArgument(LumioRoute.ARTICLE_ARG) { type = NavType.StringType }),
+            ) { entry ->
+                val id = entry.arguments?.getString(LumioRoute.ARTICLE_ARG).orEmpty()
+                LumioBackdrop(selection) { LearnArticleRoute(navController = navController, id = id, onLock = { lock() }) }
             }
             lumioComposable(LumioRoute.LICENCES) {
                 LumioBackdrop(selection) { LicencesRoute(navController = navController) }
