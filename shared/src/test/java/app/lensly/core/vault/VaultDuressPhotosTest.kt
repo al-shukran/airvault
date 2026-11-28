@@ -391,10 +391,14 @@ class VaultDuressPhotosTest {
             vault.wipe()
         } finally {
             release.countDown()
+        }
+        // The hook stays in place until the sealer is idle, so it counts every copy task that runs after the wipe.
+        try {
+            awaitSealer()
+        } finally {
             resealHookForTesting = null
             keyCopyForTesting = null
         }
-        awaitSealer()
         session.close()
 
         assertEquals(1, copies.get(), "the copies queued before the wipe are cancelled, not run")
@@ -449,7 +453,7 @@ class VaultDuressPhotosTest {
         session.createWallet()
         (1..3).forEach { shoot(nowMs = it * 1_000L) }
         val keys = trackKeyCopies()
-        resealHookForTesting = { refuseNextSealerTask() }
+        resealHookForTesting = { refuseNextSealerTask(fromSealerOnly = true) }
         try {
             assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
             awaitSealer()
@@ -477,12 +481,19 @@ class VaultDuressPhotosTest {
         keys.forEach { assertTrue(it.all { b -> b == 0.toByte() }, "a key copy was left in memory") }
     }
 
-    /** Makes the next task that is queued on the sealer fail as a stopped executor does, then gives the sealer back. */
-    private fun refuseNextSealerTask() {
+    /**
+     * Makes the next task that is queued on the sealer fail as a stopped executor does, then gives the sealer back. With [fromSealerOnly]
+     * the task is the next one that the sealer's own thread queues, which is the next copy of a run; the test thread's waits go through.
+     */
+    private fun refuseNextSealerTask(fromSealerOnly: Boolean = false) {
         val real = PhotoStore.sealer
-        PhotoStore.sealer = Executor {
-            PhotoStore.sealer = real
-            throw RejectedExecutionException("refused for the test")
+        PhotoStore.sealer = Executor { task ->
+            if (fromSealerOnly && Thread.currentThread().name != "lensly-seal") {
+                real.execute(task)
+            } else {
+                PhotoStore.sealer = real
+                throw RejectedExecutionException("refused for the test")
+            }
         }
     }
 
@@ -595,7 +606,9 @@ class VaultDuressPhotosTest {
 
     private fun shoot(nowMs: Long = 1_000L): File {
         val known = layout.photoDir(0).list().orEmpty().toSet()
-        assertTrue(PhotoStore.forCover(layout).savePhoto(PHOTO.copyOf(), nowMs = nowMs))
+        // The cover saves on the sealer, one file after the other, so the unlock's repair of the photo folders, which shreds a photo whose
+        // twin is not there yet, cannot run between the two files of a save.
+        assertTrue(PhotoStore.whileNoSaveRuns { PhotoStore.forCover(layout).savePhoto(PHOTO.copyOf(), nowMs = nowMs) })
         return layout.photoDir(0).listFiles().orEmpty().single { it.name !in known }
     }
 
