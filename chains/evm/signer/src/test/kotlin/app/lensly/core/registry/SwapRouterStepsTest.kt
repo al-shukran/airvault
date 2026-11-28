@@ -639,4 +639,12 @@ class SwapRouterStepsTest {
         assertEquals(listOf("Lensly cannot read router call 0x12345678 in this multicall. Its raw input is under Details."), steps.warnings)
         assertTrue(steps.leavesInRouter)
     }
+
+    @Test
+    fun aSwapOrASweepToTheRoutersOwnAddressLeavesTheOutputInTheRouter() {
+        assertTrue(multicallOf(swapItem(SWAP_ROUTER)).leavesInRouter)
+        assertTrue(multicallOf(swapItem(FLAG_ROUTER), sweepItem(USDC, SWAP_ROUTER)).leavesInRouter)
+        assertTrue(multicallOf(swapItem(FLAG_ROUTER), unwrapItem(SWAP_ROUTER)).leavesInRouter)
+        assertFalse(multicallOf(swapItem(SWAP_ROUTER), sweepItem(USDC, SENDER_EXACT_INPUT_SINGLE)).leavesInRouter)
+    }
 }

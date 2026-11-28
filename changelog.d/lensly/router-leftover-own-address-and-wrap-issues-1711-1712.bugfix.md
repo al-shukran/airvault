@@ -1,0 +1,1 @@
+A Universal Router or SwapRouter02 step that pays the router's own address, or a wrap of ETH into the router that no later step spends, now raises the "leaves tokens in the router" warning like the router flag does.
