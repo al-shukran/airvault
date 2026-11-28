@@ -639,6 +639,26 @@ class VaultFormatV4Test {
         assertContentEquals(before, vaultKey, "The check changed the key it was given.")
     }
 
+    @Test
+    fun aSlotWithAnotherLengthOfPlaintextUnwrapsToNoVaultKeyAndRole() {
+        val rig = Rig("a")
+        rig.create()
+        val session = rig.unlocked(APP)
+        val vaultKey = session.copyOfVaultKey()
+        session.close()
+        val softKey = softKeyOf(rig, APP)
+        val hardwareKey = rig.keys.hardwareKey()
+        val role = VaultRole.REAL_SIDE_0
+        // The longer one starts with the key and the role, and the shorter one is the key alone: only the length tells them from a match.
+        val longer = slotSealing(rig, APP, vaultKey + role + 0.toByte())
+        val keyOnly = slotSealing(rig, APP, vaultKey)
+
+        assertFalse(rig.vault.unwrapsTo(softKey, hardwareKey, longer, vaultKey, role))
+        assertFalse(rig.vault.unwrapsTo(softKey, hardwareKey, keyOnly, vaultKey, role))
+        // A zero role is not a real one, but it is what a missing byte reads as, so the length alone must refuse it.
+        assertFalse(rig.vault.unwrapsTo(softKey, hardwareKey, keyOnly, vaultKey, 0))
+    }
+
     private fun recording(keys: KeystoreBackend, inputs: MutableList<ByteArray>): KeystoreBackend = object : KeystoreBackend by keys {
         override fun slotMac(message: ByteArray): ByteArray {
             inputs += message.copyOf()
@@ -688,9 +708,22 @@ class VaultFormatV4Test {
         role: Byte,
         hardwareKey: SecretKey = rig.keys.hardwareKey(),
     ): ByteArray {
-        val softKey = softKeyOf(rig, password)
-        val hardwareWrapped = Aead.sealWithKeystore(hardwareKey, VaultKeyFile.HARDWARE_AAD, vaultKey + role)
-        return VaultKeyFile.slotOf(vaultKey, Aead.seal(softKey, VaultKeyFile.SOFTWARE_AAD, hardwareWrapped), SecureRandom())
+        val sealed = slotSealing(rig, password, vaultKey + role, hardwareKey)
+        return VaultKeyFile.slotOf(vaultKey, VaultKeyFile.sealedPartOf(sealed), SecureRandom())
+    }
+
+    /**
+     * A slot that holds exactly [plain] under both layers, of whatever length. [VaultKeyFile.slotOf] refuses a sealed part of another size, so the
+     * nonce and tag, which [Vault.unwrapsTo] does not read, are left zero.
+     */
+    private fun slotSealing(
+        rig: Rig,
+        password: String,
+        plain: ByteArray,
+        hardwareKey: SecretKey = rig.keys.hardwareKey(),
+    ): ByteArray {
+        val hardwareWrapped = Aead.sealWithKeystore(hardwareKey, VaultKeyFile.HARDWARE_AAD, plain)
+        return ByteArray(32) + Aead.seal(softKeyOf(rig, password), VaultKeyFile.SOFTWARE_AAD, hardwareWrapped)
     }
 
     private companion object {
