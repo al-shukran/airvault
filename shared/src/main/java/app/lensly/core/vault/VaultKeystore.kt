@@ -142,13 +142,25 @@ internal object VaultKeystore {
     /** The registry floor key for [seq], or null once it has been deleted. */
     fun registryMacKey(seq: Long): SecretKey? = get(registryMacAlias(seq))
 
-    /** Deletes every registry floor key except the one for [keepSeq]. A null [keepSeq] deletes them all. */
+    /**
+     * Deletes every registry floor key except the one for [keepSeq], lowest first, so a failure part-way leaves the highest key and
+     * the seal it verifies. With a [keepSeq], that key is never deleted, so a failure cannot leave the Keystore with none. A null
+     * [keepSeq] deletes them all.
+     */
     fun deleteRegistryMacKeysExcept(keepSeq: Long?) {
         val store = keyStore()
+        registryAliasesToDelete(Collections.list(store.aliases()), keepSeq).forEach { store.deleteEntry(it) }
+    }
+
+    /**
+     * The registry floor key aliases among [aliases] to delete, all but the one for [keepSeq], in the order to delete them: lowest
+     * sequence first, so a delete that stops part-way leaves the highest key. An alias with no sequence number comes first.
+     */
+    internal fun registryAliasesToDelete(aliases: List<String>, keepSeq: Long?): List<String> {
         val keep = keepSeq?.let { registryMacAlias(it) }
-        Collections.list(store.aliases())
+        return aliases
             .filter { it.startsWith("$REGISTRY_MAC_PREFIX.") && it != keep }
-            .forEach { store.deleteEntry(it) }
+            .sortedBy { it.removePrefix("$REGISTRY_MAC_PREFIX.").toLongOrNull() ?: Long.MIN_VALUE }
     }
 
     /** The sequence numbers of the registry floor keys the Keystore holds. Throws a GeneralSecurityException if it cannot list them. */

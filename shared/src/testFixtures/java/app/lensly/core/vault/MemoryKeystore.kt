@@ -1,5 +1,6 @@
 package app.lensly.core.vault
 
+import java.security.KeyStoreException
 import javax.crypto.KeyGenerator
 import javax.crypto.Mac
 import javax.crypto.SecretKey
@@ -88,8 +89,18 @@ class MemoryKeystore : KeystoreBackend {
 
     override fun registryMacKey(seq: Long): SecretKey? = registryMacs[seq]
 
+    /** How many registry keys deletes may still remove, in all, before one throws a [KeyStoreException]. Null means no limit. */
+    var registryDeletesLeft: Int? = null
+
     override fun deleteRegistryMacKeysExcept(keepSeq: Long?) {
-        registryMacs.keys.removeAll { it != keepSeq }
+        for (seq in registryMacs.keys.filter { it != keepSeq }.sorted()) {
+            val left = registryDeletesLeft
+            if (left != null) {
+                if (left == 0) throw KeyStoreException("busy")
+                registryDeletesLeft = left - 1
+            }
+            registryMacs.remove(seq)
+        }
     }
 
     override fun registryMacKeySeqs(): List<Long> = registryMacs.keys.toList()
