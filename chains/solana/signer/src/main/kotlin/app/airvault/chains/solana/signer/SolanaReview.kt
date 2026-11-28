@@ -74,6 +74,8 @@ private object Fields {
     val seedText = FieldPath("solana.seedText")
     val units = FieldPath("solana.computeUnitLimit")
     val microLamports = FieldPath("solana.computeUnitPrice")
+    val heapBytes = FieldPath("solana.heapSize")
+    val dataLimitBytes = FieldPath("solana.accountDataLimit")
     val delegate = FieldPath("solana.delegate")
     val newAuthority = FieldPath("solana.newAuthority")
     val authorityType = FieldPath("solana.authorityType")
@@ -181,7 +183,8 @@ private fun SolanaRequestReview.sentence(): SummaryPart {
 /** Whether this instruction moves SOL or tokens, or hands control of an account over. A decoded instruction that does neither is not one. */
 private val SolanaInstruction.movesValueOrControl: Boolean
     get() = this !is SolanaInstruction.Raw && this !is SolanaInstruction.AdvanceNonce && this !is SolanaInstruction.SetComputeUnitLimit &&
-        this !is SolanaInstruction.SetComputeUnitPrice && this !is SolanaInstruction.AssociatedTokenCreate
+        this !is SolanaInstruction.SetComputeUnitPrice && this !is SolanaInstruction.SetHeapSize &&
+        this !is SolanaInstruction.SetAccountDataLimit && this !is SolanaInstruction.AssociatedTokenCreate
 
 /**
  * The short facts under the sentence: the instruction count, the fee payer, the base, priority and most fee in lamports, and the mint when a
@@ -339,6 +342,8 @@ private fun SolanaRequestReview.detailRows(instruction: SolanaInstruction, chain
     is SolanaInstruction.SetComputeUnitLimit -> listOf(textRow("Compute Limit", "${instruction.units} units", Fields.units))
     is SolanaInstruction.SetComputeUnitPrice ->
         listOf(textRow("Compute Price", "${instruction.microLamports} micro-lamports per unit", Fields.microLamports))
+    is SolanaInstruction.SetHeapSize -> listOf(textRow("Heap Size", "${instruction.bytes} bytes", Fields.heapBytes))
+    is SolanaInstruction.SetAccountDataLimit -> listOf(textRow("Account Data Limit", "${instruction.bytes} bytes", Fields.dataLimitBytes))
     is SolanaInstruction.Raw -> rawRows(instruction, chain)
 }
 
@@ -496,6 +501,8 @@ private fun decodedFieldsOf(instruction: SolanaInstruction): Set<FieldPath> = bu
             addAll(listOf(Fields.payer, Fields.account, Fields.owner, Fields.mint, Fields.idempotent))
         is SolanaInstruction.SetComputeUnitLimit -> add(Fields.units)
         is SolanaInstruction.SetComputeUnitPrice -> add(Fields.microLamports)
+        is SolanaInstruction.SetHeapSize -> add(Fields.heapBytes)
+        is SolanaInstruction.SetAccountDataLimit -> add(Fields.dataLimitBytes)
         is SolanaInstruction.AdvanceNonce -> addAll(listOf(Fields.nonceAccount, Fields.authority))
         is SolanaInstruction.CreateNonceAccount -> {
             addAll(listOf(Fields.funder, Fields.account, Fields.lamports, Fields.authority))

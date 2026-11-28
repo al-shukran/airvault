@@ -27,20 +27,22 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * The media folder that [password] opens, with the photo key of that vault. Null when it is not the App Password (the Duress Password is
- * not: it never promotes the Decoy Vault here), or the vault cannot be read. The check opens the vault to prove the password and to read
- * its photo key. The session is closed at once, so the vault stays locked. It goes through [Vault.verify], so the Failure Delay counts
- * gallery guesses too. NonCancellable, so a session that opened is always closed. [password] is zeroed by the vault. A wrong try that is
- * the owner's last allowed one erases the vault, and [onErased] runs instead of a folder.
+ * The media folder that [password] opens, with the photo key of that vault. Null when it is not a password of this vault, or the vault
+ * cannot be read. It goes through [Vault.unlock], so it behaves as any unlock: the Failure Delay counts gallery guesses too, and the
+ * Duress Password erases the real vault, promotes the Decoy Vault and opens the promoted vault's folder, with no wrong try counted. The
+ * session is closed at once, so the vault stays locked, but only after the cleanup of a promotion has finished, since the cleanup needs
+ * the session. NonCancellable, so a session that opened is always closed. [password] is zeroed by the vault. A wrong try that is the
+ * owner's last allowed one erases the vault, and [onErased] runs instead of a folder.
  */
 suspend fun galleryStoreFor(vault: Vault, layout: VaultLayout, password: CharArray, onErased: () -> Unit = {}): PhotoStore? =
     withContext(NonCancellable) {
         try {
-            when (val result = vault.verify(password)) {
+            when (val result = vault.unlock(password)) {
                 is UnlockResult.Unlocked -> {
                     val session = result.session
                     try {
                         PhotoStore.of(layout, side = session.side, privateKey = session.getVaultRecord(VaultRecordNames.PHOTO_KEY))
+                            .also { vault.awaitCleanup() }
                     } finally {
                         session.close()
                     }

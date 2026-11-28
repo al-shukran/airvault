@@ -962,7 +962,7 @@ class VaultPromotionTest {
         return session.listWallets().also { session.close() }
     }
 
-    private fun awaitCleanup() = runBlocking { vault.awaitCleanupForTesting() }
+    private fun awaitCleanup() = runBlocking { vault.awaitCleanup() }
 
     /** The decoy that [setDuress] made: its key and wallet ids, as populate saw them. The caller zeroes the key. */
     private class Decoy(val key: ByteArray, val wallets: List<String>)

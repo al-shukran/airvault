@@ -18,7 +18,7 @@ import app.airvault.core.model.SectionStyle
 import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.Warning
 import app.airvault.core.model.checked
-import app.airvault.core.model.isPrintableCodePoint
+import app.airvault.core.model.isPrintableText
 import app.airvault.core.model.isSingleLinePrintable
 import app.lensly.core.parse.CANNOT_BE_READ
 import app.lensly.core.parse.ParserLimits
@@ -184,7 +184,7 @@ class EvmReviewBuilder(
                 ?.let { checksum(it.bytes.toHex()) }
             // Typed data that names no chain is valid on every chain, so it is matched against the entries of all of them.
             val denyChains = if (domainChain == null) listOf<Long?>(null) else listOfNotNull(request.chainId, domainChain.longValueExact()).distinct()
-            val denied = denyChains.flatMap { registry.typedDenylistMatches(it, verifyingContract, typedData.primaryType, typedData.messageAddresses()) }
+            val denied = denyChains.flatMap { registry.typedDenylistMatches(it, verifyingContract, typedData.primaryType, typedData.parties(offChainDomainOf(typedData.domain))) }
             denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason) }
             denied.forEach { warnings += denylistWarning(it, field = null) }
             header += ReviewRow("Type", DisplayValue.Text(TYPED_DATA_TYPE), null)
@@ -1041,6 +1041,8 @@ private fun actionWarning(primaryType: String, message: TypedValue.StructValue, 
         Warning(Danger.DANGER, CODE_TYPED_ACTION, TOKEN_DELEGATE_TEXT, acknowledge = ACK_TOKEN_DELEGATE)
     primaryType.substringAfterLast(':') in setOf("Withdraw", "withdraw3") ->
         Warning(Danger.DANGER, CODE_TYPED_ACTION, WITHDRAW_TEXT, acknowledge = ACK_WITHDRAW)
+    primaryType.substringAfterLast(':') == "SendToEvmWithData" ->
+        Warning(Danger.DANGER, CODE_TYPED_ACTION, SEND_TO_EVM_TEXT, acknowledge = ACK_SEND_TO_EVM)
     primaryType.substringAfterLast(':') == "SendAsset" && (message.fields["fromSubAccount"] as? TypedValue.TextValue)?.value?.isNotEmpty() == true ->
         Warning(Danger.CAUTION, CODE_TYPED_ACTION, SUB_ACCOUNT_TEXT, acknowledge = ACK_SUB_ACCOUNT)
     else -> null
@@ -1115,7 +1117,7 @@ private fun messageValue(bytes: ByteArray): DisplayValue =
 
 /** The message as UTF-8 text, when every character is one a reader can see. Otherwise null. */
 private fun printableMessage(bytes: ByteArray): String? =
-    utf8OrNull(bytes)?.takeIf { text -> text.codePoints().allMatch(::isPrintableCodePoint) }
+    utf8OrNull(bytes)?.takeIf { text -> isPrintableText(text) }
 
 private fun utf8OrNull(bytes: ByteArray): String? = try {
     StandardCharsets.UTF_8.newDecoder()
@@ -1279,6 +1281,9 @@ private const val TOKEN_DELEGATE_TEXT = "This stakes HYPE with a validator, or t
     "Check the validator, the amount and whether it undelegates before you sign."
 private const val ACK_SUB_ACCOUNT = "I understand this sends from a sub-account."
 private const val SUB_ACCOUNT_TEXT = "This sends from a sub-account, not from the account that signs. Check the sub-account address before you sign."
+private const val ACK_SEND_TO_EVM = "I understand this sends funds to another chain, with data that the receiver runs."
+private const val SEND_TO_EVM_TEXT = "This sends funds from this account to a recipient on another chain, and passes the data to the receiving contract. " +
+    "The recipient may not be you. Check the recipient, the chain and the data before you sign."
 private const val WITHDRAW_TEXT = "This withdraws funds from this account. Check the destination and amount before you sign."
 
 /** The row that says a message carries a hash of its action, which Lensly cannot read. */
