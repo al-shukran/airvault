@@ -9,7 +9,9 @@ import app.lensly.shared.BuildConfig
 import app.lensly.ui.camera.PhotoStore
 import app.lensly.ui.isEmulator
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
 import java.io.RandomAccessFile
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -1179,7 +1181,25 @@ class Vault constructor(
             } finally {
                 decoySession.close()
             }
-            dropSidePhotos(layout, decoySide, photoKey)
+            // The photos taken so far are sealed on the decoy side to a key nobody holds. They are sealed again to the decoy's key from
+            // the real side's copy, which the real photo key opens now, while this session is the real vault's.
+            val realSession = VaultSession(layout, keys, vaultKey.copyOf(), side = side)
+            val realPhotoKey = try {
+                realSession.getVaultRecord(VaultRecordNames.PHOTO_KEY)
+            } catch (e: IOException) {
+                null
+            } catch (e: GeneralSecurityException) {
+                null
+            } catch (e: VaultException) {
+                null
+            } finally {
+                realSession.close()
+            }
+            try {
+                dropSidePhotos(layout, decoySide, photoKey, realPhotoKey)
+            } finally {
+                realPhotoKey?.fill(0)
+            }
         }
         return DuressResult.Enabled
     }
@@ -1864,30 +1884,84 @@ private fun overwriteFiles(dir: File) {
 /**
  * Makes the photo folder of [side], the dropped Decoy Vault's, hold a file for each photo of the other side's folder, and nothing else, so a
  * Duress Password that is set or removed changes nothing that a listing of the two folders shows. The cover saves each photo twice under
- * one name, so each file of [side] is overwritten in place with random bytes of its size, which reads as a twin sealed to an unknown key.
- * A file with no photo of the same name beside it is shredded, and a photo with no twin gets one of random bytes. The key file becomes
- * [keyFile]: the public half of the new decoy's photo key, or a placeholder when no decoy remains. A key file that cannot be written keeps
- * its old bytes, which reveal nothing without the decoy's password.
+ * one name. The key file becomes [keyFile]: the public half of the new decoy's photo key, or a placeholder when no decoy remains. It is
+ * written first, inside the sealer, so a photo saved after it is sealed to the new key and one saved before it is in the listing.
+ *
+ * With [realPhotoKey], the private half of the other side's photo key, each file of [side] is replaced by a copy of the photo sealed to
+ * [keyFile], so the decoy opens the photos taken before it existed. Name, size and modification time stay as the cover leaves them, and
+ * the file is replaced by a rename, so a kill leaves the old file or the new one. A photo that cannot be sealed again, and every photo
+ * when there is no [realPhotoKey] or [keyFile] could not be written, is overwritten in place with random bytes of its size, which reads
+ * as a twin sealed to an unknown key. A file with no photo of the same name beside it is shredded, and a photo with no twin gets one.
+ * A key file that cannot be written keeps its old bytes, which reveal nothing without the decoy's password.
  */
-private fun dropSidePhotos(layout: VaultLayout, side: Int, keyFile: ByteArray = placeholderPhotoKey()) {
+private fun dropSidePhotos(layout: VaultLayout, side: Int, keyFile: ByteArray = placeholderPhotoKey(), realPhotoKey: ByteArray? = null) {
     val folder = layout.photoDir(side)
+    var keyWritten = false
     val (kept, twinless) = PhotoStore.whileNoSaveRuns {
+        try {
+            writeAtomically(layout.photoKeyFile(side), keyFile)
+            keyWritten = true
+        } catch (e: IOException) {
+            // The next unlock of the decoy would replace it anyway; the drop itself must not fail half way.
+        }
         val photos = layout.photoDir(1 - side).listFiles().orEmpty().filter { it.isFile }
         val names = photos.map { it.name }.toSet()
         val twins = folder.listFiles().orEmpty().partition { it.name in names }
         twins.second.forEach(::shredPhotoFile)
-        twins.first to photos.filter { !File(folder, it.name).exists() }
+        twins.first.map { it.name } to photos.filter { !File(folder, it.name).exists() }
     }
+    val source = layout.photoDir(1 - side)
     // The cover clears the modification time of every photo it saves, so a file written here gets the same time.
-    kept.forEach {
-        overwriteBestEffort(it)
-        it.setLastModified(0L)
+    fun resealed(name: String) =
+        keyWritten && realPhotoKey != null && resealTwin(File(source, name), realPhotoKey, keyFile, File(folder, name))
+    kept.forEach { name ->
+        if (!resealed(name)) File(folder, name).let {
+            overwriteBestEffort(it)
+            it.setLastModified(0L)
+        }
     }
-    twinless.forEach { photo -> writeRandomTwin(File(folder, photo.name), photo.length()) }
-    try {
-        writeAtomically(layout.photoKeyFile(side), keyFile)
+    twinless.forEach { photo -> if (!resealed(photo.name)) writeRandomTwin(File(folder, photo.name), photo.length()) }
+}
+
+/**
+ * Seals the photo [source], opened with [realPhotoKey], to [publicKey] as a temp file beside [target], clears its modification time and
+ * renames it to [target]. A file that cannot be opened or written leaves [target] as it was. Returns whether [target] was replaced.
+ */
+private fun resealTwin(source: File, realPhotoKey: ByteArray, publicKey: ByteArray, target: File): Boolean {
+    var temp: File? = null
+    return try {
+        MediaEnvelope.SealedReader.open(source, realPhotoKey).use { reader ->
+            val file = File.createTempFile("${target.name}.", ".tmp", target.parentFile).also { temp = it }
+            FileOutputStream(file).use { out ->
+                MediaEnvelope.seal(publicKey, reader.asInputStream(), out)
+                out.fd.sync()
+            }
+            file.setLastModified(0L)
+            commitTemp(file, target)
+        }
+        true
     } catch (e: IOException) {
-        // The next unlock of the decoy would replace it anyway; the drop itself must not fail half way.
+        temp?.delete()
+        false
+    } catch (e: GeneralSecurityException) {
+        temp?.delete()
+        false
+    }
+}
+
+/** The plain bytes of the sealed file, read a chunk at a time, so a video is not held whole in memory. */
+private fun MediaEnvelope.SealedReader.asInputStream(): InputStream = object : InputStream() {
+    private var position = 0L
+
+    override fun read(): Int {
+        val one = ByteArray(1)
+        return if (read(one, 0, 1) < 0) -1 else one[0].toInt() and 0xFF
+    }
+
+    override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+        val n = readAt(position, buffer, offset, length)
+        if (n > 0) position += n
+        return n
     }
 }
 

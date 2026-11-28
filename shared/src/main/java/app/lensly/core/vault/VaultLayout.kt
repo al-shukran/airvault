@@ -155,8 +155,18 @@ class VaultLayout(
     }
 }
 
-/** Random bytes of public key size, in the place of a key file that no key of its own has filled yet. */
-internal fun placeholderPhotoKey(): ByteArray = ByteArray(MediaEnvelope.KEY_BYTES).also { SecureRandom().nextBytes(it) }
+/**
+ * A public key whose private half is thrown away, in the place of a key file that no key of its own has filled yet. It is made as a real
+ * key is, since uniform random bytes differ from one in the top bit of the last byte, which an X25519 public key never sets.
+ */
+internal fun placeholderPhotoKey(): ByteArray {
+    val privateKey = MediaEnvelope.newPrivateKey()
+    try {
+        return MediaEnvelope.publicKeyOf(privateKey)
+    } finally {
+        privateKey.fill(0)
+    }
+}
 
 /**
  * Which vault a slot holds, and on which side it sits. The role is stored inside the sealed slot, so the file does not show it. The side
