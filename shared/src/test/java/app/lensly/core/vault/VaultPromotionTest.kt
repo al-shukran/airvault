@@ -116,6 +116,7 @@ class VaultPromotionTest {
             for (older in 0..generation) assertRejected(attempt(P[older]))
             session.close()
             session = unlocked(P[generation + 1])
+            settlePhotos()
             assertSameShape(freshShape("before", *Array(generation + 1) { "g$it" }), shape(layout, keys), "after promotion ${generation + 1} the files are those of a vault that never had a Duress Password")
         }
 
@@ -1066,14 +1067,27 @@ class VaultPromotionTest {
         }
         assertEquals(DuressResult.Enabled, result)
         // The photo copies are made after the setup returns.
-        runBlocking { vault.awaitPhotoCopies() }
+        settlePhotos()
         return Decoy(key, ids)
+    }
+
+    /**
+     * Waits for what the unlocks and the setup left on the photo sealer: the repair of the photo folders and the copies of a Duress
+     * Password, with the clearing of their mark. A test that reads the folders afterwards needs it.
+     */
+    private fun settlePhotos() {
+        PhotoStore.whileNoSaveRuns {}
+        runBlocking { vault.awaitPhotoCopies() }
     }
 
     /** Both photo folders get the same two files, as the cover makes them, so the shape of the folders counts for something. */
     private fun savePhotos(layout: VaultLayout, tag: String = "x") {
-        listOf("$tag-a" to 100, "$tag-b" to 200).forEach { (name, size) ->
-            listOf(0, 1).forEach { side -> File(layout.photoDir(side).apply { mkdirs() }, name).writeBytes(ByteArray(size)) }
+        // The cover writes both files on the sealer, so the repair that an unlock queued, which shreds a photo whose twin is not there yet,
+        // cannot run between the two writes.
+        PhotoStore.whileNoSaveRuns {
+            listOf("$tag-a" to 100, "$tag-b" to 200).forEach { (name, size) ->
+                listOf(0, 1).forEach { side -> File(layout.photoDir(side).apply { mkdirs() }, name).writeBytes(ByteArray(size)) }
+            }
         }
     }
 

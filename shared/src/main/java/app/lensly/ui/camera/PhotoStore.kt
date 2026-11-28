@@ -169,9 +169,11 @@ class PhotoStore(
     companion object {
         /**
          * Seals captured media off the main thread, one file after another. A video can take seconds to seal. The thread is a daemon, so
-         * a video still being sealed when the app leaves is finished in the background.
+         * a video still being sealed when the app leaves is finished in the background. Only a test replaces it, with an
+         * executor that refuses tasks.
          */
-        internal val sealer: Executor = Executors.newSingleThreadExecutor { task ->
+        @Volatile
+        internal var sealer: Executor = Executors.newSingleThreadExecutor { task ->
             Thread(task, "lensly-seal").apply { isDaemon = true }
         }
 

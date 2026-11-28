@@ -3,8 +3,11 @@ package app.lensly.core.vault
 import app.lensly.ui.camera.PhotoStore
 import java.io.File
 import java.math.BigInteger
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executor
 import java.util.concurrent.FutureTask
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertContentEquals
@@ -368,6 +371,133 @@ class VaultDuressPhotosTest {
     }
 
     @Test
+    fun aWipeStopsTheQueuedCopiesAtOnceAndZeroesTheirKeys() {
+        val session = unlocked(APP)
+        session.createWallet()
+        (1..3).forEach { shoot(nowMs = it * 1_000L) }
+        val keys = trackKeyCopies()
+        val copies = AtomicInteger()
+        val atFirstCopy = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        resealHookForTesting = {
+            if (copies.incrementAndGet() == 1) {
+                atFirstCopy.countDown()
+                release.await(30, TimeUnit.SECONDS)
+            }
+        }
+        try {
+            assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+            assertTrue(atFirstCopy.await(30, TimeUnit.SECONDS))
+            wipeUntilTheHeldCopyEnds(release)
+        } finally {
+            release.countDown()
+        }
+        // The hook stays in place until the sealer is idle, so it counts every copy task that runs after the wipe.
+        try {
+            awaitSealer()
+        } finally {
+            resealHookForTesting = null
+            keyCopyForTesting = null
+        }
+        session.close()
+
+        assertEquals(1, copies.get(), "the copies queued before the wipe are cancelled, not run")
+        assertAllZero(keys)
+    }
+
+    @Test
+    fun aSealerThatRefusesTheCopiesStillZeroesEveryKeyCopyOfASetup() {
+        val session = unlocked(APP)
+        session.createWallet()
+        shoot()
+        val keys = trackKeyCopies(onFirstCopy = ::refuseNextSealerTask)
+        try {
+            assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+        } finally {
+            keyCopyForTesting = null
+        }
+        awaitSealer()
+        session.close()
+
+        assertAllZero(keys)
+    }
+
+    @Test
+    fun aSealerThatRefusesTheCopiesStillZeroesEveryKeyCopyOfAResume() {
+        val session = unlocked(APP)
+        session.createWallet()
+        shoot()
+        photoCopiesKilledForTesting = true
+        try {
+            assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+            awaitSealer()
+        } finally {
+            photoCopiesKilledForTesting = false
+        }
+        session.close()
+
+        val keys = trackKeyCopies(onFirstCopy = ::refuseNextSealerTask)
+        try {
+            unlocked(APP).close()
+        } finally {
+            keyCopyForTesting = null
+        }
+        awaitSealer()
+
+        assertAllZero(keys)
+    }
+
+    @Test
+    fun aSealerThatRefusesTheNextCopyEndsTheRunWithItsKeysZeroedAndNobodyWaitingForIt() {
+        val session = unlocked(APP)
+        session.createWallet()
+        (1..3).forEach { shoot(nowMs = it * 1_000L) }
+        val keys = trackKeyCopies()
+        resealHookForTesting = { refuseNextSealerTask(fromSealerOnly = true) }
+        try {
+            assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+            awaitSealer()
+        } finally {
+            resealHookForTesting = null
+            keyCopyForTesting = null
+        }
+        session.close()
+
+        assertAllZero(keys)
+    }
+
+    /** Records every key copy that a run of photo copies takes over, and calls [onFirstCopy] when the first one is made. */
+    private fun trackKeyCopies(onFirstCopy: () -> Unit = {}): List<ByteArray> {
+        val keys = CopyOnWriteArrayList<ByteArray>()
+        keyCopyForTesting = { key ->
+            if (keys.isEmpty()) onFirstCopy()
+            keys += key
+        }
+        return keys
+    }
+
+    private fun assertAllZero(keys: List<ByteArray>) {
+        assertTrue(keys.size >= 2, "the vault key copy and the photo key copy were made")
+        keys.forEach { assertTrue(it.all { b -> b == 0.toByte() }, "a key copy was left in memory") }
+    }
+
+    /**
+     * Makes the next task that is queued on the sealer fail as a stopped executor does, then gives the sealer back. With [fromSealerOnly]
+     * the task is the next one that the sealer's own thread queues, which is the next copy of a run; the test thread's waits go through.
+     */
+    private fun refuseNextSealerTask(fromSealerOnly: Boolean = false) {
+        val real = PhotoStore.sealer
+        PhotoStore.sealer = Executor { task ->
+            if (fromSealerOnly && Thread.currentThread().name != "lensly-seal") {
+                real.execute(task)
+            } else {
+                PhotoStore.sealer = real
+                throw RejectedExecutionException("refused for the test")
+            }
+        }
+    }
+
+    @Test
     fun aCopyThatThrowsLeavesNoTempFileAndTheOtherCopiesAreMade() {
         val session = unlocked(APP)
         session.createWallet()
@@ -419,7 +549,7 @@ class VaultDuressPhotosTest {
             assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
             assertTrue(atFirstCopy.await(30, TimeUnit.SECONDS))
             session.close()
-            vault.wipe()
+            wipeUntilTheHeldCopyEnds(release)
         } finally {
             release.countDown()
             resealHookForTesting = null
@@ -429,6 +559,44 @@ class VaultDuressPhotosTest {
         assertTrue(!layout.exists(), "the vault is gone")
         assertEquals(emptyList(), layout.root.walkTopDown().filter { it.isFile }.toList(), "no copy brought a file back")
         assertEquals(emptyList(), layout.photos.walkTopDown().filter { it.isFile }.toList(), "no copy brought a photo back")
+    }
+
+    @Test
+    fun aWipeWaitsForACopyThatIsAlreadyRunning() {
+        val session = unlocked(APP)
+        session.createWallet()
+        shoot()
+        val atFirstCopy = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        resealHookForTesting = { atFirstCopy.countDown(); release.await(30, TimeUnit.SECONDS) }
+        try {
+            assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+            assertTrue(atFirstCopy.await(30, TimeUnit.SECONDS))
+            session.close()
+            assertTrue(wipeUntilTheHeldCopyEnds(release), "the wipe ended while a copy was still running, and that copy could write a twin into the photos it was erasing")
+        } finally {
+            release.countDown()
+            resealHookForTesting = null
+        }
+        awaitSealer()
+
+        assertTrue(!layout.exists(), "the vault is gone")
+        assertEquals(emptyList(), layout.photos.walkTopDown().filter { it.isFile }.toList(), "no copy brought a photo back")
+    }
+
+    /**
+     * Wipes the vault on its own thread while a copy is held on the sealer, and lets the copy go once the wipe waits for it. Returns whether
+     * the wipe was still waiting at that point, that is, whether it did not end before the copy did.
+     */
+    private fun wipeUntilTheHeldCopyEnds(release: CountDownLatch): Boolean {
+        val wipe = FutureTask { vault.wipe() }
+        val thread = Thread(wipe).apply { start() }
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30)
+        while (!wipe.isDone && thread.state != Thread.State.WAITING && System.nanoTime() < deadline) Thread.onSpinWait()
+        val stillWaiting = !wipe.isDone
+        release.countDown()
+        wipe.get(30, TimeUnit.SECONDS)
+        return stillWaiting
     }
 
     @Test
@@ -476,7 +644,9 @@ class VaultDuressPhotosTest {
 
     private fun shoot(nowMs: Long = 1_000L): File {
         val known = layout.photoDir(0).list().orEmpty().toSet()
-        assertTrue(PhotoStore.forCover(layout).savePhoto(PHOTO.copyOf(), nowMs = nowMs))
+        // The cover saves on the sealer, one file after the other, so the unlock's repair of the photo folders, which shreds a photo whose
+        // twin is not there yet, cannot run between the two files of a save.
+        assertTrue(PhotoStore.whileNoSaveRuns { PhotoStore.forCover(layout).savePhoto(PHOTO.copyOf(), nowMs = nowMs) })
         return layout.photoDir(0).listFiles().orEmpty().single { it.name !in known }
     }
 
