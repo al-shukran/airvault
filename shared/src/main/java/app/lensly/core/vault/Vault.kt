@@ -1703,15 +1703,29 @@ class Vault constructor(
     }
 
     /**
-     * Gives [key] a file for each record name it has none of, from the files that it does not name. A decoy that a kill left before its
-     * claim (see [installDecoy]) has none, and a promotion would otherwise add a file for each record the first time it is written. Only
-     * the vault that a promotion made takes files, since the other files of a vault with a Decoy Vault are the decoy's.
+     * Gives [key] a valid file for each record name it has none of, or has a file for that [key] does not open. A decoy that a kill left
+     * before its claim (see [installDecoy]) has no file, and a promotion would otherwise add one for each record the first time it is
+     * written. A kill between the claim and the reset leaves the spare's random bytes under the decoy's name, which would fail
+     * authentication on every read, so such a file is reset in place: its value is lost, as that of any record the vault cannot verify.
+     * Only the vault that a promotion made takes files, since the other files of a vault with a Decoy Vault are the decoy's.
      */
     private fun claimMissingRecords(key: ByteArray) = VaultRecordNames.underFolderLock {
-        val missing = VaultRecordNames.KNOWN.filter { !File(layout.vaultRecords, VaultRecordNames.fileName(key, it)).isFile }
-        if (missing.isEmpty()) return@underFolderLock
-        claimSpares(spareRecordFiles(listOf(key)), key, missing)
-        resetRecords(key, missing)
+        val absent = VaultRecordNames.KNOWN.filter { !File(layout.vaultRecords, VaultRecordNames.fileName(key, it)).isFile }
+        val broken = (VaultRecordNames.KNOWN - absent.toSet()).filter { !opensRecord(key, it) }
+        if (absent.isEmpty() && broken.isEmpty()) return@underFolderLock
+        if (absent.isNotEmpty()) claimSpares(spareRecordFiles(listOf(key)), key, absent)
+        resetRecords(key, absent + broken)
+    }
+
+    /** Whether the record file of [name] under [key] authenticates. Only a bad tag or a damaged blob says no, an I/O error is thrown. */
+    private fun opensRecord(key: ByteArray, name: String): Boolean = try {
+        val file = File(layout.vaultRecords, VaultRecordNames.fileName(key, name))
+        Arrays.fill(Aead.open(key, VaultRecordNames.aad(name), decodeBlob(file.readBytes())), 0)
+        true
+    } catch (e: AEADBadTagException) {
+        false
+    } catch (e: VaultException) {
+        false
     }
 
     /** Each decoy record file, rewritten to hold no value under [decoyKey]. The files keep their names and sizes. */
