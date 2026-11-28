@@ -239,7 +239,7 @@ class VaultFormatV4Test {
         // Promoting the decoy retires the old vault's files into spares, so the folder holds as many files as before.
         val promoted = withDecoy.unlocked(DURESS)
         promoted.putVaultRecord("settings", byteArrayOf(2))
-        runBlocking { withDecoy.vault.awaitCleanupForTesting() }
+        runBlocking { withDecoy.vault.awaitCleanup() }
         promoted.close()
         assertEquals(recordFiles(plain), recordFiles(withDecoy))
     }
