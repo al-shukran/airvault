@@ -77,7 +77,9 @@ internal fun ByteArray.addressAt(at: Int): String = "0x" + copyOfRange(at, at + 
  * network. [caller] is the address the contract sees as its message sender: the signer, or the Multicall3 contract that calls it inside a
  * batch. A router flag for the message sender means [caller], so inside a batch it is not the signer. Addresses are lowercase. The names and amounts a step shows come from [registry], so a token it does not know is shown as its
  * short address and raw base units, and never as a guessed symbol or decimals. [held] is the tokens a router step has left in the router and
- * no later step has taken out, so the steps of one call share it.
+ * no later step has taken out, so the steps of one call share it. A token's value is the amount known to be there (a wrap of a stated
+ * amount), which a later spend of that amount takes out, or null when the amount is not known (a swap output), which only a step that
+ * takes everything takes out.
  */
 internal class StepCall(
     val registry: Registry,
@@ -87,7 +89,7 @@ internal class StepCall(
     val sent: BigInteger,
     private val params: List<DecodedParam>,
     val caller: String = from,
-    private val held: MutableSet<String> = LinkedHashSet(),
+    private val held: MutableMap<String, BigInteger?> = LinkedHashMap(),
 ) {
     val chainId: Long get() = network.chainId
 
@@ -143,8 +145,15 @@ internal class StepCall(
     /** [callerName] as a possessive before a noun: "your" for the signer, and "Multicall3's" for the batch. */
     val callerOwn: String get() = if (caller == from) "your" else "Multicall3's"
 
-    /** The address a step pays when it names [recipient]: the flag 0x…01 is [caller], and any other value is itself. */
-    private fun paid(recipient: String): String = if (recipient == MSG_SENDER) caller else recipient
+    /**
+     * The address a step pays when it names [recipient]: the flag 0x…01 is [caller], the flag 0x…02 and the router's own address are both
+     * [ADDRESS_THIS] because either leaves the tokens in the router, and any other value is itself.
+     */
+    private fun paid(recipient: String): String = when (recipient) {
+        MSG_SENDER -> caller
+        contract -> ADDRESS_THIS
+        else -> recipient
+    }
 
     /** How a step names [recipient]: "you", "the router" for the flag 0x…02, "Multicall3", or the short address of another. */
     fun recipientName(recipient: String): String = paid(recipient).let { if (it == ADDRESS_THIS) "the router" else who(it) }
@@ -159,19 +168,33 @@ internal class StepCall(
     /** Whether a step has left a token in the router that no later step has taken out, where anyone can take it. */
     val leavesInRouter: Boolean get() = held.isNotEmpty()
 
-    /** A step that pays [token] to [recipient]: the flag 0x…02 keeps it in the router. */
+    /** A step that pays an unknown amount of [token] to [recipient]: the flag 0x…02 or the router's own address keeps it in the router. */
     fun keepInRouter(token: String, recipient: String) {
-        if (paid(recipient) == ADDRESS_THIS) held += token
+        if (paid(recipient) == ADDRESS_THIS) held[token] = null
     }
 
-    /** A step that takes all [token] out of the router to [recipient]: the flag 0x…02 leaves it there. */
-    fun takeFromRouter(token: String, recipient: String) {
-        if (paid(recipient) != ADDRESS_THIS) emptyRouterOf(token)
+    /** A step that pays [amount] of [token] to [recipient], such as a wrap of a stated amount: it adds to any amount of [token] already known there. */
+    fun keepInRouter(token: String, amount: BigInteger, recipient: String) {
+        if (paid(recipient) != ADDRESS_THIS || amount.signum() == 0) return
+        val known = held[token]
+        if (!held.containsKey(token)) held[token] = amount else if (known != null) held[token] = known + amount
+    }
+
+    /** A step that takes all [token], or only [amount] of it, out of the router to [recipient]: the router itself leaves it there. */
+    fun takeFromRouter(token: String, recipient: String, amount: BigInteger? = null) {
+        if (paid(recipient) == ADDRESS_THIS) return
+        if (amount == null) emptyRouterOf(token) else spendFromRouter(token, amount)
     }
 
     /** A step that spends or unwraps all [token] the router holds, so none is left. */
     fun emptyRouterOf(token: String) {
         held -= token
+    }
+
+    /** A step that spends [amount] of [token] from the router: it takes out the amount a wrap left there, and no more than that. */
+    fun spendFromRouter(token: String, amount: BigInteger) {
+        val known = held[token] ?: return
+        if (amount >= known) held -= token else held[token] = known - amount
     }
 
     /** The same call with its steps' leftover check made: [CallSteps.leavesInRouter] says what the router still holds at the end. */
@@ -185,7 +208,7 @@ internal class StepCall(
      * and not the router earns the warning and its full address as a row, so it gets the grouping, its names and the lookalike check.
      */
     fun paying(line: String, what: String, recipient: String): CallSteps =
-        if (recipient == ADDRESS_THIS) CallSteps(listOf(line), emptyList()) else payingAddress(line, what, paid(recipient))
+        if (paid(recipient) == ADDRESS_THIS) CallSteps(listOf(line), emptyList()) else payingAddress(line, what, paid(recipient))
 
     /**
      * The steps [lines] of a call that pays or credits other accounts. Each of [others] is an action and the account it reaches, as

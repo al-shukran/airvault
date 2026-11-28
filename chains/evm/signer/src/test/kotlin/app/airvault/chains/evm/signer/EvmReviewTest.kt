@@ -1062,13 +1062,33 @@ class EvmReviewTest {
         listOf(direct(byteArrayOf(0x00), listOf(swap)), batched(byteArrayOf(0x00), listOf(swap))).forEach { review ->
             val danger = review.warnings.single { it.code == "evm.router-leftover" }
             assertEquals(Danger.DANGER, danger.level)
-            assertEquals("This leaves the swap output in the router, where anyone can take it", danger.message)
+            assertEquals("This leaves tokens in the router, where anyone can take them", danger.message)
             assertEquals(ACK_ROUTER_LEFTOVER, danger.acknowledge)
         }
         // A sweep to the signer after the swap takes the output out, so the review has no such warning.
         listOf(direct(byteArrayOf(0x00, 0x04), listOf(swap, sweep)), batched(byteArrayOf(0x00, 0x04), listOf(swap, sweep))).forEach { review ->
             assertTrue(review.warnings.none { it.code == "evm.router-leftover" }, "${review.warnings}")
         }
+    }
+
+    @Test
+    fun aRouterStepThatPaysTheRoutersOwnAddressOrWrapsIntoTheRouterIsAlsoALeftoverDanger() {
+        val registry = REGISTRY.withWhitelist(listOf(urEntry()))
+        fun review(commands: ByteArray, inputs: List<ByteArray>) = reviewOf(txParsed(UR_V2_TX, urExecute(commands, inputs)), builder(registry))
+        fun leftover(review: Review) = review.warnings.filter { it.code == "evm.router-leftover" }
+        val wrap = byteArrayOf(0x0b)
+        val swap = byteArrayOf(0x00)
+
+        // The router's own address as the recipient does what the flag does, so it earns the same DANGER.
+        leftover(review(swap, listOf(urSwapInput(UR_V2)))).single().let {
+            assertEquals(Danger.DANGER, it.level)
+            assertEquals("This leaves tokens in the router, where anyone can take them", it.message)
+            assertEquals(ACK_ROUTER_LEFTOVER, it.acknowledge)
+        }
+        // A wrap into the router that nothing spends is a DANGER too, and the usual swap of the wrapped ETH is not.
+        assertEquals(1, leftover(review(wrap, listOf(urWrapInput(UR_ADDRESS_THIS)))).size)
+        assertEquals(emptyList(), leftover(review(byteArrayOf(0x0b, 0x00), listOf(urWrapInput(UR_ADDRESS_THIS), urSwapInput(SENDER)))))
+        assertEquals(emptyList(), leftover(review(wrap, listOf(urWrapInput(SENDER)))))
     }
 
     @Test

@@ -166,9 +166,14 @@ internal object UniversalRouterSteps {
         } else {
             "Swap up to ${call.amount(limit, tokenIn)} for exactly ${call.amount(amount, tokenOut)}"
         }
-        if (exactIn && amount == CONTRACT_BALANCE && !payerIsUser) call.emptyRouterOf(tokenIn)
+        if (exactIn && !payerIsUser) spendInput(call, tokenIn, amount)
         call.keepInRouter(tokenOut, recipient)
         return call.paying(sentence + " " + via(call, "Uniswap v3", trade) + tail(call, recipient, payerIsUser), SWAP_OUTPUT, recipient)
+    }
+
+    /** An exact-input swap paid from the router spends the router's whole balance of [token] for [CONTRACT_BALANCE], and [amount] of it otherwise. */
+    private fun spendInput(call: StepCall, token: String, amount: BigInteger) {
+        if (amount == CONTRACT_BALANCE) call.emptyRouterOf(token) else call.spendFromRouter(token, amount)
     }
 
     private fun v2Swap(input: ByteArray, call: StepCall, exactIn: Boolean): CallSteps? {
@@ -188,7 +193,7 @@ internal object UniversalRouterSteps {
             else -> "Swap exactly ${call.amount(amount, tokenIn)} for ≥ ${call.amount(limit, tokenOut)}"
         }
         val line = sentence + " " + via(call, "Uniswap v2", Route(path, emptyList())) + tail(call, recipient, payerIsUser)
-        if (exactIn && amount == CONTRACT_BALANCE && !payerIsUser) call.emptyRouterOf(tokenIn)
+        if (exactIn && !payerIsUser) spendInput(call, tokenIn, amount)
         call.keepInRouter(tokenOut, recipient)
         return call.paying(line, SWAP_OUTPUT, recipient)
     }
@@ -259,7 +264,7 @@ internal object UniversalRouterSteps {
         } else {
             "Transfer ${call.amount(value, token)} from the router to $name"
         }
-        if (token != NATIVE_COIN && value == CONTRACT_BALANCE) call.takeFromRouter(token, recipient)
+        if (token != NATIVE_COIN) call.takeFromRouter(token, recipient, value.takeIf { it != CONTRACT_BALANCE })
         return call.paying(sentence, "transfers the router's tokens to", recipient)
     }
 
@@ -283,6 +288,7 @@ internal object UniversalRouterSteps {
         } else {
             call.nativeAmount(amount)
         }
+        if (amount == CONTRACT_BALANCE) call.keepInRouter(WETH_MAINNET, recipient) else call.keepInRouter(WETH_MAINNET, amount, recipient)
         val place = when (val name = call.recipientName(recipient)) {
             "the router" -> " in the router"
             "you" -> ""

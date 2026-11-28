@@ -177,7 +177,7 @@ internal object SwapRouterSteps {
     /** Unwraps all the WETH the router holds, if at least the minimum, and sends the ETH to [recipient] less any [fee]. A null [recipient] is the message sender. */
     private fun unwrapWeth(c: StepCall, minimum: BigInteger, recipient: String?, fee: Fee? = null): CallSteps {
         val least = if (minimum.signum() == 0) "" else " (at least ${c.wrappedAmount(minimum)})"
-        c.emptyRouterOf(WETH_MAINNET)
+        if (recipient != c.contract) c.emptyRouterOf(WETH_MAINNET)
         val to = recipient?.let(c::who) ?: c.callerName
         val line = "Unwrap all ${c.wrappedSymbol} the router holds → ${c.network.nativeSymbol} for $to${feeText(c, fee)}$least"
         return payout(c, line, "sends the unwrapped ${c.network.nativeSymbol} to", recipient, fee)
@@ -186,7 +186,7 @@ internal object SwapRouterSteps {
     /** Sends all [token] the router holds to [recipient] less any [fee], if at least the minimum. A null [recipient] is the message sender. */
     private fun sweepToken(c: StepCall, token: String, minimum: BigInteger, recipient: String?, fee: Fee? = null): CallSteps {
         val least = if (minimum.signum() == 0) "" else " (at least ${c.amount(minimum, token)})"
-        c.emptyRouterOf(token)
+        if (recipient != c.contract) c.emptyRouterOf(token)
         val to = recipient?.let(c::who) ?: c.callerName
         val line = "Sweep all ${c.symbolOf(token)} held by the router to $to${feeText(c, fee)}$least"
         return payout(c, line, SWEEPS_TO, recipient, fee)
