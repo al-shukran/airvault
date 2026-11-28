@@ -77,11 +77,49 @@ class PairedNamesInListTest {
     }
 
     @Test
-    fun namesThatTakeMoreRoomThanTheWalletRecordHoldsRefuseTheCodeAtPairing() {
+    fun theMostCustomNamesLenslyCanSendArePairedAndTheOnesThatDoNotFitShowTheirAutoNames() {
         val long = "N".repeat(PairingCodec.MAX_NAME_BYTES)
-        val sent = PairFixtures.payloadOf((0 until 60).map { PairFixtures.solanaAccount(it, long) } + (0 until 60).map { PairFixtures.algorandAccount(it, long) })
+        val accounts = (0 until PairImport.MAX_BITCOIN_KEYS).map { index ->
+            PairFixtures.bitcoinAccount(BtcAccount.fromSeed(PairFixtures.seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, index).watchOnly(), long)
+        } + (0 until PairImport.MAX_SOLANA_ACCOUNTS).map { PairFixtures.solanaAccount(it, long) } +
+            (0 until PairImport.MAX_ALGORAND_ACCOUNTS).map { PairFixtures.algorandAccount(it, long) }
+        val sent = PairFixtures.payloadOf(accounts)
 
-        assertTrue(scanToEnd(PairingCodec.urParts(sent, brotli = null)) is ScanStep.Refused)
+        PairedWallets.save(session, pairingOf(PairingCodec.urParts(sent, brotli = null)), nowMs = 1L)
+        val wallet = PairedWallets.list(session).single()
+
+        // The record keeps the custom names that fit its room, in account order: Bitcoin first, then Solana, then Algorand.
+        val kept = (PairRecords.MAX_NAME_ROOM - PairImport.MAX_BITCOIN_KEYS - PairImport.MAX_SOLANA_ACCOUNTS - PairImport.MAX_ALGORAND_ACCOUNTS) /
+            PairingCodec.MAX_NAME_BYTES
+        val stored = wallet.bitcoinNames + wallet.solanaNames + wallet.algorandNames
+        assertEquals(List(kept) { long }, stored.take(kept))
+        assertTrue(stored.drop(kept).all { it == null })
+        assertEquals(autoAccountName("Demo", PairImport.MAX_SOLANA_ACCOUNTS - 1), wallet.solanaNameAt(PairImport.MAX_SOLANA_ACCOUNTS - 1))
+        assertEquals(PairImport.MAX_BITCOIN_KEYS + PairImport.MAX_SOLANA_ACCOUNTS + PairImport.MAX_ALGORAND_ACCOUNTS, stored.size)
+    }
+
+    @Test
+    fun multiByteNamesAreCountedInBytesAndTheLastOneThatFillsTheRoomExactlyIsKept() {
+        val walletName = "W".repeat(PairingCodec.MAX_NAME_BYTES)
+        val base = "B".repeat(PairingCodec.MAX_NAME_BYTES)
+        val wide = "€".repeat(PairingCodec.MAX_NAME_BYTES / 3)
+        val room = PairRecords.MAX_NAME_ROOM - PairingCodec.MAX_NAME_BYTES - PairImport.MAX_SOLANA_ACCOUNTS
+        val whole = room / PairingCodec.MAX_NAME_BYTES
+        val left = room - whole * PairingCodec.MAX_NAME_BYTES
+        val last = "€".repeat(left / 3) + "x".repeat(left % 3)
+        assertEquals(left, last.toByteArray(Charsets.UTF_8).size)
+        val sent = PairFixtures.payloadOf(
+            (0 until PairImport.MAX_SOLANA_ACCOUNTS).map { PairFixtures.solanaAccount(it, if (it == whole) last else wide) },
+            name = walletName,
+            base = base,
+        )
+
+        PairedWallets.save(session, pairingOf(PairingCodec.urParts(sent, brotli = null)), nowMs = 1L)
+        val wallet = PairedWallets.list(session).single()
+
+        assertEquals(List(whole) { wide } + last, wallet.solanaNames.take(whole + 1))
+        assertTrue(wallet.solanaNames.drop(whole + 1).all { it == null })
+        assertEquals(PairImport.MAX_SOLANA_ACCOUNTS, wallet.solanaNames.size)
     }
 
     @Test

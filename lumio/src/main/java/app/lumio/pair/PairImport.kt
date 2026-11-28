@@ -67,8 +67,6 @@ object PairImport {
     private const val OUT_OF_ORDER = "The code's accounts on one chain are not numbered 0 to n-1 in order."
     private const val DUPLICATE = "The code lists one account more than once."
     private const val BAD_KEY = "The code's public key is not valid."
-    private const val NAMES_TOO_LONG =
-        "The code's names for Bitcoin, Solana and Algorand accounts are longer than Lumio keeps. Shorten some of them in Lensly, then pair again."
     private const val BAD_ADDRESS = "The code's Address Book holds an address that is not a valid address of a supported chain."
     private const val ACCOUNT_STEP = 2
     private const val COMPRESSED_KEY_BYTES = 33
@@ -101,8 +99,8 @@ object PairImport {
         // An account on a chain that no installed wallet serves is left out, because Lumio cannot show it.
         val accounts = payload.accounts.filter { walletRegistry.byChain(it.export.chain) != null }
         if (accounts.isEmpty()) throw PairingRefusal(NO_ACCOUNTS)
-        checkAccounts(accounts, payload.name, payload.autoNameBase)
-        return payload.copy(accounts = accounts, addressBook = addressBookOf(payload.addressBook))
+        checkAccounts(accounts)
+        return payload.copy(accounts = withNamesThatFit(accounts, payload.name, payload.autoNameBase), addressBook = addressBookOf(payload.addressBook))
     }
 
     /**
@@ -114,19 +112,35 @@ object PairImport {
     }
 
     /**
+     * [accounts] with the custom names that the wallet record cannot hold given back their Auto-Names, so that Lumio never refuses a code that Lensly
+     * can make. Names are kept in account order while they fit the room of [PairRecords.MAX_NAME_ROOM]; the Bitcoin, Solana and Algorand accounts
+     * each take one byte of it, and an Auto-Name takes no more.
+     */
+    private fun withNamesThatFit(accounts: List<PairingAccount>, walletName: String, base: String): List<PairingAccount> {
+        val named = listOf(Networks.BIP122, Networks.SOLANA, Networks.ALGORAND)
+        var room = PairRecords.MAX_NAME_ROOM - PairRecords.baseRoom(walletName, base) - accounts.count { it.export.chain.namespace in named }
+        return accounts.map { account ->
+            val custom = customNameOf(account, base)
+            if (account.export.chain.namespace !in named || custom == null) return@map account
+            val size = custom.toByteArray(Charsets.UTF_8).size
+            if (size <= room) {
+                room -= size
+                account
+            } else {
+                account.copy(name = autoAccountName(base, account.export.signer.path[ACCOUNT_STEP].index))
+            }
+        }
+    }
+
+    /**
      * Each chain's accounts are checked for the count Lumio keeps, for a repeated account, for the key rules of their chain (see [checkAccount]), and
      * for their numbering: the accounts of a chain with single keys are numbered 0 to n-1, since Lumio's records keep them by position.
      */
-    private fun checkAccounts(accounts: List<PairingAccount>, walletName: String, base: String) {
+    private fun checkAccounts(accounts: List<PairingAccount>) {
         for (namespace in accounts.map { it.export.chain.namespace }.distinct()) {
             val count = accounts.count { it.export.chain.namespace == namespace }
             val max = requireNotNull(ACCOUNT_LIMITS[namespace]) { "An installed chain has an account limit." }
             if (count > max) throw PairingRefusal("The code carries $count ${nameOf(namespace)} accounts. Lumio pairs up to $max.")
-        }
-        val named = listOf(Networks.BIP122, Networks.SOLANA, Networks.ALGORAND)
-        val kept = accounts.filter { it.export.chain.namespace in named }.map { customNameOf(it, base) }
-        if (PairRecords.nameRoom(kept) + PairRecords.baseRoom(walletName, base) > PairRecords.MAX_NAME_ROOM) {
-            throw PairingRefusal(NAMES_TOO_LONG)
         }
         if (accounts.map { it.export.chain to it.export.signer.path }.distinct().size != accounts.size) throw PairingRefusal(DUPLICATE)
         accounts.forEach { checkAccount(it.export) }
