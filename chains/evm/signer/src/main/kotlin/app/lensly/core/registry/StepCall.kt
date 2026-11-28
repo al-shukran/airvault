@@ -130,22 +130,24 @@ internal class StepCall(
     /** [raw] of the wrapped native coin, which has the native coin's decimals, such as 0.5 WETH. */
     fun wrappedAmount(raw: BigInteger): String = "${groupDigits(Amounts.format(raw, network.nativeDecimals))} $wrappedSymbol"
 
-    /** "you" for the signing address, and the short address of any other. */
-    fun who(address: String): String = if (address == from) "you" else shortAddress(address)
+    /** "you" for the signing address, "Multicall3" for the batch that calls the contract, and the short address of any other. */
+    fun who(address: String): String = when (address) {
+        from -> "you"
+        caller -> "Multicall3"
+        else -> shortAddress(address)
+    }
 
-    /** What the router's message-sender flag means in words: "you" for the signer, and "Multicall3" for the batch that calls it. */
+    /** What the contract's message sender is in words: "you" for the signer, and "Multicall3" for the batch that calls it. */
     val callerName: String get() = if (caller == from) "you" else "Multicall3"
+
+    /** [callerName] as a possessive before a noun: "your" for the signer, and "Multicall3's" for the batch. */
+    val callerOwn: String get() = if (caller == from) "your" else "Multicall3's"
 
     /** The address a step pays when it names [recipient]: the flag 0x…01 is [caller], and any other value is itself. */
     private fun paid(recipient: String): String = if (recipient == MSG_SENDER) caller else recipient
 
     /** How a step names [recipient]: "you", "the router" for the flag 0x…02, "Multicall3", or the short address of another. */
-    fun recipientName(recipient: String): String = when (val address = paid(recipient)) {
-        ADDRESS_THIS -> "the router"
-        from -> "you"
-        caller -> "Multicall3"
-        else -> shortAddress(address)
-    }
+    fun recipientName(recipient: String): String = paid(recipient).let { if (it == ADDRESS_THIS) "the router" else who(it) }
 
     /** What a swap says about where its output goes, or null when it goes to the signer: "kept in the router", or "sent to <name>". */
     fun destination(recipient: String): String? = when (val address = paid(recipient)) {
@@ -184,6 +186,17 @@ internal class StepCall(
      */
     fun paying(line: String, what: String, recipient: String): CallSteps =
         if (recipient == ADDRESS_THIS) CallSteps(listOf(line), emptyList()) else payingAddress(line, what, paid(recipient))
+
+    /**
+     * The steps [lines] of a call that pays or credits other accounts. Each of [others] is an action and the account it reaches, as
+     * [notYou] reads them, and an account that is not the signer earns its warning after [warnings]. Inside a batch those accounts are also
+     * address rows, which makes the review warn of them as a DANGER; outside a batch the steps are the lines and warnings alone.
+     */
+    fun steps(lines: List<String>, vararg others: Pair<String, String>, warnings: List<String> = emptyList()): CallSteps {
+        val paid = others.filter { it.second != from }
+        val rows = if (caller == from) emptyList() else paid.map { it.second }.distinct()
+        return CallSteps(lines, warnings + paid.flatMap { (what, address) -> notYou(from, what, address) }, rows)
+    }
 
     /** [paying] for an [address] the router takes as it is, with no flag mapped. */
     fun payingAddress(line: String, what: String, address: String): CallSteps {

@@ -1,6 +1,7 @@
 package app.lumio
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.platform.LocalContext
@@ -12,13 +13,15 @@ import app.lumio.evm.EvmSettings
 import app.lumio.evm.EvmSettingsStore
 import app.lumio.network.NetworkMode
 import app.lumio.ui.explore.ExploreScreen
+import app.lumio.ui.explore.LearnArticleScreen
+import app.lumio.ui.explore.LearnArticles
 import app.lumio.ui.explore.chainRows
 import app.lumio.ui.kit.LumioTab
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * The Explore tab: the chains the owner's accounts sit on, the networks on the side, and the data providers, read the way the Data providers page reads
+ * The Explore tab: the chains the owner's accounts sit on, the networks on the side, the data providers, and the Learn AirVault articles, read the way the Data providers page reads
  * them. The providers are read once, when the tab opens.
  */
 @Composable
@@ -43,9 +46,11 @@ internal fun ExploreRoute(navController: NavHostController, holder: VaultHolder,
             chains = view?.let { shown -> chainRows(app.registry, selection.mode, shown.wallets.flatMap { wallet -> shown.accountsOf(wallet.id) }) }.orEmpty(),
             networks = networksOn(app.registry, settings, selection.mode),
             providers = current.data + current.prices,
+            providerCount = current.listed,
             onChains = { navController.navigate(LumioRoute.SETTINGS_NETWORKS) },
             onProviders = { navController.navigate(LumioRoute.DATA_PROVIDERS) },
             onProvider = { id -> navController.navigate(LumioRoute.provider(id)) },
+            onArticle = { id -> navController.navigate(LumioRoute.article(id)) },
         )
     }
 }
@@ -53,3 +58,20 @@ internal fun ExploreRoute(navController: NavHostController, holder: VaultHolder,
 /** The networks of [mode] that the owner has switched on, custom chains included: the count the Explore tab shows as All N. */
 internal fun networksOn(registry: Registry, settings: EvmSettings, mode: NetworkMode): Int =
     EvmCatalog.chains(registry, settings).count { it.chainId in settings.enabled && mode.holds(it) }
+
+/** A Learn AirVault article, by its ID. An ID that names no article closes the page. */
+@Composable
+internal fun LearnArticleRoute(navController: NavHostController, id: String, onLock: () -> Unit) {
+    val article = LearnArticles.find(id)
+    LaunchedEffect(article == null) {
+        if (article == null) navController.popBackStack()
+    }
+    if (article == null) return
+    LearnArticleScreen(
+        article = article,
+        offline = rememberSettingsOffline(),
+        backLabel = navController.backLabel(),
+        onBack = { navController.popBackStack() },
+        onLock = onLock,
+    )
+}

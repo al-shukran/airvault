@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +22,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -44,7 +44,7 @@ private val COMPACT_HEIGHT = 56.dp
 private val DISC = 36.dp
 
 /** The description's size: one step under [ClearAirType.body], as a row's second line is drawn. */
-private val DESCRIPTION = ClearAirType.body.copy(fontSize = 12.5.sp, lineHeight = 17.sp)
+internal val ROW_DESCRIPTION = ClearAirType.body.copy(fontSize = 12.5.sp, lineHeight = 17.sp)
 
 /** The gap between a description and its suffix: the 6 dp the suffix is set off by, less the 4 dp its first logo is pulled back by. */
 private val SUFFIX_GAP = 2.dp
@@ -55,8 +55,8 @@ private val INDEX = ClearAirType.address.copy(fontSize = 11.5.sp, lineHeight = 1
 /**
  * A row of a list: an optional [leading] logo, monogram or glyph disc, a [title], a [description] under it when given, an optional [trailing] value, and a
  * chevron when the row opens something ([onClick]). The row is 62 dp at least and grows with its text, which wraps and is never cut. A [descriptionSuffix]
- * sits after the description's text on its line, such as a row of chain logos. A [styledDescription] takes the place of the [description] when its words
- * carry their own colours, such as a status word. A [tag] and an [index] follow the title. A [divider] is a hairline on the
+ * sits after the description's text on its line, such as a row of chain logos. A [descriptionLine] takes the place of the [description] when its parts are
+ * separate elements, such as a status glyph, its word and a note. A [tag] and an [index] follow the title. A [divider] is a hairline on the
  * row's top edge, which starts at the text when the row has a [leading] mark and at the gutter when it has none, so a list sets it on every row but the
  * first. The row is full-bleed with the page gutter on each side, and it scales to 0.98 while pressed. A [destructive] row has its title in rose.
  */
@@ -65,7 +65,7 @@ fun ClearAirRow(
     title: String,
     modifier: Modifier = Modifier,
     description: String? = null,
-    styledDescription: AnnotatedString? = null,
+    descriptionLine: (@Composable RowScope.() -> Unit)? = null,
     descriptionSuffix: (@Composable () -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
@@ -122,12 +122,13 @@ fun ClearAirRow(
                     ClearAirTag(text = tag, modifier = Modifier.padding(start = 6.dp))
                 }
             }
-            val line = styledDescription ?: description?.let(::AnnotatedString)
-            if (line != null) {
+            if (descriptionLine != null) {
+                Row(verticalAlignment = Alignment.CenterVertically, content = descriptionLine)
+            } else if (description != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = line,
-                        style = DESCRIPTION,
+                        text = description,
+                        style = ROW_DESCRIPTION,
                         color = palette.ink2,
                         modifier = if (descriptionSuffix == null) Modifier else Modifier.weight(1f, fill = false),
                     )

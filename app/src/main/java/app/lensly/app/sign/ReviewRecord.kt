@@ -68,11 +68,12 @@ const val MAX_RECORD_OUTPUTS = 200
 
 /**
  * What a Bitcoin review showed of its PSBT. A record of any other request has none. [scriptType] is the Script Type of the account, as
- * shown. The fee is null while an input amount is unverified, and so is its rate. [outputsNotKept] counts the outputs past
+ * shown. [accountAddress] is that account's first receive address, which names the account the change went to without the seed. The fee is null while an input amount is unverified, and so is its rate. [outputsNotKept] counts the outputs past
  * [MAX_RECORD_OUTPUTS] that [outputs] leaves out.
  */
 data class BitcoinRecordFacts(
     val scriptType: String,
+    val accountAddress: String,
     val outputs: List<BitcoinRecordOutput>,
     val feeSats: Long?,
     val feeRateSatPerVb: Double?,
@@ -133,6 +134,7 @@ fun bitcoinRecordFactsOf(reviewed: BitcoinReviewed, review: Review): BitcoinReco
     val outputs = reviewed.review.outputs
     return BitcoinRecordFacts(
         scriptType = scriptTypeName(reviewed.account.scriptType),
+        accountAddress = reviewed.account.firstReceiveAddress,
         outputs = outputs.take(MAX_RECORD_OUTPUTS).map { BitcoinRecordOutput(it.address, it.amountSats, it.isOwnChange) },
         feeSats = reviewed.review.feeSats,
         feeRateSatPerVb = reviewed.review.feeRateSatPerVb,

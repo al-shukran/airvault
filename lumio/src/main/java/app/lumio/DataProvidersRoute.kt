@@ -50,7 +50,10 @@ internal class ProviderLists(
     val prices: List<ProviderRow>,
     val rpc: List<ProviderRow>,
     val preferRpc: Boolean,
-)
+) {
+    /** The providers the Data providers page lists: the number that Explore shows as "All N". */
+    val listed: Int get() = data.size + prices.size + rpc.size
+}
 
 /**
  * The Data providers screen in the Hidden Area. It reads the saved settings and each provider's health from the schedulers, and it writes each change

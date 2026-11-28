@@ -8,14 +8,38 @@ import java.util.Locale
 
 private val SINCE_DAY: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
 
+/** The glyph of a provider's status: a check for Working, a diamond for Rate-Limited and a dash for Off. */
+fun providerStatusGlyph(status: ProviderStatus): String = when (status) {
+    ProviderStatus.Ready, is ProviderStatus.Healthy -> "✓"
+    is ProviderStatus.CircuitOpen, is ProviderStatus.CoolingDown -> "◆"
+    ProviderStatus.Off, ProviderStatus.NotActive, ProviderStatus.NeedsKey -> "–"
+}
+
+/** The name of a provider's status without its glyph: Working, Rate-Limited or Off. */
+fun providerStatusName(status: ProviderStatus): String = when (status) {
+    ProviderStatus.Ready, is ProviderStatus.Healthy -> "Working"
+    is ProviderStatus.CircuitOpen, is ProviderStatus.CoolingDown -> "Rate-Limited"
+    ProviderStatus.Off, ProviderStatus.NotActive, ProviderStatus.NeedsKey -> "Off"
+}
+
 /**
  * The word a provider's status reads as on the Clear Air pages, with its glyph: Working, Rate-Limited or Off. The glyph comes with the word, so the status
  * never rests on colour alone. A provider that is Off for want of a key reads Off here, and [providerStatusNote] says why.
  */
-fun providerStatusWord(status: ProviderStatus): String = when (status) {
-    ProviderStatus.Ready, is ProviderStatus.Healthy -> "✓ Working"
-    is ProviderStatus.CircuitOpen, is ProviderStatus.CoolingDown -> "◆ Rate-Limited"
-    ProviderStatus.Off, ProviderStatus.NotActive, ProviderStatus.NeedsKey -> "– Off"
+fun providerStatusWord(status: ProviderStatus): String = "${providerStatusGlyph(status)} ${providerStatusName(status)}"
+
+/**
+ * What a data provider supplies, as a short phrase for its row on Explore, or null for a provider that has none. It states what the provider's code serves
+ * and no more: the explorers read EVM balances and history, Blockchair and 3xpl only balances, and the Esplora servers read Bitcoin.
+ */
+fun providerCoverage(id: String): String? = when (id) {
+    "blockscout", "etherscan", "routescan" -> "EVM balances and history"
+    "blockchair" -> "Bitcoin and Ethereum balances"
+    "3xpl" -> "Ethereum balances"
+    "mempool", "blockstream" -> "Bitcoin"
+    "coingecko" -> "Prices and market data"
+    "defillama" -> "Prices and charts"
+    else -> null
 }
 
 /** The line under the status word when the owner can act on it: a provider that is Off for want of a key says so. */

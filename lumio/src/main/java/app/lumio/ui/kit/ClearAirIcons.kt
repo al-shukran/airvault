@@ -59,6 +59,12 @@ enum class ClearAirGlyph(private val data: List<String>) {
         ),
     ),
     CLOCK(listOf(circle(12f, 12f, 8.5f), "M12 7.5V12l3 2")),
+    BOOK(
+        listOf(
+            "M6.5 4h11A1.5 1.5 0 0 1 19 5.5V17.5H6.5A1.5 1.5 0 0 0 5 19V5.5A1.5 1.5 0 0 1 6.5 4z",
+            "M5 19a1.5 1.5 0 0 0 1.5 1.5H19V17.5",
+        ),
+    ),
     NODE(
         listOf(
             "M6 5h12a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z",

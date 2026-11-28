@@ -62,6 +62,7 @@ internal object BulkerSteps {
         if (names.isEmpty()) return CallSteps(listOf("No actions: the bulker does nothing"), emptyList())
         val lines = ArrayList<String>()
         val warnings = ArrayList<String>()
+        val addresses = LinkedHashSet<String>()
         names.indices.forEach { index ->
             val word = (names[index] as AbiValue.Word).hex
             val name = actionName(word)
@@ -79,9 +80,10 @@ internal object BulkerSteps {
             } else {
                 lines += steps.lines
                 warnings += steps.warnings
+                addresses += steps.addresses
             }
         }
-        return CallSteps(lines, warnings)
+        return CallSteps(lines, warnings, addresses.toList())
     }
 
     /** The name in an action word: ASCII text, then zero bytes. Null when the word is not a name. */
@@ -108,7 +110,7 @@ internal object BulkerSteps {
         val asset = v[2].address()
         val collateral = if (asset == market.base) "" else " as collateral"
         val line = "Supply ${call.amount(v[3].word(), asset)}$collateral to Compound V3 (${market.symbol}) for ${call.who(to)}"
-        return CallSteps(listOf(line), notYou(call.from, "supplies to", to))
+        return call.steps(listOf(line), "supplies to" to to)
     }
 
     private fun supplyNative(call: StepCall, v: List<AbiValue>): CallSteps? {
@@ -118,12 +120,12 @@ internal object BulkerSteps {
         val to = v[1].address()
         // The maximum amount makes the bulker supply the sender's borrow balance and refund the rest of the value. The balance is not read.
         val line = if (amount == ContractCall.MAX_UINT256) {
-            "Supply your borrow balance on Compound V3 (${market.symbol}) for ${call.who(to)}, up to the value sent, and get the rest back " +
+            "Supply ${call.callerOwn} borrow balance on Compound V3 (${market.symbol}) for ${call.who(to)}, up to the value sent, and get the rest back " +
                 "(the exact amount is not read)"
         } else {
             "Supply ${call.nativeAmount(amount)} to Compound V3 (${market.symbol}) for ${call.who(to)}"
         }
-        return CallSteps(listOf(line), notYou(call.from, "supplies to", to))
+        return call.steps(listOf(line), "supplies to" to to)
     }
 
     private fun withdrawNative(call: StepCall, v: List<AbiValue>): CallSteps? {
@@ -132,10 +134,10 @@ internal object BulkerSteps {
         val to = v[1].address()
         val amount = v[2].word()
         val what = if (amount == ContractCall.MAX_UINT256) "all ${call.network.nativeSymbol}" else call.nativeAmount(amount)
-        return CallSteps(listOf("Withdraw $what from Compound V3 (${market.symbol}) to ${call.who(to)}"), notYou(call.from, "withdraws to", to))
+        return call.steps(listOf("Withdraw $what from Compound V3 (${market.symbol}) to ${call.who(to)}"), "withdraws to" to to)
     }
 
-    /** A withdrawal of any asset the market holds, from the signer's balance to [to]. A market it does not know is not described. */
+    /** A withdrawal of any asset the market holds, from the caller's balance to [to]. A market it does not know is not described. */
     private fun withdrawAsset(call: StepCall, v: List<AbiValue>): CallSteps? {
         val market = ProtocolSteps.compoundMarket(MAINNET, v[0].address()) ?: return null
         val to = v[1].address()
@@ -143,6 +145,6 @@ internal object BulkerSteps {
         val amount = v[3].word()
         val collateral = if (asset == market.base) "" else " collateral"
         val what = if (amount == ContractCall.MAX_UINT256) "all ${call.symbolOf(asset)}" else call.amount(amount, asset)
-        return CallSteps(listOf("Withdraw $what$collateral from Compound V3 (${market.symbol}) to ${call.who(to)}"), notYou(call.from, "withdraws to", to))
+        return call.steps(listOf("Withdraw $what$collateral from Compound V3 (${market.symbol}) to ${call.who(to)}"), "withdraws to" to to)
     }
 }

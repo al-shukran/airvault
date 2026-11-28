@@ -123,14 +123,16 @@ object WalletAccounts {
         rows.filter { mode.holds(it.ref.account.network) }.map { row ->
             val account = row.ref.account
             val name = if (account.network == BtcNetwork.TESTNET4) "Bitcoin Testnet4" else "Bitcoin"
+            val index = wallet.bitcoin.indexOfFirst { it.path.path == account.path.path }
             WalletAccount(
                 walletId = wallet.id,
                 id = AccountId.of(account.network.networkId().chain, account.receiveAddress(0)),
-                index = wallet.bitcoin.indexOfFirst { it.path.path == account.path.path },
+                index = index,
                 networkName = name,
                 coin = AccountCoin(symbol = "BTC", name = name, network = account.network.networkId()),
                 balance = HomeBalances.bitcoin(listOf(row)).singleOrNull(),
                 script = scriptLabel(account.scriptType),
+                name = wallet.bitcoinNameAt(index),
                 incomplete = row.snapshot?.complete == false,
                 readAtMs = row.snapshot?.scannedAtMs,
             )
@@ -201,6 +203,7 @@ object WalletAccounts {
                 networkName = coin?.name ?: familyLabel(Networks.SOLANA),
                 coin = coin?.let { accountCoinOf(it) },
                 balance = nativeBalance(wallet.copy(solana = listOf(key), algorand = emptyList()), coin, cache),
+                name = wallet.solanaNameAt(index),
                 readAtMs = nativeReadAt(wallet, coin, id.address, cache),
             )
         }
@@ -234,6 +237,7 @@ object WalletAccounts {
                 networkName = coin?.name ?: familyLabel(Networks.ALGORAND),
                 coin = coin?.let { accountCoinOf(it) },
                 balance = nativeBalance(wallet.copy(solana = emptyList(), algorand = listOf(key)), coin, cache),
+                name = wallet.algorandNameAt(index),
                 readAtMs = nativeReadAt(wallet, coin, id.address, cache),
             )
         }

@@ -51,6 +51,7 @@ class AppRecordFactsTest {
     fun aBitcoinRecordWithMoreOutputsThanItKeepsStaysUnderTheSlotAndRoundTrips() {
         val facts = BitcoinRecordFacts(
             scriptType = "Native SegWit",
+            accountAddress = "tb1qaccount",
             outputs = List(MAX_RECORD_OUTPUTS) { BitcoinRecordOutput("bc1q" + "x".repeat(58), 1_000L + it, isOwnChange = false) },
             feeSats = 300L,
             feeRateSatPerVb = 2.5,
