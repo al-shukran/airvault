@@ -9,6 +9,11 @@ gives the same run in the frame and the golden, whatever the browser's line box.
 kept. Exit status 1 when a run's middle (the mean of its top and bottom difference, which is steady where a glyph's edge pixel is not) is more than --tol dp (default 1) away, or the golden has no run near it.
 
   measure-bands.py profile_panel_dark lumio/src/test/screenshots/profile_panel_dark.png
+  scripts/design/render-at-density.sh 1 '*ExploreScreenshotTest*' '*ProfilePanelScreenshotTest*'   (renders at 1 px = 1 dp into build/density-1/)
+  measure-bands.py --scale 1 explore build/density-1/explore.png                                   (the same at density 2 with "2" and --scale 2)
+
+A screen is gated at density 1 (the frame's own scale) and at density 2, so a .5 px rounding that falls differently at the phone's 1.75 shows. Scale 3 and up
+is not supported: runs() merges two runs of ink whose gap is under round(scale) px, which at 3 px per dp joins a line with its neighbour.
   measure-bands.py --build p1-02-dark.png p1-02.spec.json dark --ref 21,19,23 --ymax 720   (prints the entry of bands.json for a frame)
 """
 import argparse

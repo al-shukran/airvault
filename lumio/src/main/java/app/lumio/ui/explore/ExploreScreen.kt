@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -227,7 +228,7 @@ private fun ExploreGroup(title: String, top: Dp, action: String?, onAction: () -
             modifier = Modifier.fillMaxWidth().height(HEADER_HEIGHT).padding(horizontal = ClearAirSpacing.gutter),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ClearAirEyebrow(text = title, modifier = Modifier.weight(1f), top = 0.dp, bottom = 0.dp)
+            ClearAirEyebrow(text = title, modifier = Modifier.weight(1f).offset(y = if (action != null) EYEBROW_DROP else 0.dp), top = 0.dp, bottom = 0.dp)
             if (action != null) {
                 Box(
                     modifier = Modifier
@@ -251,6 +252,9 @@ private val GROUP_TOP = 21.dp
 private val LEARN_GROUP_TOP = 18.dp
 private val HEADER_HEIGHT = 14.dp
 private val HEADER_GAP = 8.dp
+
+/** In the mock the "All N" action's line is taller than the eyebrow's and the row centres both, so the eyebrow of a group with an action sits this much lower. */
+private val EYEBROW_DROP = 1.25.dp
 private val HEADER_GAP_BARE = 4.dp
 
 /** The size of the status mark's box, which sets where the word begins, and the gap before the note. */
