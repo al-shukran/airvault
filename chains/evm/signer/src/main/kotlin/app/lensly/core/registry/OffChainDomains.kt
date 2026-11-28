@@ -17,14 +17,20 @@ private val HYPERLIQUID_USER_SIGNED_CHAINS = listOf(42161L, 421614L)
 
 /**
  * The primary types that Hyperliquid's user-signed actions sign on the HyperliquidSignTransaction domain. hyperliquid-python-sdk, hyperliquid/utils/signing.py:
- * each action helper calls sign_user_signed_action, and that sets signatureChainId to 0x66eee.
+ * each action helper calls sign_user_signed_action, and that sets signatureChainId to 0x66eee. CDeposit, CWithdraw and SendToEvmWithData are not in
+ * that SDK: their types are the ones of github.com/nktkas/hyperliquid, src/api/exchange/_methods/{cDeposit,cWithdraw,sendToEvmWithData}.ts, and the
+ * API doc, hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint ("Deposit into staking", "Withdraw from staking",
+ * "Send to EVM with data").
  */
 private val HYPERLIQUID_USER_SIGNED = setOf(
     "HyperliquidTransaction:ApproveAgent",
     "HyperliquidTransaction:ApproveBuilderFee",
+    "HyperliquidTransaction:CDeposit",
+    "HyperliquidTransaction:CWithdraw",
     "HyperliquidTransaction:ConvertToMultiSigUser",
     "HyperliquidTransaction:SendAsset",
     "HyperliquidTransaction:SendMultiSig",
+    "HyperliquidTransaction:SendToEvmWithData",
     "HyperliquidTransaction:SpotSend",
     "HyperliquidTransaction:TokenDelegate",
     "HyperliquidTransaction:UsdClassTransfer",
@@ -125,8 +131,8 @@ val OFF_CHAIN_DOMAINS: List<OffChainDomain> = listOf(
 ) + HYPERLIQUID_USER_SIGNED_CHAINS.map { chainId ->
     OffChainDomain(
         "HyperliquidSignTransaction", "1", chainId, ZERO_ADDRESS, "Hyperliquid", HYPERLIQUID_USER_SIGNED,
-        hashedActionTypes = setOf("HyperliquidTransaction:SendMultiSig"), stringAddressMembers = setOf("destination", "builder", "fromSubAccount"),
-        agentApprovalType = "HyperliquidTransaction:ApproveAgent",
+        hashedActionTypes = setOf("HyperliquidTransaction:SendMultiSig"), stringAddressMembers = setOf("destination", "destinationRecipient", "builder", "fromSubAccount"),
+        agentApprovalType = "HyperliquidTransaction:ApproveAgent", warnsOtherTypes = true,
     )
 } + listOf(
     // AsterDex agent approval, registerAndApproveAgent, for an EVM user. github.com/asterdex/api-docs, V3 futures doc,

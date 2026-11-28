@@ -8,6 +8,8 @@ import app.airvault.core.model.ReviewRow
 import app.airvault.core.model.Warning
 import app.airvault.core.model.stopsSigning
 import app.airvault.core.model.text
+import app.lensly.core.registry.DenylistEntry
+import app.lensly.core.registry.DenylistSeverity
 import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.NetworkKind
@@ -60,6 +62,8 @@ private const val BUILDER_FEE_TEXT = "This lets the builder take a fee of up to 
 private const val TOKEN_DELEGATE_TEXT = "This stakes HYPE with a validator, or takes it back from one. Staked HYPE is locked for a while. " +
     "Check the validator, the amount and whether it undelegates before you sign."
 private const val SUB_ACCOUNT_TEXT = "This sends from a sub-account, not from the account that signs. Check the sub-account address before you sign."
+private const val SEND_TO_EVM_TEXT = "This sends funds from this account to a recipient on another chain, and passes the data to the receiving contract. " +
+    "The recipient may not be you. Check the recipient, the chain and the data before you sign."
 private const val WITHDRAW_TEXT = "This withdraws funds from this account. Check the destination and amount before you sign."
 
 private const val ASTER_APPROVE_MESSAGE = "user=$SENDER&nonce=1748310859508867&agentName=example&agentAddress=$AGENT" +
@@ -165,8 +169,13 @@ private val REGISTRY = Registry(
 
 private val REVIEWS = EvmReviewBuilder(REGISTRY, { _, _ -> error("a typed message or a personal message decodes no call") })
 
-private fun reviewOf(signData: ByteArray, chainId: Long?, dataType: DataType = DataType.TYPED_DATA): EvmReviewResult =
-    REVIEWS.review(
+private fun reviewOf(
+    signData: ByteArray,
+    chainId: Long?,
+    dataType: DataType = DataType.TYPED_DATA,
+    builder: EvmReviewBuilder = REVIEWS,
+): EvmReviewResult =
+    builder.review(
         EvmRequestParser.parsedOf(
             EthSignRequest(
                 requestId = ByteArray(16) { (it + 1).toByte() },
@@ -817,16 +826,16 @@ class OffChainSignatureReviewTest {
             val review = reviewed(asterOther(type), BNB)
 
             assertTrue(dangersOf(review).isEmpty(), type)
-            assertTrue(cautionsOf(review).any { it.code == "evm.typed.aster-type" }, "no CAUTION for $type")
+            assertTrue(cautionsOf(review).any { it.code == "evm.typed.other-type" }, "no CAUTION for $type")
         }
-        assertTrue(cautionsOf(reviewed(asterOther("UserAssetMigrate", 1666), BNB)).none { it.code == "evm.typed.aster-type" })
+        assertTrue(cautionsOf(reviewed(asterOther("UserAssetMigrate", 1666), BNB)).none { it.code == "evm.typed.other-type" })
     }
 
     @Test
     fun aPlainAsterDexMessageGetsNoOtherTypeWarning() {
         val review = reviewed(asterMessage(56, ASTER_MASTER_MESSAGE), BNB)
 
-        assertTrue(review.warnings.none { it.code == "evm.typed.aster-type" })
+        assertTrue(review.warnings.none { it.code == "evm.typed.other-type" })
     }
 
     // Lighter: github.com/elliottech/lighter-go, types/txtypes/utils.go templates, GetL1SignatureBody of each transaction.
@@ -920,5 +929,117 @@ class OffChainSignatureReviewTest {
         for (text in listOf("Sign in to Example", "Transfer 5 ETH to Alice", "Please register")) {
             assertTrue(lighterReviewOf(text).sections.none { it.heading == "Lighter" }, text)
         }
+    }
+
+    // Registry denylist parties and the Hyperliquid types beside the list (issues 1655 and 1656). Types: github.com/nktkas/hyperliquid,
+    // src/api/exchange/_methods/{sendToEvmWithData,cDeposit,cWithdraw}.ts.
+    private val denied = AGENT
+    private val notDenied = "0x3333333333333333333333333333333333333333"
+
+    /** The refusal reason of [json] under a registry that BLOCKs the party [party], or null when the message is reviewed. */
+    private fun refusalUnderPartyBlock(json: String, party: String, chainId: Long = ARBITRUM): String? {
+        val registry = REGISTRY.withDenylist(listOf(DenylistEntry(party = party, severity = DenylistSeverity.BLOCK, reason = "Known drainer.")))
+        val result = reviewOf(json.toByteArray(Charsets.UTF_8), chainId, builder = EvmReviewBuilder(registry, { _, _ -> error("no call") }))
+        return (result as? EvmReviewResult.Refused)?.reason
+    }
+
+    /** A user-signed Hyperliquid action on the 42161 domain whose only member besides the chain is the string member [member]. */
+    private fun hlStringMember(type: String, member: String, value: String) = userSigned(
+        "HyperliquidTransaction:$type",
+        """{"name":"hyperliquidChain","type":"string"},{"name":"$member","type":"string"}""",
+        """"hyperliquidChain":"Mainnet","$member":"$value"""",
+        chainId = ARBITRUM,
+    )
+
+    @Test
+    fun aPartyEntryMatchesEveryAddressStringOfAKnownHyperliquidAction() {
+        val cases = listOf(
+            "Withdraw" to "destination", "UsdSend" to "destination", "SpotSend" to "destination", "SendAsset" to "destination",
+            "SendToEvmWithData" to "destinationRecipient", "ApproveBuilderFee" to "builder", "SendAsset" to "fromSubAccount",
+        )
+        for ((type, member) in cases) {
+            assertEquals("Known drainer.", refusalUnderPartyBlock(hlStringMember(type, member, denied), denied), "$type $member")
+            // The match ignores letter case, and another address is reviewed.
+            assertEquals("Known drainer.", refusalUnderPartyBlock(hlStringMember(type, member, AGENT_CHECKSUM), denied), "$type $member")
+            assertEquals(null, refusalUnderPartyBlock(hlStringMember(type, member, notDenied), denied), "$type $member")
+        }
+        // A member that is not an address string, and a member that no known action lists, name no party.
+        assertEquals(null, refusalUnderPartyBlock(hlStringMember("Withdraw", "destination", "not an address"), denied))
+        assertEquals(null, refusalUnderPartyBlock(hlStringMember("Withdraw", "memo", denied), denied))
+    }
+
+    @Test
+    fun aPartyEntryMatchesTheVerifyingContractOfAnyTypedDomain() {
+        fun note(contract: String) = """{"types":{"Note":[{"name":"text","type":"string"}],"EIP712Domain":[$DOMAIN_TYPES]},"primaryType":"Note",""" +
+            """"domain":{"name":"Token","version":"1","chainId":$ARBITRUM,"verifyingContract":"$contract"},"message":{"text":"hi"}}"""
+
+        assertEquals("Known drainer.", refusalUnderPartyBlock(note(denied), denied))
+        assertEquals(null, refusalUnderPartyBlock(note(notDenied), denied))
+    }
+
+    private val sendToEvmFields = """{"name":"hyperliquidChain","type":"string"},{"name":"token","type":"string"},{"name":"amount","type":"string"},""" +
+        """{"name":"sourceDex","type":"string"},{"name":"destinationRecipient","type":"string"},{"name":"addressEncoding","type":"string"},""" +
+        """{"name":"destinationChainId","type":"uint32"},{"name":"gasLimit","type":"uint64"},{"name":"data","type":"bytes"},{"name":"nonce","type":"uint64"}"""
+
+    private fun sendToEvmWithData(recipient: String) = userSigned(
+        "HyperliquidTransaction:SendToEvmWithData",
+        sendToEvmFields,
+        """"hyperliquidChain":"Mainnet","token":"USDC","amount":"100000","sourceDex":"spot","destinationRecipient":"$recipient",""" +
+            """"addressEncoding":"hex","destinationChainId":1,"gasLimit":200000,"data":"0xdeadbeef","nonce":1687816341423,""" +
+            """"type":"sendToEvmWithData","signatureChainId":"0xa4b1"""",
+        chainId = ARBITRUM,
+    )
+
+    @Test
+    fun aSendToEvmWithDataShowsItsRecipientAsAnAddressAndWarnsThatItSendsFunds() {
+        val review = reviewed(sendToEvmWithData(AGENT), ARBITRUM)
+
+        noteOf(review, HYPERLIQUID_L1_LABEL, HL_NOTE)
+        val rows = review.sections.single { it.heading == "Message" }.rows.associateBy { it.label }
+        assertEquals(DisplayValue.Address(ChainId("eip155:$ARBITRUM"), AGENT_CHECKSUM), rows.getValue("destinationRecipient (string)").value)
+        assertEquals("0xdeadbeef", rows.getValue("data (bytes)").value.text())
+        assertEquals("1", rows.getValue("destinationChainId (uint32)").value.text())
+        assertEquals("200000", rows.getValue("gasLimit (uint64)").value.text())
+        assertEquals(listOf(SEND_TO_EVM_TEXT), dangersOf(review).map { it.message })
+        assertTrue(cautionsOf(review).none { it.code == "evm.typed.other-type" })
+        assertNoStoppingWarning(review)
+    }
+
+    @Test
+    fun cDepositAndCWithdrawAreKnownTypesShownInFull() {
+        for (type in listOf("CDeposit", "CWithdraw")) {
+            val json = userSigned(
+                "HyperliquidTransaction:$type",
+                """{"name":"hyperliquidChain","type":"string"},{"name":"wei","type":"uint64"},{"name":"nonce","type":"uint64"}""",
+                """"hyperliquidChain":"Mainnet","wei":100000000,"nonce":1687816341423""",
+                chainId = ARBITRUM,
+            )
+            val review = reviewed(json, ARBITRUM)
+
+            val rows = review.sections.single { it.heading == "Message" }.rows.associate { it.label to it.value.text() }
+            assertEquals("100000000", rows["wei (uint64)"], type)
+            assertEquals("Mainnet", rows["hyperliquidChain (string)"], type)
+            assertTrue(HL_CAUTION in cautionTexts(review), type)
+            assertTrue(cautionsOf(review).none { it.code == "evm.typed.other-type" }, type)
+        }
+    }
+
+    @Test
+    fun aHyperliquidTypeOutsideTheListIsACautionOnBothUserSignedDomainsAndAListedTypeIsNot() {
+        for (chain in listOf(ARBITRUM, 421614L)) {
+            val unknown = userSigned(
+                "HyperliquidTransaction:SomethingNew", """{"name":"hyperliquidChain","type":"string"}""", """"hyperliquidChain":"Mainnet"""",
+                chainId = chain,
+            )
+            val review = reviewed(unknown, ARBITRUM)
+
+            val caution = cautionsOf(review).single { it.code == "evm.typed.other-type" }
+            assertEquals(
+                "Lensly does not know this kind of Hyperliquid message, so it cannot tell what it does. Check who asked for the signature before you sign.",
+                caution.message,
+            )
+            assertNoStoppingWarning(review)
+        }
+        assertTrue(cautionsOf(reviewed(USD_SEND, ARBITRUM)).none { it.code == "evm.typed.other-type" })
     }
 }
