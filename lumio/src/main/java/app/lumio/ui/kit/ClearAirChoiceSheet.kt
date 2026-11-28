@@ -26,8 +26,8 @@ import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 
 /**
- * One choice of a [ClearAirChoiceSheet]: its [title], the line under it, the value at its end, whether it is the current choice, and whether it can be
- * picked. [onPick] applies it, and the caller closes the sheet.
+ * One choice of a [ClearAirChoiceSheet]: its [title], the line under it, the value at its end, whether it is the current choice, whether it can be
+ * picked, and an optional [leading] disc, such as a chain's logo. [onPick] applies it, and the caller closes the sheet.
  */
 class ChoiceRow(
     val title: String,
@@ -37,14 +37,15 @@ class ChoiceRow(
     val trailing: String? = null,
     val selected: Boolean = false,
     val enabled: Boolean = true,
+    val leading: (@Composable () -> Unit)? = null,
 )
 
 /** The choices under one [label], or with no label. */
 class ChoiceGroup(val label: String?, val rows: List<ChoiceRow>)
 
 /**
- * The content of a short radio sheet: a [title], then its groups of radio rows. A disabled row keeps its reason in full-contrast text, and only its title
- * dims and its radio turns dashed. It is the content of a [ClearAirSheet], which the caller opens and closes.
+ * The content of a short radio sheet: a [title], then its groups of radio rows. A disabled row keeps its reason as it is, and only its title turns
+ * secondary and its radio dashed. It is the content of a [ClearAirSheet], which the caller opens and closes.
  */
 @Composable
 fun ClearAirChoiceSheet(title: String, groups: List<ChoiceGroup>) {
@@ -72,7 +73,7 @@ fun ClearAirChoiceSheet(title: String, groups: List<ChoiceGroup>) {
 @Composable
 private fun ChoiceRowItem(row: ChoiceRow, divider: Boolean) {
     val palette = LocalClearAirPalette.current
-    val titleColor = if (row.enabled) palette.ink else palette.ink.copy(alpha = DISABLED_ALPHA)
+    val titleColor = if (row.enabled) palette.ink else palette.ink2
     AddressRow(
         minHeight = ROW_HEIGHT,
         addressInset = 0.dp,
@@ -85,17 +86,21 @@ private fun ChoiceRowItem(row: ChoiceRow, divider: Boolean) {
         },
         press = Modifier.clickable(enabled = row.enabled, role = Role.RadioButton, onClick = row.onPick),
     ) {
+        row.leading?.let { leading ->
+            leading()
+            Spacer(Modifier.width(ClearAirSpacing.sm))
+        }
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = row.title, style = ClearAirType.rowTitle, color = titleColor)
+            Text(text = row.title, style = ClearAirType.rowTitle.inLineBox(), color = titleColor)
             if (row.detail != null) {
-                Text(text = row.detail, style = ClearAirType.body, color = palette.ink2)
+                Text(text = row.detail, style = ROW_DESCRIPTION.inLineBox(), color = palette.ink2)
             } else if (row.address != null) {
                 AddressLine(address = row.address, modifier = Modifier.padding(top = ADDRESS_GAP))
             }
         }
         row.trailing?.let {
             Spacer(Modifier.width(ClearAirSpacing.sm))
-            Text(text = it, style = ClearAirType.rowValue, color = palette.ink, textAlign = TextAlign.End)
+            Text(text = it, style = ClearAirType.rowValue.inLineBox(), color = palette.ink, textAlign = TextAlign.End)
         }
         Spacer(Modifier.width(ClearAirSpacing.sm))
         ClearAirRadio(selected = row.selected, enabled = row.enabled)
@@ -126,4 +131,3 @@ private val RING_WIDTH = 2.dp
 private val DOT_RADIUS = 5.dp
 private const val DASH_ON = 4f
 private const val DASH_OFF = 3f
-private const val DISABLED_ALPHA = 0.38f

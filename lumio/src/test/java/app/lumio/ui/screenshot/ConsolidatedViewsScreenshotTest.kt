@@ -1,8 +1,20 @@
 package app.lumio.ui.screenshot
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import app.lensly.app.AddressBookEntry
+import app.lensly.core.registry.Registry
+import app.lensly.core.registry.RegistryLoader
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
 import app.lumio.data.tx.LumioTx
@@ -11,21 +23,29 @@ import app.lumio.data.tx.TxDirection
 import app.lumio.data.tx.TxStatus
 import app.lumio.home.NativeAsset
 import app.lumio.home.TokenAsset
+import app.lumio.network.NetworkMode
 import app.lumio.portfolio.ChainFamily
 import app.lumio.portfolio.PortfolioFilter
 import app.lumio.portfolio.PortfolioHolding
+import app.lumio.portfolio.PortfolioRow
+import app.lumio.portfolio.SentencePicker
 import app.lumio.portfolio.holdingOf
 import app.lumio.transactions.ActivityFilter
 import app.lumio.transactions.TxFeedItem
 import app.lumio.ui.home.AssetIconSpec
-import app.lumio.ui.kit.ChoiceGroup
-import app.lumio.ui.kit.ChoiceRow
-import app.lumio.ui.kit.ClearAirChoiceSheet
-import app.lumio.ui.kit.ClearAirSheet
+import app.lumio.ui.home.tokenIcon
+import app.lumio.ui.kit.LumioTab
+import app.lumio.ui.kit.WalletEmblemTone
+import app.lumio.ui.network.PanelWallet
+import app.lumio.ui.portfolio.OtherSide
 import app.lumio.ui.portfolio.PortfolioScreen
+import app.lumio.ui.portfolio.PortfolioSheet
+import app.lumio.ui.shell.LumioRootScreen
 import app.lumio.ui.transactions.ActivityList
 import app.lumio.ui.transactions.AddOnLenslyScreen
 import app.lumio.ui.transactions.AddressInfoSheet
+import app.lumio.ui.wallets.AssetRows
+import java.io.File
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.time.Instant
@@ -49,32 +69,29 @@ class ConsolidatedViewsScreenshotTest {
     val compose = createComposeRule()
 
     @Test
-    fun portfolioBalances() = compose.lumioSnapshot("portfolio_balances") { PortfolioSample(PortfolioFilter()) }
+    fun portfolioBalances() = compose.portfolioFrame("portfolio_balances") { PortfolioSample(PortfolioFilter()) }
 
     /** Bitcoin's price is from earlier today and USDC's from another day, so both rows show their time. */
     @Test
-    fun portfolioStalePrices() = compose.lumioSnapshot("portfolio_stale_prices") {
+    fun portfolioStalePrices() = compose.portfolioFrame("portfolio_stale_prices") {
         PortfolioSample(PortfolioFilter(), sampleStaleHoldings(), nowMs = SAMPLE_NOW_MS)
     }
 
     @Test
-    fun portfolioNotGroupedByChain() = compose.lumioSnapshot("portfolio_chain_filtered") { PortfolioSample(PortfolioFilter(chain = ChainFamily.BTC)) }
+    fun portfolioNotGroupedByChain() = compose.portfolioFrame("portfolio_chain_filtered") { PortfolioSample(PortfolioFilter(chain = ChainFamily.BTC)) }
 
     @Test
-    fun portfolioEmptyOnMainnet() = compose.lumioSnapshot("portfolio_empty") { PortfolioEmpty() }
+    fun portfolioEmptyOnMainnet() = compose.portfolioFrame("portfolio_empty") { PortfolioEmpty() }
 
+    /** The chain sheet open over the whole Portfolio, top bar and tab bar included: as tall as its rows, at the bottom, each row led by its logo. */
     @Test
-    fun chainChoices() = compose.lumioSnapshot("portfolio_chain_sheet") { ChainChoices() }
+    fun chainChoices() = compose.portfolioFrame("portfolio_chain_sheet", sheet = SentencePicker.CHAIN) { PortfolioSample(PortfolioFilter()) }
 
-    /** The chain sheet open over the Portfolio: as tall as its rows, at the bottom, with inset dividers between the rows. */
+    /** The grouping sheet over the Portfolio of Solana alone, where grouping is disabled and says why. */
     @Test
-    fun chainSheetOpen() = compose.lumioSnapshot("portfolio_chain_sheet_open") {
-        PortfolioSample(PortfolioFilter())
-        ClearAirSheet(visible = true, onClose = {}) { ChainChoices() }
+    fun groupingDisabledForOneChain() = compose.portfolioFrame("portfolio_grouping_sheet", PortfolioFilter(chain = ChainFamily.SOL), SentencePicker.GROUPING) {
+        PortfolioSample(PortfolioFilter(chain = ChainFamily.SOL))
     }
-
-    @Test
-    fun groupingDisabledForOneChain() = compose.lumioSnapshot("portfolio_grouping_sheet") { GroupingChoices() }
 
     @Test
     fun activityList() = compose.lumioSnapshot("activity_list") { ActivitySample() }
@@ -89,36 +106,53 @@ class ConsolidatedViewsScreenshotTest {
     fun addOnLensly() = compose.lumioSnapshot("address_handoff") { HandoffSample() }
 }
 
-/** The network of the sample balances: Ethereum mainnet, with its layer 2s, and Bitcoin. */
+/** The networks of the sample balances: Ethereum mainnet with two of its layer 2s, Bitcoin, Solana and Algorand. */
 internal val SampleEthereum = NetworkId(Networks.evm(1), testnet = false)
 internal val SampleArbitrum = NetworkId(Networks.evm(42161), testnet = false)
 internal val SampleBase = NetworkId(Networks.evm(8453), testnet = false)
 internal val SampleBitcoin = NetworkId(Networks.BTC_MAINNET, testnet = false)
+private val SampleSolana = NetworkId(Networks.SOL_MAINNET, testnet = false)
+private val SampleAlgorand = NetworkId(Networks.ALGO_MAINNET, testnet = false)
 
-/** The sample holdings: ETH on three networks, Bitcoin, USDC on two, and WETH on Arbitrum. */
+/**
+ * The sample holdings, the approved frame's: ETH on three networks, Bitcoin in two accounts, USD Coin on two networks, Solana, WETH on Arbitrum, and two
+ * balances the frame's total counts and its list leaves out, which the sample hides as small ([SAMPLE_SMALL]): bridged USDC on Arbitrum and Algorand.
+ */
 internal fun sampleHoldings(): List<PortfolioHolding> = listOf(
     holdingOf(NativeAsset("e1", "ETH", "Ethereum", SampleEthereum, BigDecimal("12"), usd = 51_000.0, change24h = -2.41)),
     holdingOf(NativeAsset("e2", "ETH", "Arbitrum One", SampleArbitrum, BigDecimal("5"), usd = 21_250.0, change24h = -2.41)),
-    holdingOf(NativeAsset("e3", "ETH", "Base", SampleBase, BigDecimal("5.23"), usd = 22_221.11, change24h = -2.41)),
-    holdingOf(NativeAsset("b1", "BTC", "Bitcoin", SampleBitcoin, BigDecimal("0.2104"), usd = 22_811.64, change24h = 1.82)),
-    holdingOf(sampleToken(SampleEthereum, "USDC", "USD Coin", "10000", 10_000.0)),
-    holdingOf(sampleToken(SampleBase, "USDC", "USD Coin", "10100", 10_100.0)),
-    holdingOf(sampleToken(SampleArbitrum, "WETH", "Wrapped Ether", "0.85", 3_642.85, change = -2.41)),
+    holdingOf(NativeAsset("e3", "ETH", "Base", SampleBase, BigDecimal("5.23"), usd = 23_021.11, change24h = -2.41)),
+    holdingOf(NativeAsset("b1", "BTC", "Bitcoin", SampleBitcoin, BigDecimal("0.15"), usd = 16_262.86, change24h = 1.82)),
+    holdingOf(NativeAsset("b2", "BTC", "Bitcoin", SampleBitcoin, BigDecimal("0.0604"), usd = 6_548.78, change24h = 1.82)),
+    holdingOf(sampleToken(SampleEthereum, USDC_ETHEREUM, "USDC", "10000", 10_000.0), title = "USD Coin"),
+    holdingOf(sampleToken(SampleBase, USDC_BASE, "USDC", "10100", 10_100.0), title = "USD Coin"),
+    holdingOf(NativeAsset("s1", "SOL", "Solana", SampleSolana, BigDecimal("31.5"), usd = 5_802.30, change24h = 4.10)),
+    holdingOf(sampleToken(SampleArbitrum, WETH_ARBITRUM, "WETH", "0.85", 3_642.85, change = -2.41), title = "WETH"),
+    holdingOf(sampleToken(SampleArbitrum, USDC_E_ARBITRUM, "USDC", "1714.70", 1_714.70, change = null), title = "Bridged USDC"),
+    holdingOf(NativeAsset("a1", "ALGO", "Algorand", SampleAlgorand, BigDecimal("1270"), usd = 426.50, change24h = 22.484)),
 )
 
-private fun sampleToken(network: NetworkId, symbol: String, name: String, amount: String, usd: Double, change: Double? = 0.0): TokenAsset {
-    val contract = "0x" + symbol.lowercase().padEnd(40, '0')
-    return TokenAsset(
-        id = TokenAsset.idOf(network, contract),
-        symbol = symbol,
-        name = network.name,
-        network = network,
-        contract = contract,
-        balance = BigDecimal(amount),
-        usd = usd,
-        change24h = change,
-    )
-}
+/** The sample's small balances, which its list hides: the two the frame's total counts and its list leaves out. */
+private const val SAMPLE_SMALL = 2_000.0
+
+/** The accounts of each chain, as the frame's chain sheet counts them. */
+private val SAMPLE_ACCOUNTS = mapOf(ChainFamily.EVM to 3, ChainFamily.BTC to 2, ChainFamily.SOL to 1, ChainFamily.ALGO to 17)
+
+private const val USDC_ETHEREUM = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+private const val USDC_BASE = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+private const val USDC_E_ARBITRUM = "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8"
+private const val WETH_ARBITRUM = "0x82af49447d8a07e3bd95bd0d56f35241523fbab1"
+
+private fun sampleToken(network: NetworkId, contract: String, symbol: String, amount: String, usd: Double, change: Double? = 0.0): TokenAsset = TokenAsset(
+    id = TokenAsset.idOf(network, contract),
+    symbol = symbol,
+    name = network.name,
+    network = network,
+    contract = contract,
+    balance = BigDecimal(amount),
+    usd = usd,
+    change24h = change,
+)
 
 private val SAMPLE_NOW_MS = Instant.parse("2026-11-26T15:30:00Z").toEpochMilli()
 
@@ -135,6 +169,78 @@ private fun sampleStaleHoldings(): List<PortfolioHolding> = sampleHoldings().map
     }
 }
 
+/** The shared registry, read the way the registry tests read it, so the rows show the logos the app ships. */
+private val registry: Registry = RegistryLoader.load { path ->
+    listOf("../shared/src/main/assets", "../shared/src/debug/assets").map { File(it, path) }.firstOrNull(File::isFile)?.readText()
+}
+
+/** A row's logo, by the app's rule: a token's own, Ethereum's for ETH on several networks, and a native coin's chain logo. */
+private fun sampleIcon(row: PortfolioRow): AssetIconSpec {
+    val network = row.networks.first()
+    val contract = row.contract
+    if (contract != null) return tokenIcon(registry.token(Networks.evmIdOf(network.chain), contract), registry.network(Networks.evmIdOf(network.chain)), row.coin)
+    if (row.merged && row.coin == "ETH") return AssetIconSpec.Chain(registry.network(1L))
+    return AssetRows.nativeIcon(network, row.coin, registry::network)
+}
+
+/** The logo of a chain family in the chain sheet, as the app draws it. */
+private fun sampleFamilyIcon(family: ChainFamily): AssetIconSpec = when (family) {
+    ChainFamily.EVM -> AssetIconSpec.Chain(registry.network(1L))
+    ChainFamily.BTC -> AssetIconSpec.Bitcoin
+    ChainFamily.SOL -> AssetIconSpec.Solana
+    ChainFamily.ALGO -> AssetIconSpec.Algorand
+}
+
+/** The mock's gesture area under the tab bar, which a phone's navigation inset gives it. */
+private val GESTURE_AREA = 24.dp
+
+/**
+ * A golden of the Portfolio tab in the approved frame's 360 × 740 dp: the root top bar titled "Portfolio", [content], the tab bar, and the gesture
+ * area. [sheet] opens that picker's sheet over the whole root, as the app's root draws a tab's sheet, for [filter].
+ */
+internal fun ComposeContentTestRule.portfolioFrame(
+    name: String,
+    filter: PortfolioFilter = PortfolioFilter(),
+    sheet: SentencePicker? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) = lumioSnapshot(name = name, frame = DpSize(360.dp, 740.dp)) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.weight(1f)) {
+            LumioRootScreen(
+                tab = LumioTab.PORTFOLIO,
+                mode = NetworkMode.MAINNET,
+                onMode = {},
+                panelWallets = listOf(PanelWallet(id = "air-1", name = "Air 1", detail = "", tone = WalletEmblemTone.BLUE)),
+                activeWalletId = "air-1",
+                onWallet = {},
+                testNetworks = 0,
+                networkSentence = "",
+                offline = null,
+                onTab = {},
+                onScan = {},
+                onTestNetworks = {},
+                onPair = {},
+                onLock = {},
+                search = { _ -> },
+                content = content,
+            )
+        }
+        Spacer(Modifier.height(GESTURE_AREA))
+    }
+    if (sheet != null) {
+        PortfolioSheet(
+            picker = sheet,
+            onClose = {},
+            holdings = sampleHoldings(),
+            filter = filter,
+            onFilter = {},
+            accounts = SAMPLE_ACCOUNTS,
+            showBalance = true,
+            familyIcon = ::sampleFamilyIcon,
+        )
+    }
+}
+
 /** The Portfolio tab with the sample balances under [filter]. */
 @Composable
 internal fun PortfolioSample(filter: PortfolioFilter, holdings: List<PortfolioHolding> = sampleHoldings(), nowMs: Long = System.currentTimeMillis()) {
@@ -142,68 +248,31 @@ internal fun PortfolioSample(filter: PortfolioFilter, holdings: List<PortfolioHo
         holdings = holdings,
         nowMs = nowMs,
         filter = filter,
-        onFilter = {},
+        onPick = {},
         walletName = "Air 1",
-        accounts = mapOf(ChainFamily.EVM to 3, ChainFamily.BTC to 2),
         showBalance = true,
+        hidesSmall = { usd -> usd != null && usd < SAMPLE_SMALL },
         testnet = false,
-        recent = sampleActivity().take(2),
-        names = sampleNames(),
         zone = ZoneOffset.UTC,
-        onOpenActivity = {},
-        onOpenRow = {},
-        chainIconsOf = { row -> row.networks.map { AssetIconSpec.Chain(null) } },
+        iconOf = ::sampleIcon,
+        chainIconsOf = { row -> row.networks.map { AssetRows.nativeIcon(it, row.coin, registry::network) } },
+        networkName = { network -> if (network == SampleArbitrum) "Arbitrum" else network.name },
     )
 }
 
+/** The empty mainnet of Air 1, whose testnet holds 12.5 MON, with the Receive capsule. */
 @Composable
 internal fun PortfolioEmpty() {
     PortfolioScreen(
         holdings = emptyList(),
         filter = PortfolioFilter(),
-        onFilter = {},
+        onPick = {},
         walletName = "Air 1",
-        accounts = emptyMap(),
         showBalance = true,
         testnet = false,
-        recent = emptyList(),
-        names = emptyMap(),
         zone = ZoneOffset.UTC,
-        onOpenActivity = {},
-        onOpenRow = {},
-    )
-}
-
-@Composable
-internal fun ChainChoices() {
-    ClearAirChoiceSheet(
-        title = "Chains",
-        groups = listOf(
-            ChoiceGroup(
-                null,
-                listOf(
-                    ChoiceRow("All Chains", {}, detail = "Grouped by asset", trailing = "\$141,025.60", selected = true),
-                    ChoiceRow("Ethereum", {}, detail = "Ethereum and its L2s", trailing = "\$94,471.11"),
-                    ChoiceRow("Bitcoin", {}, detail = "2 accounts", trailing = "\$22,811.64"),
-                ),
-            ),
-        ),
-    )
-}
-
-@Composable
-internal fun GroupingChoices() {
-    ClearAirChoiceSheet(
-        title = "Grouping",
-        groups = listOf(
-            ChoiceGroup(
-                null,
-                listOf(
-                    ChoiceRow("Grouped by Asset", {}, detail = "Grouping needs all chains", enabled = false),
-                    ChoiceRow("Not Grouped", {}, selected = true),
-                ),
-            ),
-        ),
+        otherSide = OtherSide(amount = "12.5 MON", network = "Monad Testnet", testnet = true, icon = AssetIconSpec.Chain(registry.network(10143L)), onSwitch = {}),
+        onReceive = {},
     )
 }
 

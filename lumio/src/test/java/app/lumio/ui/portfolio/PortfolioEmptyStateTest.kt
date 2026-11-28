@@ -12,6 +12,7 @@ import app.lumio.home.NativeAsset
 import app.lumio.portfolio.PortfolioFilter
 import app.lumio.portfolio.PortfolioHolding
 import app.lumio.portfolio.holdingOf
+import app.lumio.ui.home.AssetIconSpec
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -43,16 +44,11 @@ class PortfolioEmptyStateTest {
                 PortfolioScreen(
                     holdings = holdings,
                     filter = PortfolioFilter(),
-                    onFilter = {},
+                    onPick = {},
                     walletName = "Air 1",
-                    accounts = emptyMap(),
                     showBalance = showBalance,
                     testnet = testnet,
-                    recent = emptyList(),
-                    names = emptyMap(),
                     zone = ZoneId.of("UTC"),
-                    onOpenActivity = {},
-                    onOpenRow = {},
                     otherSide = otherSide,
                     onReceive = onReceive,
                 )
@@ -64,7 +60,7 @@ class PortfolioEmptyStateTest {
     fun anEmptyMainnetWithTestnetFundsShowsTheCardAndTheReceiveCapsule() {
         show(
             testnet = false,
-            otherSide = OtherSide(amount = "12.5 MON", network = "Monad Testnet", testnet = true, onSwitch = { switched++ }),
+            otherSide = OtherSide(amount = "12.5 MON", network = "Monad Testnet", testnet = true, icon = AssetIconSpec.Letter("M"), onSwitch = { switched++ }),
             onReceive = { received++ },
         )
 
@@ -81,7 +77,7 @@ class PortfolioEmptyStateTest {
     fun aHiddenBalanceMasksTheOtherSideAmountAndKeepsItsSideAndNetwork() {
         show(
             testnet = false,
-            otherSide = OtherSide(amount = "12.5 MON", network = "Monad Testnet", testnet = true, onSwitch = { switched++ }),
+            otherSide = OtherSide(amount = "12.5 MON", network = "Monad Testnet", testnet = true, icon = AssetIconSpec.Letter("M"), onSwitch = { switched++ }),
             onReceive = null,
             showBalance = false,
         )

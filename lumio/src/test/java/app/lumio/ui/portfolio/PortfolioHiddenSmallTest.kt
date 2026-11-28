@@ -41,17 +41,12 @@ class PortfolioHiddenSmallTest {
                 PortfolioScreen(
                     holdings = holdings,
                     filter = PortfolioFilter(),
-                    onFilter = {},
+                    onPick = {},
                     walletName = "Air 1",
-                    accounts = emptyMap(),
                     showBalance = true,
                     hidesSmall = { usd -> usd != null && usd < 1.0 },
                     testnet = false,
-                    recent = emptyList(),
-                    names = emptyMap(),
                     zone = ZoneId.of("UTC"),
-                    onOpenActivity = {},
-                    onOpenRow = {},
                 )
             }
         }
