@@ -66,6 +66,7 @@ import app.lensly.ui.flow.SignFlowPorts
 import app.lensly.ui.flow.SignStep
 import app.lensly.ui.sign.SAMPLE_SIGNER
 import app.lensly.ui.sign.SignRefusedScreen
+import app.lensly.ui.sign.keepAddressesWhole
 import app.lensly.ui.sign.ReviewScreen
 import app.lensly.ui.sign.undecodedCallRows
 import app.lensly.ui.theme.LumenTheme
@@ -349,8 +350,8 @@ internal fun urBatchSample(calldata: String = UR_BATCH_CALLDATA): Review {
     )
 }
 
-/** The last step of the batch [calldata], which the screenshots scroll to so every step sits in view above it. */
-private fun lastUrStep(calldata: String): String = urSteps(calldata)!!.lines.last()
+/** The last step of the batch [calldata], which the screenshots scroll to so every step sits in view above it, as the screen shows it. */
+private fun lastUrStep(calldata: String): String = keepAddressesWhole(urSteps(calldata)!!.lines.last())
 
 private const val AAVE_POOL = "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2"
 private const val USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
@@ -409,7 +410,7 @@ internal fun aaveSupplySample(): Review {
     )
 }
 
-private val AAVE_SUPPLY_STEP = AAVE_STEPS!!.lines.single()
+private val AAVE_SUPPLY_STEP = keepAddressesWhole(AAVE_STEPS!!.lines.single())
 
 /** [urBatchSample] for the batch whose unwrap pays another account. */
 internal fun urBatchPayingOtherSample(): Review = urBatchSample(UR_BATCH_PAYING_OTHER)
