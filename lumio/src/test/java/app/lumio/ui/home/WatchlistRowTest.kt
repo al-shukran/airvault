@@ -1,6 +1,11 @@
 package app.lumio.ui.home
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -39,14 +44,14 @@ class WatchlistRowTest {
     private var added = 0
     private var restored = 0
 
-    private fun home(rows: List<WatchlistRow>?) = compose.setContent {
+    private fun home(rows: List<WatchlistRow>?, footnote: String? = null) = compose.setContent {
         ClearAirTheme {
-            Column {
+            Column(modifier = Modifier.testTag("home")) {
                 HomeScreen(
                     rows = rows,
                     sort = WatchlistSort.MARKET_CAP,
                     testnet = false,
-                    footnote = null,
+                    footnote = footnote,
                     onSend = {},
                     onReceive = {},
                     onSort = {},
@@ -147,5 +152,36 @@ class WatchlistRowTest {
         compose.onNodeWithText("Add").performClick()
         compose.onNodeWithText("Add to Watchlist").performClick()
         assertEquals(2, added)
+    }
+
+    @Test
+    fun aHyphenInANameLetsTheLineBreakAfterIt() {
+        home(listOf(row("Ondo Short-Term U.S. Government Bond Fund", "OUSG")))
+        val layout = compose.onNodeWithText("Ondo", substring = true, useUnmergedTree = true).layout()
+        val text = layout.layoutInput.text.text
+        val first = text.substring(layout.getLineStart(0), layout.getLineEnd(0)).replace("\u200B", "").trim()
+        assertEquals("the first line ends after the hyphen, as the mock's does", "Ondo Short-", first)
+    }
+
+    @Test
+    fun sendIsSetInTheCapsuleLabelSize() {
+        home(null)
+        assertEquals(15.5.sp, compose.onNodeWithText("Send", useUnmergedTree = true).layout().layoutInput.style.fontSize)
+    }
+
+    @Test
+    fun theFootnoteKeepsThirtyTwoDpBelowIt() {
+        val footnote = "Prices from CoinGecko at 12:30, change over 24 hours."
+        home(listOf(row("Bitcoin", "BTC")), footnote = footnote)
+        val below = compose.onNodeWithTag("home").getUnclippedBoundsInRoot().bottom - compose.onNodeWithText(footnote).getUnclippedBoundsInRoot().bottom
+        assertEquals("the space under the footnote, as the mock's end frame has it", 32f, below.value, 0.5f)
+    }
+
+    @Test
+    fun theEmptyStateActionsStartNineteenDpUnderItsText() {
+        home(emptyList())
+        val body = compose.onNodeWithText("Add any coin, token or fund", substring = true).getUnclippedBoundsInRoot()
+        val add = compose.onNodeWithText("Add to Watchlist").getUnclippedBoundsInRoot()
+        assertEquals("the space between the body and the first action", 19f, (add.top - body.bottom).value, 0.5f)
     }
 }

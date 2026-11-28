@@ -55,7 +55,7 @@ private val HEADER_GLYPH = 14.dp
 
 /** The footnote's space above and below. */
 private val FOOTNOTE_TOP = 14.dp
-private val FOOTNOTE_BOTTOM = 20.dp
+private val FOOTNOTE_BOTTOM = 32.dp
 
 /** The empty state: the space above its mark, the mark, its glyph, the spark on it, and the spaces down to the actions. */
 private val EMPTY_TOP = 56.dp
@@ -65,7 +65,7 @@ private val EMPTY_SPARK = 10.dp
 private val EMPTY_SPARK_RING = 18.dp
 private val EMPTY_TITLE_TOP = 18.dp
 private val EMPTY_BODY_TOP = 8.dp
-private val EMPTY_ACTIONS_TOP = 20.dp
+private val EMPTY_ACTIONS_TOP = 19.dp
 private val EMPTY_ACTION = 45.dp
 
 /** A header action's words: Archivo 114 SemiBold at 13 sp. */
@@ -112,7 +112,7 @@ fun HomeScreen(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(ACTIONS_GAP, Alignment.CenterHorizontally),
     ) {
-        ClearAirPrimaryButton(text = "Send", onClick = onSend, modifier = Modifier.width(SEND_WIDTH), icon = ClearAirGlyph.SEND, fullWidth = false)
+        ClearAirPrimaryButton(text = "Send", onClick = onSend, modifier = Modifier.width(SEND_WIDTH), icon = ClearAirGlyph.SEND, fullWidth = false, labelStyle = ClearAirType.button)
         ClearAirTextAction(text = "Receive", onClick = onReceive, icon = ClearAirGlyph.RECEIVE, modifier = Modifier.padding(horizontal = TEXT_ACTION_SIDE))
     }
     notice?.let { Text(text = it, modifier = Modifier.padding(horizontal = ClearAirSpacing.gutter), style = ClearAirType.body, color = palette.rose) }

@@ -93,6 +93,11 @@ internal fun changeText(percent: Double): String {
     }
 }
 
+private val HYPHEN_BETWEEN_LETTERS = Regex("(?<=\\p{L})-(?=\\p{L})")
+
+/** [this] with a break opportunity after each hyphen between letters, as the mock's browser breaks "Short-Term" after "Short-": Android's line breaker does not. */
+internal fun String.breakableAfterHyphens(): String = replace(HYPHEN_BETWEEN_LETTERS, "-\u200B")
+
 /** The second line of a row: the [ticker], or null when it is the same as the [name], as BNB's is, so the row keeps its one-line height. */
 internal fun tickerLine(name: String, ticker: String): String? = ticker.takeIf { it.isNotBlank() && it != name }
 
@@ -183,7 +188,7 @@ private fun WatchRow(
         Box(modifier = Modifier.size(DISC), contentAlignment = Alignment.Center) { leading() }
         Spacer(Modifier.width(ClearAirSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = nameStyle, color = palette.ink)
+            Text(text = title.breakableAfterHyphens(), style = nameStyle, color = palette.ink)
             detail?.let { Text(text = it, style = tickerStyle, color = palette.ink2) }
         }
         trailing()
