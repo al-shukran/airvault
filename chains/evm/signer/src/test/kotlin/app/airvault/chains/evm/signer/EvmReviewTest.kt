@@ -1001,6 +1001,83 @@ class EvmReviewTest {
     }
 
     @Test
+    fun aWhitelistedMulticallThatIsNotKnownToDelegateNamesTheBatchContractAsTheCallerOfItsSteps() {
+        // The Aave pool is approved for multicall(bytes[]) here, but nothing says it delegates, so its calls are ordinary calls:
+        // the pool sees itself as the sender of the borrow and pays itself, not the signer.
+        val batch = aaveBorrowBatch()
+        val registry = REGISTRY.withWhitelist(listOf(aavePoolBatchEntry(), aaveBorrowEntry()))
+
+        val review = reviewOf(txParsed(Keys.toChecksumAddress(AAVE_POOL), batch), builder(registry))
+
+        assertEquals(listOf(AAVE_BORROW_PAYEE_WARNING), review.warnings.filter { it.code == "evm.steps" }.map { it.message })
+        assertTrue(review.sections.flatMap { it.rows }.none { it.label.endsWith("sent to you") }, "no step may claim the signer is paid")
+    }
+
+    @Test
+    fun aWhitelistedMulticallThatIsNotKnownToDelegateInsideMulticall3NamesTheBatchContractNotMulticall3() {
+        val inner = aaveBorrowBatch()
+        val call = InnerCall(AAVE_POOL, allowFailure = false, value = null, calldata = inner, call = null, nested = null)
+        val outer = encodeMulticall(MulticallShape.AGGREGATE3, deadline = null, calls = listOf(call))!!
+        val registry = REGISTRY.withWhitelist(listOf(aavePoolBatchEntry(), aaveBorrowEntry()))
+
+        val review = reviewOf(txParsed(MULTICALL3, outer), builder(registry))
+
+        assertEquals(listOf(AAVE_BORROW_PAYEE_WARNING), review.warnings.filter { it.code == "evm.steps" }.map { it.message })
+    }
+
+    @Test
+    fun aWhitelistedDeadlineMulticallThatIsNotKnownToDelegateNamesTheBatchContractAsTheCallerOfItsSteps() {
+        val borrow = Numeric.hexStringToByteArray(
+            "0xa415bcad",
+        ) + word(BigInteger(USDC.removePrefix("0x"), 16)) + word(BigInteger.valueOf(1_000_000)) + word(BigInteger.TWO) + word(BigInteger.ZERO) +
+            word(BigInteger(SENDER.removePrefix("0x"), 16))
+        val call = InnerCall(target = null, allowFailure = null, value = null, calldata = borrow, call = null, nested = null)
+        val batch = encodeMulticall(MulticallShape.DEADLINE_BYTES_ARRAY, deadline = BigInteger.valueOf(1_900_000_000), calls = listOf(call))!!
+        val deadlineEntry = aavePoolBatchEntry().copy(
+            selector = "0x${MulticallShape.DEADLINE_BYTES_ARRAY.selector}",
+            signature = MulticallShape.DEADLINE_BYTES_ARRAY.signature,
+            params = listOf(WhitelistParam("deadline", "uint256"), WhitelistParam("data", "bytes[]")),
+        )
+        val registry = REGISTRY.withWhitelist(listOf(deadlineEntry, aaveBorrowEntry()))
+
+        val review = reviewOf(txParsed(Keys.toChecksumAddress(AAVE_POOL), batch), builder(registry))
+
+        assertEquals(listOf(AAVE_BORROW_PAYEE_WARNING), review.warnings.filter { it.code == "evm.steps" }.map { it.message })
+    }
+
+    @Test
+    fun theUniswapRouterMulticallStillDelegatesSoItsStepsKeepTheSignerAsTheCaller() {
+        val unwrap = Numeric.hexStringToByteArray("0x49616997") + word(BigInteger.ZERO)
+        val call = InnerCall(target = null, allowFailure = null, value = null, calldata = unwrap, call = null, nested = null)
+        val batch = encodeMulticall(MulticallShape.BYTES_ARRAY, deadline = null, calls = listOf(call))!!
+        val entries = listOf(
+            WhitelistEntry(
+                chainId = 1,
+                contract = UNISWAP_ROUTER02,
+                selector = "0x${MulticallShape.BYTES_ARRAY.selector}",
+                signature = MulticallShape.BYTES_ARRAY.signature,
+                meaning = "Runs the calls in order.",
+                params = listOf(WhitelistParam("data", "bytes[]")),
+                upgradeable = false,
+            ),
+            WhitelistEntry(
+                chainId = 1,
+                contract = UNISWAP_ROUTER02,
+                selector = "0x49616997",
+                signature = "unwrapWETH9(uint256)",
+                meaning = "Unwraps the router's WETH.",
+                params = listOf(WhitelistParam("amountMinimum", "uint256")),
+                upgradeable = false,
+            ),
+        )
+
+        val review = reviewOf(txParsed(Keys.toChecksumAddress(UNISWAP_ROUTER02), batch), builder(REGISTRY.withWhitelist(entries)))
+
+        assertEquals(listOf("Unwrap all WETH the router holds → ETH for you"), review.sections.flatMap { it.rows }.map { it.label }.filter { it.startsWith("Unwrap") })
+        assertTrue(review.warnings.none { it.code == "evm.steps" }, "${review.warnings}")
+    }
+
+    @Test
     fun anUpgradeableWhitelistedBatchContractIsRefusedOrWarnedLikeAnyWhitelistedProxy() {
         val approve = ContractCall.Approve(SPENDER, BigInteger.TEN).encode()!!
         val call = InnerCall(target = null, allowFailure = null, value = null, calldata = approve, call = ContractCall.decode(approve), nested = null)
@@ -1525,4 +1602,42 @@ private fun nestedMulticall3Batch(nestedOn: String): ByteArray {
         nested = Multicall(deadline = null, calls = listOf(approve)),
     )
     return encodeMulticall(MulticallShape.AGGREGATE3, deadline = null, calls = listOf(outer))!!
+}
+
+private const val UNISWAP_ROUTER02 = "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45"
+private const val AAVE_BORROW_PAYEE_WARNING = "This sends the borrowed funds to 0x8787 0Bca … 0B4f A4E2, not you"
+
+/** The Aave pool approved to run `multicall(bytes[])`, with nothing that says it delegates. */
+private fun aavePoolBatchEntry() = WhitelistEntry(
+    chainId = 1,
+    contract = AAVE_POOL,
+    selector = "0x${MulticallShape.BYTES_ARRAY.selector}",
+    signature = MulticallShape.BYTES_ARRAY.signature,
+    meaning = "Runs the calls in order.",
+    params = listOf(WhitelistParam("data", "bytes[]")),
+    upgradeable = false,
+)
+
+private fun aaveBorrowEntry() = WhitelistEntry(
+    chainId = 1,
+    contract = AAVE_POOL,
+    selector = "0xa415bcad",
+    signature = "borrow(address,uint256,uint256,uint16,address)",
+    meaning = "Borrows an asset.",
+    params = listOf(
+        WhitelistParam("asset", "address"),
+        WhitelistParam("amount", "uint256"),
+        WhitelistParam("interestRateMode", "uint256"),
+        WhitelistParam("referralCode", "uint16"),
+        WhitelistParam("onBehalfOf", "address"),
+    ),
+    upgradeable = false,
+)
+
+/** `multicall(bytes[])` with one call: an Aave borrow of 1 USDC at the variable rate on behalf of the signer. */
+private fun aaveBorrowBatch(): ByteArray {
+    val borrow = Numeric.hexStringToByteArray("0xa415bcad") + word(BigInteger(USDC.removePrefix("0x"), 16)) + word(BigInteger.valueOf(1_000_000)) +
+        word(BigInteger.TWO) + word(BigInteger.ZERO) + word(BigInteger(SENDER.removePrefix("0x"), 16))
+    val call = InnerCall(target = null, allowFailure = null, value = null, calldata = borrow, call = null, nested = null)
+    return encodeMulticall(MulticallShape.BYTES_ARRAY, deadline = null, calls = listOf(call))!!
 }

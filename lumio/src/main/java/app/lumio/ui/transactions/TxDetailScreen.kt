@@ -54,6 +54,7 @@ import app.lumio.data.tx.TxStatus
 import app.lumio.data.net.Networks
 import app.lumio.home.Masking
 import app.lumio.pair.PairedWallet
+import app.lumio.pair.addressKeys
 import app.lumio.portfolio.PortfolioFormat
 import app.lumio.transactions.ActivityText
 import app.lumio.transactions.TxDetail
@@ -226,21 +227,21 @@ private fun counterpartyLine(entry: AddressBookEntry?): PartyLine = if (entry !=
     PartyLine(name = "Not in Address Book", detail = "Tap to add it on Lensly", named = false)
 }
 
-/** The face of the account at [address] when it has no name: its place among [wallet]'s accounts of its chain, or [AccountFace.UNKNOWN] when the wallet does not hold it. */
+/**
+ * The face of the account at [address] when it has no name: its place among [wallet]'s accounts of its chain, or [AccountFace.UNKNOWN] when the wallet does not
+ * hold it. A Bitcoin account holds an address on its receive and its change chain, as far as the scan's gap limit reaches, since a transaction is stored
+ * under each address it touched.
+ */
 internal fun unnamedFaceOf(wallet: PairedWallet?, address: String): AccountFace {
     if (wallet == null) return AccountFace.UNKNOWN
     val key = addressKeyOf(address)
-    val places = listOf(
-        Networks.EIP155 to wallet.evmAccounts.map { it.index to addressKeyOf(it.address) },
-        Networks.BIP122 to wallet.bitcoin.mapIndexed { index, account -> index to addressKeyOf(account.receiveAddress(0)) },
-        Networks.SOLANA to wallet.solana.mapIndexed { index, key -> index to addressKeyOf(SolanaAccount.addressOf(key)) },
-        Networks.ALGORAND to wallet.algorand.mapIndexed { index, key -> index to addressKeyOf(AlgorandAccount.addressOf(key)) },
-    )
-    for ((namespace, accounts) in places) {
-        val index = accounts.firstOrNull { it.second == key }?.first ?: continue
-        return AccountFace(title = unnamedTitle(index), monogram = unnamedMonogram(namespace, index))
-    }
-    return AccountFace.UNKNOWN
+    val place = wallet.evmAccounts.firstOrNull { addressKeyOf(it.address) == key }?.let { Networks.EIP155 to it.index }
+        ?: wallet.bitcoin.indexOfFirst { key in it.addressKeys() }
+            .takeIf { it >= 0 }?.let { Networks.BIP122 to it }
+        ?: wallet.solana.indexOfFirst { addressKeyOf(SolanaAccount.addressOf(it)) == key }.takeIf { it >= 0 }?.let { Networks.SOLANA to it }
+        ?: wallet.algorand.indexOfFirst { addressKeyOf(AlgorandAccount.addressOf(it)) == key }.takeIf { it >= 0 }?.let { Networks.ALGORAND to it }
+        ?: return AccountFace.UNKNOWN
+    return AccountFace(title = unnamedTitle(place.second), monogram = unnamedMonogram(place.first, place.second))
 }
 
 /** The wallet's own account: its name, or the face of an unnamed one, the line that says it is the owner's, and its address on a line of its own. */

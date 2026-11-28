@@ -34,6 +34,7 @@ import app.lensly.core.registry.OffChainDomain
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
+import app.lensly.core.registry.SwapRouterSteps
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.UnknownCallPolicy
 import app.lensly.core.registry.WhitelistEntry
@@ -423,8 +424,8 @@ class EvmReviewBuilder(
          * own calldata, and its calls one level down. [value] is what the call that holds the batch sends. Each call is described with the
          * value it really receives: its own value in `aggregate3Value`, zero in the other Multicall3 shapes, and [value] in Uniswap's
          * `multicall`, which delegates. [caller] is the address that calls [to]. A Multicall3 call is made by Multicall3, so its contract sees
-         * Multicall3 as its message sender, and a Uniswap `multicall` delegates and keeps its [caller]. A call that fails any check refuses the
-         * whole request.
+         * Multicall3 as its message sender. A `multicall` keeps its [caller] only on a contract known to delegate (Uniswap's SwapRouter02);
+         * on any other contract its calls are ordinary calls made by [to]. A call that fails any check refuses the whole request.
          */
         private fun checkCalls(
             to: String,
@@ -436,7 +437,7 @@ class EvmReviewBuilder(
             parent: String,
             rows: MutableList<ReviewRow>,
         ) {
-            val callerOfCalls = if (shape.hasTarget) to else caller
+            val callerOfCalls = if (shape.hasTarget || !SwapRouterSteps.delegatesItsBatch(chainId, to)) to else caller
             if (shape.hasTarget && !shape.hasValue && value.signum() > 0) {
                 warnings += Warning(Danger.DANGER, CODE_STRANDED_VALUE, strandedValueWarning(to), FieldPath("$parent.function"), ACK_STRANDED_VALUE)
             }
