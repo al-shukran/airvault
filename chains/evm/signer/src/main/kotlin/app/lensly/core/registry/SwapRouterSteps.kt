@@ -174,8 +174,9 @@ internal object SwapRouterSteps {
         val wrapped = allIn && tokenIn == WETH_MAINNET && c.wrapEthInstead(tokenIn, strands = false)
         if (allIn && !wrapped) c.emptyRouterOf(tokenIn)
         if (tokenIn == WETH_MAINNET && !wrapped) spendEth(c, amount, exactIn)
-        // The same for a WETH hop between two pools: its WETH is left in the router when ETH is wrapped for the next pool instead.
-        if (WETH_MAINNET in route.tokens.drop(1).dropLast(1)) c.wrapEthInstead(WETH_MAINNET, strands = true)
+        // The same for a WETH hop between two pools of an exact input: its WETH is left in the router when ETH is wrapped for the next
+        // pool instead. An exact output pays pool to pool, so its hops never pass through the router.
+        if (exactIn && WETH_MAINNET in route.tokens.drop(1).dropLast(1)) c.wrapEthInstead(WETH_MAINNET, strands = true)
         c.keepInRouter(tokenOut, recipient)
         return c.paying("$sentence ${via(c, V3, route)}$to", "pays the swap output to", recipient)
     }

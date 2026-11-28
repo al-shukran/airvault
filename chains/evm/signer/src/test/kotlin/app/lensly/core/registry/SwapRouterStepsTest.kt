@@ -740,6 +740,47 @@ class SwapRouterStepsTest {
     }
 
     @Test
+    fun anExactOutputThroughAWethHopWithEthSentLeavesNothingAfterARefund() {
+        // Transaction 0x6aa08d4b, a real exactOutput through WETH, as an item of a multicall that sends 1 ETH and ends in refundETH.
+        // The pools pay each other for an exact output, so the WETH hop is never in the router and the refund empties it.
+        val exactOut = Numeric.hexStringToByteArray(StepVectors.SWAP_ROUTER_EXACT_OUTPUT)
+
+        assertFalse(multicallWith(oneEth, exactOut, refundEth).leavesInRouter)
+        // Without the refund the ETH sent is still in the router, so the call is still flagged.
+        assertTrue(multicallWith(oneEth, exactOut).leavesInRouter)
+    }
+
+    @Test
+    fun anExactOutputThroughAWethHopStillFlagsTheEthSentUnlessRefunded() {
+        val exactOut = Numeric.hexStringToByteArray(StepVectors.SWAP_ROUTER_EXACT_OUTPUT)
+        val unwrapAll = item("0x49616997", abiWord(BigInteger.ZERO))
+
+        // unwrapWETH9 takes WETH out, not the ETH sent: the ETH stays in the router.
+        assertTrue(multicallWith(oneEth, exactOut, unwrapAll).leavesInRouter)
+        // A route paid in WETH wraps some of the ETH sent, an unknown amount: only the refund clears the rest.
+        val paidInWeth = exactOutputItem(BigInteger.valueOf(1_000_000), "0x6b175474e89094c44da98b954eedeac495271d0f", USDC, WETH)
+        assertTrue(multicallWith(oneEth, paidInWeth).leavesInRouter)
+        assertFalse(multicallWith(oneEth, paidInWeth, refundEth).leavesInRouter)
+    }
+
+    /** An exactOutput of [amount] along [tokens] through 0.05% pools, bought first and paid last, to the signer: (path, recipient, amountOut, amountInMaximum). */
+    private fun exactOutputItem(amount: BigInteger, vararg tokens: String): ByteArray {
+        val fee = byteArrayOf(0, 1, 0xf4.toByte())
+        val path = tokens.map { Numeric.hexStringToByteArray(it) }.reduce { a, b -> a + fee + b }
+        val padded = path + ByteArray((ABI_WORD - path.size % ABI_WORD) % ABI_WORD)
+        return item(
+            EXACT_OUTPUT,
+            abiWord(BigInteger.valueOf(32)),
+            abiWord(BigInteger.valueOf(128)),
+            abiAddressWord(FLAG_SIGNER),
+            abiWord(amount),
+            abiWord(BigInteger.ZERO),
+            abiWord(BigInteger.valueOf(path.size.toLong())),
+            padded,
+        )
+    }
+
+    @Test
     fun anExactInputOfZeroOnWethWithEthSentLeavesTheRoutersWethInTheRouterEvenWithARefund() {
         val allWeth = wethSwapItem(EXACT_INPUT_SINGLE, BigInteger.ZERO)
         val wethToRouter = item(
