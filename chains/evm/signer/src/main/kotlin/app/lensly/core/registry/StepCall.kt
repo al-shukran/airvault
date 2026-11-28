@@ -13,6 +13,12 @@ import org.web3j.crypto.Keys
 /** The address a call names for the native coin, which a router uses as ETH. */
 internal const val NATIVE_COIN = "0x0000000000000000000000000000000000000000"
 
+/** The router flag for the message sender, ActionConstants.MSG_SENDER: whoever calls the router, which inside a batch is the batch contract. */
+internal const val MSG_SENDER = "0x0000000000000000000000000000000000000001"
+
+/** The router flag for the router itself, ActionConstants.ADDRESS_THIS. */
+internal const val ADDRESS_THIS = "0x0000000000000000000000000000000000000002"
+
 private const val ADDRESS_BYTES = 20
 private const val ADDRESS_HEX = 40
 private const val SHORT_HEAD = 6
@@ -69,7 +75,8 @@ internal fun ByteArray.addressAt(at: Int): String = "0x" + copyOfRange(at, at + 
 
 /**
  * One approved call a step describes: its contract, the signing address, the native amount it sends, its decoded arguments, and its
- * network. Addresses are lowercase. The names and amounts a step shows come from [registry], so a token it does not know is shown as its
+ * network. [caller] is the address the contract sees as its message sender: the signer, or the Multicall3 contract that calls it inside a
+ * batch. A router flag for the message sender means [caller], so inside a batch it is not the signer. Addresses are lowercase. The names and amounts a step shows come from [registry], so a token it does not know is shown as its
  * short address and raw base units, and never as a guessed symbol or decimals.
  */
 internal class StepCall(
@@ -79,6 +86,7 @@ internal class StepCall(
     val from: String,
     val sent: BigInteger,
     private val params: List<DecodedParam>,
+    val caller: String = from,
 ) {
     val chainId: Long get() = network.chainId
 
@@ -123,6 +131,40 @@ internal class StepCall(
 
     /** "you" for the signing address, and the short address of any other. */
     fun who(address: String): String = if (address == from) "you" else shortAddress(address)
+
+    /** What the router's message-sender flag means in words: "you" for the signer, and "Multicall3" for the batch that calls it. */
+    val callerName: String get() = if (caller == from) "you" else "Multicall3"
+
+    /** The address a step pays when it names [recipient]: the flag 0x…01 is [caller], and any other value is itself. */
+    private fun paid(recipient: String): String = if (recipient == MSG_SENDER) caller else recipient
+
+    /** How a step names [recipient]: "you", "the router" for the flag 0x…02, "Multicall3", or the short address of another. */
+    fun recipientName(recipient: String): String = when (val address = paid(recipient)) {
+        ADDRESS_THIS -> "the router"
+        from -> "you"
+        caller -> "Multicall3"
+        else -> shortAddress(address)
+    }
+
+    /** What a swap says about where its output goes, or null when it goes to the signer: "kept in the router", or "sent to <name>". */
+    fun destination(recipient: String): String? = when (val address = paid(recipient)) {
+        from -> null
+        ADDRESS_THIS -> "kept in the router"
+        else -> "sent to ${recipientName(address)}"
+    }
+
+    /**
+     * The steps of one line that pays [recipient], as [what] reads in "This <what> <address>, not you". A recipient that is not the signer
+     * and not the router earns the warning and its full address as a row, so it gets the grouping, its names and the lookalike check.
+     */
+    fun paying(line: String, what: String, recipient: String): CallSteps =
+        if (recipient == ADDRESS_THIS) CallSteps(listOf(line), emptyList()) else payingAddress(line, what, paid(recipient))
+
+    /** [paying] for an [address] the router takes as it is, with no flag mapped. */
+    fun payingAddress(line: String, what: String, address: String): CallSteps {
+        val other = address != from
+        return CallSteps(listOf(line), if (other) notYou(from, what, address) else emptyList(), if (other) listOf(address) else emptyList())
+    }
 
     private fun decimalsOf(token: String): Int? = if (token == NATIVE_COIN) {
         network.nativeDecimals

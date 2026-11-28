@@ -1,0 +1,1 @@
+Installing a recovery package that revokes a leaked key can no longer leave the registry store unverified and refusing later updates, even when the phone's key storage fails or the app is killed during the install.

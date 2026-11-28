@@ -25,12 +25,11 @@ import java.math.BigInteger
 internal object UniversalRouterSteps {
     private const val EXECUTE_SELECTOR = "0x3593564c"
     private const val EXECUTE_SIGNATURE = "execute(bytes,bytes[],uint256)"
-    private const val MSG_SENDER = "0x0000000000000000000000000000000000000001"
-    private const val ADDRESS_THIS = "0x0000000000000000000000000000000000000002"
     private const val COMMAND_MASK = 0x3f
     private const val ALLOW_REVERT_FLAG = 0x80
     private const val ALLOW_REVERT_NOTE = " (if it fails, the rest of the batch still runs)"
     private const val SELECTOR_BYTES = 4
+    private const val SWAP_OUTPUT = "pays the swap output to"
 
     /** CONTRACT_BALANCE in ActionConstants: an amount that means the whole balance the router holds. */
     private val CONTRACT_BALANCE: BigInteger = BigInteger.ONE.shiftLeft(255)
@@ -79,6 +78,7 @@ internal object UniversalRouterSteps {
         if (commands.isEmpty()) return CallSteps(listOf("No commands: the router does nothing"), emptyList())
         val lines = ArrayList<String>()
         val warnings = ArrayList<String>()
+        val addresses = ArrayList<String>()
         commands.indices.forEach { index ->
             val command = commands[index].toInt() and 0xff
             val type = command and COMMAND_MASK
@@ -86,8 +86,9 @@ internal object UniversalRouterSteps {
             val step = stepOf(dialect, type, inputs[index], call)
             lines += step.lines.map { it + note }
             warnings += step.warnings
+            addresses += step.addresses
         }
-        return CallSteps(lines, warnings)
+        return CallSteps(lines, warnings, addresses.distinct())
     }
 
     /**
@@ -101,14 +102,11 @@ internal object UniversalRouterSteps {
         else -> false
     }
 
-    /** The lines and warnings of one command. */
-    private class Step(val lines: List<String>, val warnings: List<String> = emptyList())
-
-    private fun stepOf(dialect: Dialect, type: Int, input: ByteArray, call: StepCall): Step {
+    private fun stepOf(dialect: Dialect, type: Int, input: ByteArray, call: StepCall): CallSteps {
         val command = "0x" + "%02x".format(type)
         val known = type in 0x00..0x06 || type in 0x08..0x0e || (dialect == Dialect.V2 && type == 0x10)
         if (!known) {
-            return Step(
+            return CallSteps(
                 listOf("Unknown command $command: raw input 0x${input.toHex()}"),
                 listOf("Lensly cannot read command $command in this router call. Its raw input is under Details."),
             )
@@ -119,13 +117,13 @@ internal object UniversalRouterSteps {
         } catch (e: RuntimeException) {
             null
         }
-        return step ?: Step(
+        return step ?: CallSteps(
             listOf("Command $command could not be read: raw input 0x${input.toHex()}"),
             listOf("Lensly cannot read the input of command $command. Its raw input is under Details."),
         )
     }
 
-    private fun decode(type: Int, input: ByteArray, call: StepCall): Step? = when (type) {
+    private fun decode(type: Int, input: ByteArray, call: StepCall): CallSteps? = when (type) {
         0x00 -> v3Swap(input, call, exactIn = true)
         0x01 -> v3Swap(input, call, exactIn = false)
         0x02 -> permit2Transfer(input, call)
@@ -144,7 +142,7 @@ internal object UniversalRouterSteps {
         else -> null
     }
 
-    private fun v3Swap(input: ByteArray, call: StepCall, exactIn: Boolean): Step? {
+    private fun v3Swap(input: ByteArray, call: StepCall, exactIn: Boolean): CallSteps? {
         val values = read(input, if (exactIn) V3_EXACT_IN else V3_EXACT_OUT) ?: return null
         val route = v3Route(values[3].bytes()) ?: return null
         val recipient = values[0].address()
@@ -165,10 +163,10 @@ internal object UniversalRouterSteps {
         } else {
             "Swap up to ${call.amount(limit, tokenIn)} for exactly ${call.amount(amount, tokenOut)}"
         }
-        return Step(listOf(sentence + " " + via(call, "Uniswap v3", trade) + tail(call, recipient, payerIsUser)))
+        return call.paying(sentence + " " + via(call, "Uniswap v3", trade) + tail(call, recipient, payerIsUser), SWAP_OUTPUT, recipient)
     }
 
-    private fun v2Swap(input: ByteArray, call: StepCall, exactIn: Boolean): Step? {
+    private fun v2Swap(input: ByteArray, call: StepCall, exactIn: Boolean): CallSteps? {
         val values = read(input, if (exactIn) V2_EXACT_IN else V2_EXACT_OUT) ?: return null
         val path = values[3].items().map { it.address() }
         if (path.size < 2) return null
@@ -184,25 +182,27 @@ internal object UniversalRouterSteps {
             amount == CONTRACT_BALANCE -> "Swap all ${call.symbolOf(tokenIn)} the router holds for ≥ ${call.amount(limit, tokenOut)}"
             else -> "Swap exactly ${call.amount(amount, tokenIn)} for ≥ ${call.amount(limit, tokenOut)}"
         }
-        return Step(listOf(sentence + " " + via(call, "Uniswap v2", Route(path, emptyList())) + tail(call, recipient, payerIsUser)))
+        val line = sentence + " " + via(call, "Uniswap v2", Route(path, emptyList())) + tail(call, recipient, payerIsUser)
+        return call.paying(line, SWAP_OUTPUT, recipient)
     }
 
-    private fun permit2Transfer(input: ByteArray, call: StepCall): Step? {
+    private fun permit2Transfer(input: ByteArray, call: StepCall): CallSteps? {
         val values = read(input, PERMIT2_TRANSFER) ?: return null
         val token = values[0].address()
         val recipient = values[1].address()
         val amount = values[2].word()
-        return Step(listOf("Transfer ${call.amount(amount, token)} from you to ${recipientName(call, recipient)} via Permit2"))
+        val line = "Transfer ${call.amount(amount, token)} from ${call.callerName} to ${call.recipientName(recipient)} via Permit2"
+        return call.paying(line, "moves your tokens to", recipient)
     }
 
-    private fun permitBatch(input: ByteArray, call: StepCall): Step? {
+    private fun permitBatch(input: ByteArray, call: StepCall): CallSteps? {
         val values = read(input, PERMIT2_BATCH) ?: return null
         // The batch is (details, spender, sigDeadline), and each detail is (token, amount, expiration, nonce).
         val batch = values[0].items()
         return permitSteps(call, batch[1].address(), batch[0].items().map { it.items() })
     }
 
-    private fun permitSingle(input: ByteArray, call: StepCall): Step? {
+    private fun permitSingle(input: ByteArray, call: StepCall): CallSteps? {
         val values = read(input, PERMIT2_SINGLE) ?: return null
         // The single permit is (details, spender, sigDeadline), and the details are (token, amount, expiration, nonce).
         val single = values[0].items()
@@ -210,7 +210,7 @@ internal object UniversalRouterSteps {
     }
 
     /** One approval line per permit detail. An amount that [ContractCall.isUnlimited] reads as unlimited warns. */
-    private fun permitSteps(call: StepCall, spender: String, details: List<List<AbiValue>>): Step {
+    private fun permitSteps(call: StepCall, spender: String, details: List<List<AbiValue>>): CallSteps {
         val who = if (spender == call.contract) "the Universal Router" else shortAddress(spender)
         val lines = ArrayList<String>()
         val warnings = ArrayList<String>()
@@ -226,42 +226,45 @@ internal object UniversalRouterSteps {
             }
         }
         if (details.isEmpty()) lines += "Approve nothing: the permit holds no details"
-        return Step(lines, warnings)
+        return CallSteps(lines, warnings)
     }
 
-    private fun sweep(input: ByteArray, call: StepCall): Step? {
+    private fun sweep(input: ByteArray, call: StepCall): CallSteps? {
         val values = read(input, TOKEN_RECIPIENT_AMOUNT) ?: return null
         val token = values[0].address()
         val recipient = values[1].address()
         val minimum = values[2].word()
         val least = if (minimum.signum() == 0) "" else " (at least ${call.amount(minimum, token)})"
-        return Step(listOf("Sweep all ${call.symbolOf(token)} held by the router to ${recipientName(call, recipient)}$least"))
+        val line = "Sweep all ${call.symbolOf(token)} held by the router to ${call.recipientName(recipient)}$least"
+        return call.paying(line, "sweeps the router's tokens to", recipient)
     }
 
-    private fun transfer(input: ByteArray, call: StepCall): Step? {
+    private fun transfer(input: ByteArray, call: StepCall): CallSteps? {
         val values = read(input, TOKEN_RECIPIENT_AMOUNT) ?: return null
         val token = values[0].address()
-        val recipient = recipientName(call, values[1].address())
+        val recipient = values[1].address()
+        val name = call.recipientName(recipient)
         val value = values[2].word()
         // The router reads CONTRACT_BALANCE for tokens only, so a native transfer of that value is shown as the amount it is.
         val sentence = if (token != NATIVE_COIN && value == CONTRACT_BALANCE) {
-            "Transfer all ${call.symbolOf(token)} held by the router to $recipient"
+            "Transfer all ${call.symbolOf(token)} held by the router to $name"
         } else {
-            "Transfer ${call.amount(value, token)} from the router to $recipient"
+            "Transfer ${call.amount(value, token)} from the router to $name"
         }
-        return Step(listOf(sentence))
+        return call.paying(sentence, "transfers the router's tokens to", recipient)
     }
 
-    private fun payPortion(input: ByteArray, call: StepCall): Step? {
+    private fun payPortion(input: ByteArray, call: StepCall): CallSteps? {
         val values = read(input, TOKEN_RECIPIENT_AMOUNT) ?: return null
         val token = values[0].address()
         val recipient = values[1].address()
         val bips = values[2].word()
         val portion = percentOf(bips)
-        return Step(listOf("Pay $portion of the router's ${call.symbolOf(token)} balance to ${recipientName(call, recipient)}"))
+        val line = "Pay $portion of the router's ${call.symbolOf(token)} balance to ${call.recipientName(recipient)}"
+        return call.paying(line, "pays part of the router's tokens to", recipient)
     }
 
-    private fun wrapEth(input: ByteArray, call: StepCall): Step? {
+    private fun wrapEth(input: ByteArray, call: StepCall): CallSteps? {
         val values = read(input, RECIPIENT_AMOUNT) ?: return null
         val recipient = values[0].address()
         val amount = values[1].word()
@@ -270,69 +273,53 @@ internal object UniversalRouterSteps {
         } else {
             call.nativeAmount(amount)
         }
-        val place = when (recipient) {
-            ADDRESS_THIS -> " in the router"
-            MSG_SENDER -> ""
-            else -> if (recipient == call.from) "" else " for ${shortAddress(recipient)}"
+        val place = when (val name = call.recipientName(recipient)) {
+            "the router" -> " in the router"
+            "you" -> ""
+            else -> " for $name"
         }
-        return Step(listOf("Wrap $what → ${call.wrappedSymbol}$place"))
+        return call.paying("Wrap $what → ${call.wrappedSymbol}$place", "wraps ${call.network.nativeSymbol} for", recipient)
     }
 
-    private fun unwrapWeth(input: ByteArray, call: StepCall): Step? {
+    private fun unwrapWeth(input: ByteArray, call: StepCall): CallSteps? {
         val values = read(input, RECIPIENT_AMOUNT) ?: return null
         val recipient = values[0].address()
         val minimum = values[1].word()
         val least = if (minimum.signum() == 0) "" else " (at least ${call.wrappedAmount(minimum)})"
-        val to = when (recipient) {
-            MSG_SENDER -> "for you"
-            ADDRESS_THIS -> "in the router"
-            else -> "for ${call.who(recipient)}"
-        }
-        return Step(listOf("Unwrap all ${call.wrappedSymbol} the router holds → ${call.network.nativeSymbol} $to$least"))
+        val name = call.recipientName(recipient)
+        val to = if (name == "the router") "in the router" else "for $name"
+        val line = "Unwrap all ${call.wrappedSymbol} the router holds → ${call.network.nativeSymbol} $to$least"
+        return call.paying(line, "sends the unwrapped ${call.network.nativeSymbol} to", recipient)
     }
 
-    private fun permit2TransferBatch(input: ByteArray, call: StepCall): Step? {
+    private fun permit2TransferBatch(input: ByteArray, call: StepCall): CallSteps? {
         val values = read(input, PERMIT2_TRANSFER_BATCH) ?: return null
         // Each detail is (from, to, amount, token). Permit2 takes the recipient as it is, so it is not mapped as the router's flags are.
         val details = values[0].items().map { it.items() }
-        if (details.isEmpty()) return Step(listOf("Transfer nothing via Permit2"))
-        return Step(
-            details.map { detail ->
-                val from = call.who(detail[0].address())
-                val to = call.who(detail[1].address())
-                "Transfer ${call.amount(detail[2].word(), detail[3].address())} from $from to $to via Permit2"
-            },
-        )
+        if (details.isEmpty()) return CallSteps(listOf("Transfer nothing via Permit2"), emptyList())
+        val steps = details.map { detail ->
+            val from = call.who(detail[0].address())
+            val to = call.who(detail[1].address())
+            val line = "Transfer ${call.amount(detail[2].word(), detail[3].address())} from $from to $to via Permit2"
+            call.payingAddress(line, "moves tokens to", detail[1].address())
+        }
+        return CallSteps(steps.flatMap { it.lines }, steps.flatMap { it.warnings }, steps.flatMap { it.addresses }.distinct())
     }
 
-    private fun balanceCheck(input: ByteArray, call: StepCall): Step? {
+    private fun balanceCheck(input: ByteArray, call: StepCall): CallSteps? {
         val values = read(input, BALANCE_CHECK) ?: return null
         val owner = call.who(values[0].address())
         val token = values[1].address()
         val minimum = values[2].word()
-        return Step(listOf("Require $owner to hold at least ${call.amount(minimum, token)}"))
+        return CallSteps(listOf("Require $owner to hold at least ${call.amount(minimum, token)}"), emptyList())
     }
 
     /** The steps of a v4 swap, one per action, or null when any of its actions cannot be read. */
-    private fun v4Swap(input: ByteArray, call: StepCall): Step? =
-        V4SwapSteps.describe(input, call)?.let { Step(it.lines, it.warnings) }
-
-    /** The recipient a command names: the signer for the flag 0x…01, the router for 0x…02, and the address otherwise. */
-    private fun recipientName(call: StepCall, address: String): String = when (address) {
-        MSG_SENDER -> "you"
-        ADDRESS_THIS -> "the router"
-        else -> call.who(address)
-    }
+    private fun v4Swap(input: ByteArray, call: StepCall): CallSteps? = V4SwapSteps.describe(input, call)
 
     /** What a swap says about its payer and its recipient, after its route: nothing when the payer is the router and the recipient is you. */
     private fun tail(call: StepCall, recipient: String, payerIsUser: Boolean): String {
-        val notes = ArrayList<String>()
-        if (payerIsUser) notes += "paid by you"
-        when (recipient) {
-            MSG_SENDER -> Unit
-            ADDRESS_THIS -> notes += "kept in the router"
-            else -> if (recipient != call.from) notes += "sent to ${shortAddress(recipient)}"
-        }
+        val notes = listOfNotNull(if (payerIsUser) "paid by ${call.callerName}" else null, call.destination(recipient))
         return notes.joinToString("") { ", $it" }
     }
 

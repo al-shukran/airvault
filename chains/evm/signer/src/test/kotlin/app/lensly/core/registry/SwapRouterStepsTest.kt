@@ -303,6 +303,40 @@ class SwapRouterStepsTest {
     }
 
     @Test
+    fun aRecipientOtherThanTheSignerWarnsAndNamesItsFullAddress() {
+        // A lookalike of the signer: the same first and last four hex characters.
+        val lookalike = "0x7546" + "00000000000000000000000000000000" + "0ecf"
+        val multicall3 = "0xca11bde05977b3631167028862be2a173976ca11"
+        fun steps(recipient: String, caller: String = SENDER_EXACT_INPUT_SINGLE): CallSteps = assertNotNull(
+            CallSteps.describe(
+                STEP_REGISTRY,
+                1,
+                SWAP_ROUTER,
+                EXACT_INPUT_SINGLE,
+                EXACT_INPUT_SINGLE_SIG,
+                SENDER_EXACT_INPUT_SINGLE,
+                BigInteger.ZERO,
+                singlePoolArgs(USDT, USDC, BigInteger.valueOf(100), recipient, BigInteger.valueOf(93_600_000), BigInteger.ZERO, BigInteger.ZERO),
+                caller,
+            ),
+        )
+
+        val other = steps(lookalike)
+        assertEquals(listOf("This pays the swap output to ${shortAddress(lookalike)}, not you"), other.warnings)
+        assertEquals(listOf(lookalike), other.addresses)
+        assertTrue(other.lines.single().endsWith(", sent to ${shortAddress(lookalike)}"), other.lines.single())
+        listOf(SENDER_EXACT_INPUT_SINGLE, FLAG_SIGNER, FLAG_ROUTER).forEach { own ->
+            assertEquals(emptyList(), steps(own).warnings, own)
+            assertEquals(emptyList(), steps(own).addresses, own)
+        }
+        // Inside a Multicall3 batch the flag 0x...01 is Multicall3.
+        val batched = steps(FLAG_SIGNER, caller = multicall3)
+        assertEquals(listOf("This pays the swap output to 0xcA11…CA11, not you"), batched.warnings)
+        assertEquals(listOf(multicall3), batched.addresses)
+        assertTrue(batched.lines.single().endsWith(", sent to Multicall3"), batched.lines.single())
+    }
+
+    @Test
     fun aSignatureOtherThanTheApprovedOneIsNotDescribed() {
         // The flattened form of exactInputSingle is not the approved signature, so Lensly does not describe the call.
         val args = singlePoolArgs(

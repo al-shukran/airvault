@@ -1,6 +1,8 @@
 package app.airvault.chains.evm.signer
 
 import app.airvault.abi.AbiDecoder
+import app.airvault.abi.AbiValue
+import app.airvault.abi.DecodedParam
 import app.airvault.abi.WhitelistParam
 import app.airvault.core.model.ChainId
 import app.airvault.core.model.Coverage
@@ -35,6 +37,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.web3j.crypto.Hash
+import org.web3j.crypto.Keys
 import org.web3j.utils.Numeric
 
 private const val USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
@@ -98,7 +101,7 @@ private val REGISTRY = Registry(
         NetworkEntry(10143, "Monad Testnet", "MON", 18, FeeModel.L1, "MonadVision", testnet = true, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null),
         NetworkEntry(1, "Ethereum", "ETH", 18, FeeModel.L1, "Etherscan", testnet = false, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null),
     ),
-    tokens = listOf(TokenEntry(1, USDC_LOWER, "USDC", "USD Coin", 6)),
+    tokens = listOf(TokenEntry(1, USDC_LOWER, "USDC", "USD Coin", 6), TokenEntry(1, WETH_ADDRESS, "WETH", "Wrapped Ether", 18)),
 )
 
 private fun builder(
@@ -993,6 +996,75 @@ class EvmReviewTest {
     }
 
     @Test
+    fun aRouterSwapInsideAMulticall3BatchNamesMulticall3AsTheRecipientAndIsDanger() {
+        // Multicall3 calls the router, so the router's message sender is Multicall3: the flag 0x...01 pays the swap output to Multicall3.
+        // The same call straight to the router pays the signer.
+        val commands = byteArrayOf(0x0b, 0x00)
+        val inputs = listOf(urWrapInput(UR_ADDRESS_THIS), urSwapInput(UR_MSG_SENDER))
+        val router = urEntry()
+        val registry = REGISTRY.withWhitelist(listOf(router))
+        val call = InnerCall(UR_V2_TX, allowFailure = false, value = ONE_ETH, calldata = urExecute(commands, inputs), call = null, nested = null)
+        val batch = encodeMulticall(MulticallShape.AGGREGATE3_VALUE, deadline = null, calls = listOf(call))!!
+
+        val viaBatch = reviewOf(txParsed(MULTICALL3, batch, value = ONE_ETH), builder(registry))
+        val direct = reviewOf(txParsed(UR_V2_TX, urExecute(commands, inputs), value = ONE_ETH), builder(registry))
+
+        val danger = viaBatch.warnings.single { it.code == "evm.steps" }
+        assertEquals(Danger.DANGER, danger.level)
+        assertEquals("This pays the swap output to 0xcA11…CA11, not you", danger.message)
+        assertEquals(ACK_STEP_PAYEE, danger.acknowledge)
+        assertEquals(MULTICALL3, viaBatch.sections.flatMap { it.rows }.single { it.label == "Recipient" }.value.text())
+        val steps = viaBatch.sections.flatMap { it.rows }.map { it.label }.filter { it.startsWith("Swap exactly") }
+        assertEquals(listOf("Swap exactly 1 WETH for ≥ 3,000 USDC via Uniswap v3 (0.05%), sent to Multicall3"), steps)
+        // Straight to the router the same call pays the signer: only the whitelist caution, no recipient row.
+        assertEquals(listOf("evm.whitelisted-call"), direct.warnings.map { it.code })
+        assertTrue(direct.sections.flatMap { it.rows }.none { it.label == "Recipient" })
+    }
+
+    @Test
+    fun aRouterSwapToALookalikeOfTheSignerWarnsAndShowsTheRecipientAsAnAddressRow() {
+        // SENDER is 0x3333...3333. The lookalike has the same first and last four hex characters, so its short form reads as the signer.
+        val lookalike = "0x3333" + "0".repeat(32) + "3333"
+        val registry = REGISTRY.withWhitelist(listOf(urEntry()))
+        val commands = byteArrayOf(0x02, 0x00)
+        val permit = word(BigInteger(USDC_LOWER.removePrefix("0x"), 16)) + word(BigInteger(lookalike.removePrefix("0x"), 16)) + word(BigInteger.valueOf(10_000_000_000))
+        val inputs = listOf(permit, urSwapInput(lookalike, payerIsUser = true))
+
+        val review = reviewOf(txParsed(UR_V2_TX, urExecute(commands, inputs)), builder(registry))
+
+        val warnings = review.warnings.filter { it.code == "evm.steps" }
+        assertEquals(2, warnings.size)
+        assertTrue(warnings.all { it.level == Danger.CAUTION && it.message.endsWith("0x3333…3333, not you") }, "$warnings")
+        val recipients = review.sections.flatMap { it.rows }.filter { it.label == "Recipient" }
+        assertEquals(listOf(Keys.toChecksumAddress(lookalike)), recipients.map { it.value.text() })
+        assertIs<DisplayValue.Address>(recipients.single().value)
+    }
+
+    @Test
+    fun aRouterSwapToTheSignerAddsNoWarningAndNoRecipientRow() {
+        val registry = REGISTRY.withWhitelist(listOf(urEntry()))
+        listOf(UR_MSG_SENDER, SENDER).forEach { recipient ->
+            val review = reviewOf(txParsed(UR_V2_TX, urExecute(byteArrayOf(0x00), listOf(urSwapInput(recipient)))), builder(registry))
+
+            assertEquals(listOf("evm.whitelisted-call"), review.warnings.map { it.code }, recipient)
+            assertTrue(review.sections.flatMap { it.rows }.none { it.label == "Recipient" }, recipient)
+        }
+    }
+
+    @Test
+    fun aTransferFromOfTheSignerInsideAMulticall3BatchWarnsBecauseMulticall3SpendsTheApproval() {
+        val transfer = ContractCall.TransferFrom(SENDER, FOREIGN, BigInteger.ONE).encode()!!
+        val call = InnerCall(USDC, allowFailure = false, value = null, calldata = transfer, call = ContractCall.decode(transfer), nested = null)
+        val batch = encodeMulticall(MulticallShape.AGGREGATE3, deadline = null, calls = listOf(call))!!
+        val direct = reviewOf(txParsed(USDC, transfer))
+
+        val review = reviewOf(txParsed(MULTICALL3, batch))
+
+        assertEquals(Danger.DANGER, review.warnings.single { it.code == "evm.foreign-from" }.level)
+        assertTrue(direct.warnings.none { it.code == "evm.foreign-from" })
+    }
+
+    @Test
     fun aMulticall3CallShowsItsAllowFailureFlag() {
         val approveBytes = ContractCall.Approve(SPENDER, BigInteger.TEN).encode()!!
         val call = InnerCall(
@@ -1207,6 +1279,51 @@ private fun personalParsed(signData: ByteArray, origin: String = "dapp.example",
         origin = origin,
     ),
 )
+
+private const val UR_V2 = "0x66a9893cc07d91d95644aedd05d03f95e1dba8af"
+/** A transaction names its contract in checksum form. */
+private val UR_V2_TX = Keys.toChecksumAddress(UR_V2)
+private const val UR_MSG_SENDER = "0x0000000000000000000000000000000000000001"
+private const val UR_ADDRESS_THIS = "0x0000000000000000000000000000000000000002"
+private const val WETH_ADDRESS = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+private const val ACK_STEP_PAYEE = "I understand this call pays an account other than mine."
+
+/** The approved Universal Router V2 `execute(bytes,bytes[],uint256)` on Ethereum. */
+private fun urEntry(): WhitelistEntry {
+    val signature = "execute(bytes,bytes[],uint256)"
+    return WhitelistEntry(
+        chainId = 1,
+        contract = UR_V2,
+        selector = WhitelistEntry.selectorOf(signature),
+        signature = signature,
+        meaning = "Runs the router commands in order.",
+        params = listOf(WhitelistParam("commands", "bytes"), WhitelistParam("inputs", "bytes[]"), WhitelistParam("deadline", "uint256")),
+        upgradeable = false,
+    )
+}
+
+/** The calldata of `execute(commands, inputs, 1)`. */
+private fun urExecute(commands: ByteArray, inputs: List<ByteArray>): ByteArray {
+    val params = urEntry().params
+    val decoded = listOf(
+        DecodedParam(params[0], AbiValue.Dynamic(commands.toHex())),
+        DecodedParam(params[1], AbiValue.Items(inputs.map { AbiValue.Dynamic(it.toHex()) })),
+        DecodedParam(params[2], AbiValue.Word("00".repeat(31) + "01")),
+    )
+    return Numeric.hexStringToByteArray(urEntry().selector) + AbiDecoder.encode(decoded)!!
+}
+
+/** WRAP_ETH of 1 ETH to [recipient]. */
+private fun urWrapInput(recipient: String): ByteArray = word(BigInteger(recipient.removePrefix("0x"), 16)) + word(ONE_ETH)
+
+/** V3_SWAP_EXACT_IN of 1 WETH for at least 3,000 USDC through the 0.05% pool, with the output sent to [recipient]. */
+private fun urSwapInput(recipient: String, payerIsUser: Boolean = false): ByteArray {
+    val path = Numeric.hexStringToByteArray(WETH_ADDRESS) + byteArrayOf(0, 1, 0xf4.toByte()) + Numeric.hexStringToByteArray(USDC_LOWER)
+    val padded = path + ByteArray((32 - path.size % 32) % 32)
+    return word(BigInteger(recipient.removePrefix("0x"), 16)) + word(ONE_ETH) + word(BigInteger.valueOf(3_000_000_000)) +
+        word(BigInteger.valueOf(5 * 32)) + word(if (payerIsUser) BigInteger.ONE else BigInteger.ZERO) +
+        word(BigInteger.valueOf(path.size.toLong())) + padded
+}
 
 /** A whitelisted `foo(address,uint256)` on [NFT]: a recipient and an amount, which the signed list approves. */
 private fun fooEntry(): WhitelistEntry {

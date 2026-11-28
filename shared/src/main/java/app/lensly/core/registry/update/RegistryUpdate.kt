@@ -6,6 +6,7 @@ import app.lensly.core.registry.Registry
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.vault.KeystoreBackend
 import app.lensly.core.vault.keystoreCall
+import app.lensly.core.vault.keystoreOrNull
 import app.lensly.core.vault.writeAtomically
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -228,13 +229,22 @@ object RegistryUpdate {
                 if (incoming.whitelist != null) writes[WHITELIST_FILE] = bytes
                 if (incoming.denylist != null) writes[DENYLIST_FILE] = bytes
                 writes[RegistrySeal.FILE] = sealBytes
-                storeAll(dir, writes, created, write, delete)
+                // A floor-lowering install deletes the keys above the new floor after the package files and before the seal, and fails when
+                // that fails: a key left above the new seal would read it as unverified and refuse every package below that key for good.
+                // A crash anywhere leaves a key that verifies a seal, or the lowered key alone, where the same package installs again.
+                val lowers = newest != null && newest > seal.floor
+                storeAll(dir, writes, created, write, delete) {
+                    if (lowers) keystoreCall { keystore.deleteRegistryMacKeysExcept(seal.floor) }
+                }
             } catch (e: Unrestorable) {
                 // Keeping the new key leaves the seal below the newest key, so the store reads as unverified. Reverting the key to
                 // the old floor would let the new file that could not be removed verify against the old seal.
                 throw e.cause as Exception
             } catch (e: Exception) {
-                RegistrySeal.keepOnly(newest, keystore)
+                // The old floor's key goes back to being the only one, unless the lowering already deleted it: then the new key stays,
+                // as deleting it too would leave no key at all.
+                val survivors = keystoreOrNull { keystore.registryMacKeySeqs() }
+                RegistrySeal.keepOnly(if (newest != null && survivors != null && newest !in survivors) seal.floor else newest, keystore)
                 throw e
             }
             RegistrySeal.keepOnly(seal.floor, keystore)
@@ -299,7 +309,7 @@ object RegistryUpdate {
      * Writes [writes] in order. When one fails, the ones already written go back to what they held and the failure is rethrown. A file
      * that cannot go back is deleted: the failure that stopped the write, often a full disk, can stop the restore too, and a new package
      * left under the old seal would be in use although the install failed. When a file can be neither put back nor deleted, the failure
-     * is thrown inside [Unrestorable].
+     * is thrown inside [Unrestorable]. [beforeSeal] runs before the seal file is written, and a failure of it undoes the writes like any other.
      */
     private fun storeAll(
         dir: File,
@@ -307,11 +317,13 @@ object RegistryUpdate {
         created: Boolean,
         write: (File, ByteArray) -> Unit,
         delete: (File) -> Boolean,
+        beforeSeal: () -> Unit = {},
     ) {
         val before = writes.keys.associateWith { name -> File(dir, name).takeIf { it.isFile }?.readBytes() }
         val written = mutableListOf<String>()
         try {
             for ((name, content) in writes) {
+                if (name == RegistrySeal.FILE) beforeSeal()
                 write(File(dir, name), content)
                 written += name
             }

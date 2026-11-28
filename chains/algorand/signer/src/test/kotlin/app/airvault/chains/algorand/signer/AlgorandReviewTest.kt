@@ -111,6 +111,20 @@ class AlgorandReviewTest {
         assertNotNull(warning.acknowledge)
     }
 
+    /** The top line of a payment that closes the account says where the rest of the balance goes; a plain payment keeps its own line. */
+    @Test
+    fun aCloseToPaymentSummarySaysWhereTheRestGoes() {
+        val closeTo = ByteArray(32) { 5 }
+
+        val summary = reviewOf(payment(closeTo = closeTo)).summary.text()
+
+        assertEquals(
+            "Sends 1.5 ALGO to ${AlgoAddress.encode(receiver)}. The rest goes to ${AlgoAddress.encode(closeTo)}, and the account is removed.",
+            summary,
+        )
+        assertEquals("Send 1.5 ALGO from ${AlgoAddress.encode(sender)} to ${AlgoAddress.encode(receiver)}?", reviewOf(payment()).summary.text())
+    }
+
     /** The origin the wallet names is its claim: it shows under its label with the note that Lensly cannot verify it, and the review covers it. */
     @Test
     fun anOriginIsShownAsAClaimThatLenslyCannotVerify() {
