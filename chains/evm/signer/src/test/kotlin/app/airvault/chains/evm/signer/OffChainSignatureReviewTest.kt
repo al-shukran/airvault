@@ -1067,6 +1067,14 @@ class OffChainSignatureReviewTest {
 
         assertFalse(headerOf(usdSend("Mainnet"), ARBITRUM).testnet)
         assertTrue(headerOf(usdSend("Testnet"), ARBITRUM).testnet)
+        // The name agrees with the badge: the registry name of the signature chain ("Some Testnet") is not shown.
+        assertEquals("Hyperliquid Mainnet", headerOf(usdSend("Mainnet"), ARBITRUM).name)
+        assertEquals("Hyperliquid Testnet", headerOf(usdSend("Testnet"), ARBITRUM).name)
+        assertEquals("Hyperliquid Mainnet", headerOf(l1Agent("a", DUMMY_CONNECTION_ID), 1337L).name)
+        assertEquals("Hyperliquid Testnet", headerOf(l1Agent("b", DUMMY_CONNECTION_ID), 1337L).name)
+        // A network value the SDK does not write keeps the registry name and badge.
+        assertEquals("Some Testnet", headerOf(l1Agent("c", DUMMY_CONNECTION_ID), 1337L).name)
+        assertTrue(headerOf(l1Agent("c", DUMMY_CONNECTION_ID), 1337L).testnet)
         // The signature chain 42161 and the L1 agent on 1337 follow the same rule, whatever the registry says of those chains.
         assertFalse(headerOf(l1Agent("a", DUMMY_CONNECTION_ID), 1337L).testnet)
         assertTrue(headerOf(l1Agent("b", DUMMY_CONNECTION_ID), 1337L).testnet)

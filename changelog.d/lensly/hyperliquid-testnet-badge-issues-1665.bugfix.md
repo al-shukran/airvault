@@ -1,1 +1,1 @@
-A Hyperliquid action now shows the Testnet badge only when the action itself is for the testnet, whatever a registry package says about the chain that carries its signature.
+A Hyperliquid action now names its own network, Hyperliquid Mainnet or Hyperliquid Testnet, in the review header, and shows the Testnet badge only for the testnet, whatever a registry package says about the chain that carries its signature.
