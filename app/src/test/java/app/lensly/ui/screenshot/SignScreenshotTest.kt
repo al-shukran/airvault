@@ -19,6 +19,13 @@ import androidx.compose.ui.unit.dp
 import app.airvault.abi.AbiDecoder
 import app.airvault.abi.CallDecode
 import app.airvault.abi.WhitelistParam
+import app.airvault.chains.evm.signer.DataType
+import app.airvault.chains.evm.signer.EthSignRequest
+import app.airvault.chains.evm.signer.EvmRequestParser
+import app.airvault.chains.evm.signer.EvmReviewBuilder
+import app.airvault.chains.evm.signer.EvmReviewResult
+import app.airvault.chains.evm.signer.TxType
+import app.airvault.chains.evm.signer.UnsignedTx
 import app.airvault.chains.solana.signer.SolSignRequest
 import app.airvault.chains.solana.signer.SolSignType
 import app.airvault.chains.solana.signer.SolanaRequestCheck
@@ -57,6 +64,7 @@ import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.ProxyBinding
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
+import app.lensly.core.registry.WhitelistEntry
 import app.lensly.core.ur.DEFAULT_MAX_FRAGMENT
 import app.lensly.core.ur.PathStep
 import app.lensly.core.ur.framesOf
@@ -66,8 +74,8 @@ import app.lensly.ui.flow.SignFlowPorts
 import app.lensly.ui.flow.SignStep
 import app.lensly.ui.sign.SAMPLE_SIGNER
 import app.lensly.ui.sign.SignRefusedScreen
-import app.lensly.ui.sign.keepAddressesWhole
 import app.lensly.ui.sign.ReviewScreen
+import app.lensly.ui.sign.keepAddressesWhole
 import app.lensly.ui.sign.undecodedCallRows
 import app.lensly.ui.theme.LumenTheme
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -289,18 +297,16 @@ private val UR_REGISTRY = Registry(
     ),
 )
 
-/** An account other than [UR_SIGNER], which the steps of the samples below pay, so their lines carry a grouped address. */
-private const val OTHER_ACCOUNT = "0x1593d3987a6c4d8b0e2f5a9c7b3e1d4f3ea25343"
+/** The arguments of `execute(bytes,bytes[],uint256)`, decoded from [UR_BATCH_CALLDATA] as the sandbox decodes them. */
+private val UR_DECODED = (
+    AbiDecoder.decode(
+        Numeric.hexStringToByteArray(UR_BATCH_CALLDATA),
+        listOf(WhitelistParam("commands", "bytes"), WhitelistParam("inputs", "bytes[]"), WhitelistParam("deadline", "uint256")),
+    ) as CallDecode.Ok
+    ).params
 
-/**
- * [UR_BATCH_CALLDATA] with its last step, the unwrap, paying [OTHER_ACCOUNT] and not the sender. The recipient is the first of the two
- * words that end the input, and the minimum amount is the second.
- */
-private val UR_BATCH_PAYING_OTHER =
-    UR_BATCH_CALLDATA.dropLast(128) + OTHER_ACCOUNT.removePrefix("0x").padStart(64, '0') + UR_BATCH_CALLDATA.takeLast(64)
-
-/** The steps of the batch [calldata], read by the same code the sign flow runs. */
-private fun urSteps(calldata: String): CallSteps? = CallSteps.describe(
+/** The steps of the batch, read by the same code the sign flow runs. */
+private val UR_STEPS = CallSteps.describe(
     UR_REGISTRY,
     1L,
     UR_V1_2,
@@ -308,21 +314,12 @@ private fun urSteps(calldata: String): CallSteps? = CallSteps.describe(
     "execute(bytes,bytes[],uint256)",
     UR_SIGNER,
     BigInteger.ZERO,
-    urDecoded(calldata),
+    UR_DECODED,
 )
 
-/** The arguments of `execute(bytes,bytes[],uint256)`, decoded from [calldata] as the sandbox decodes them. */
-private fun urDecoded(calldata: String) = (
-    AbiDecoder.decode(
-        Numeric.hexStringToByteArray(calldata),
-        listOf(WhitelistParam("commands", "bytes"), WhitelistParam("inputs", "bytes[]"), WhitelistParam("deadline", "uint256")),
-    ) as CallDecode.Ok
-    ).params
-
 /** A Universal Router batch the owner signs: its steps, the approval warning they raise, and the arguments behind Details. */
-internal fun urBatchSample(calldata: String = UR_BATCH_CALLDATA): Review {
+private fun urBatchSample(): Review {
     val chain = ChainId("eip155:1")
-    val steps = urSteps(calldata)
     return Review(
         title = "execute",
         chain = chain,
@@ -338,20 +335,27 @@ internal fun urBatchSample(calldata: String = UR_BATCH_CALLDATA): Review {
             ReviewSection(
                 "Arguments",
                 listOf(ReviewRow("Approved Meaning", DisplayValue.Text(UR_MEANING), null)) +
-                    urDecoded(calldata).flatMap { AbiRows.of(it) }.map { (label, value) -> ReviewRow(label, DisplayValue.Text(value), null) },
+                    UR_DECODED.flatMap { AbiRows.of(it) }.map { (label, value) -> ReviewRow(label, DisplayValue.Text(value), null) },
             ),
-            ReviewSection("Steps", steps?.lines.orEmpty().map { ReviewRow(it, null, null) }, SectionStyle.Steps),
+            ReviewSection("Steps", UR_STEPS?.lines.orEmpty().map { ReviewRow(it, null, null) }, SectionStyle.Steps),
         ),
         warnings = buildList {
             add(approvedCallWarning(UR_MEANING))
-            steps?.warnings?.forEach { add(Warning(Danger.CAUTION, "evm.steps", it)) }
+            UR_STEPS?.warnings?.forEach { add(Warning(Danger.CAUTION, "evm.steps", it)) }
         },
         coverage = sampleNativeReview.coverage,
     )
 }
 
-/** The last step of the batch [calldata], which the screenshots scroll to so every step sits in view above it, as the screen shows it. */
-private fun lastUrStep(calldata: String): String = keepAddressesWhole(urSteps(calldata)!!.lines.last())
+/** An account other than [UR_SIGNER], which the samples below pay, so their review has a Recipient row and their steps a grouped address. */
+private const val OTHER_ACCOUNT = "0x1593d3987a6c4d8b0e2f5a9c7b3e1d4f3ea25343"
+
+/**
+ * [UR_BATCH_CALLDATA] with its last step, the unwrap, paying [OTHER_ACCOUNT] and not the sender. The recipient is the first of the two
+ * words that end the input, and the minimum amount is the second.
+ */
+private val UR_BATCH_PAYING_OTHER =
+    UR_BATCH_CALLDATA.dropLast(128) + OTHER_ACCOUNT.removePrefix("0x").padStart(64, '0') + UR_BATCH_CALLDATA.takeLast(64)
 
 private const val AAVE_POOL = "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2"
 private const val USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
@@ -363,57 +367,78 @@ private val AAVE_SUPPLY_CALLDATA = "0x617ba037" +
     OTHER_ACCOUNT.removePrefix("0x").padStart(64, '0') +
     "0".repeat(64)
 
-private val AAVE_SUPPLY_PARAMS = listOf(
-    WhitelistParam("asset", "address"),
-    WhitelistParam("amount", "uint256"),
-    WhitelistParam("onBehalfOf", "address"),
-    WhitelistParam("referralCode", "uint16"),
+/** The entries of the signed approved-contracts list for the two calls above, as that list states them. */
+private val APPROVED_ENTRIES = listOf(
+    WhitelistEntry(
+        chainId = 1L,
+        contract = UR_V1_2.lowercase(),
+        selector = "0x3593564c",
+        signature = "execute(bytes,bytes[],uint256)",
+        meaning = "Uniswap Universal Router: run a batch of swap and transfer commands in one call. " +
+            "The commands and inputs are shown as raw bytes, not decoded.",
+        params = listOf(WhitelistParam("commands", "bytes"), WhitelistParam("inputs", "bytes[]"), WhitelistParam("deadline", "uint256")),
+        upgradeable = false,
+    ),
+    WhitelistEntry(
+        chainId = 1L,
+        contract = AAVE_POOL,
+        selector = "0x617ba037",
+        signature = "supply(address,uint256,address,uint16)",
+        meaning = "Aave V3: deposit an asset into the pool to earn interest. It can be used as collateral.",
+        proxy = ProxyBinding(implementationAddress = "0x4295fe69b3e978eb511e4558b4407ad871612fcb"),
+        params = listOf(
+            WhitelistParam("asset", "address"),
+            WhitelistParam("amount", "uint256"),
+            WhitelistParam("onBehalfOf", "address"),
+            WhitelistParam("referralCode", "uint16"),
+        ),
+        upgradeable = true,
+    ),
 )
 
-private val AAVE_SUPPLY_DECODED = (
-    AbiDecoder.decode(Numeric.hexStringToByteArray(AAVE_SUPPLY_CALLDATA), AAVE_SUPPLY_PARAMS) as CallDecode.Ok
-    ).params
-
-private val AAVE_STEPS = CallSteps.describe(
-    UR_REGISTRY,
-    1L,
-    AAVE_POOL,
-    "0x617ba037",
-    "supply(address,uint256,address,uint16)",
-    UR_SIGNER,
-    BigInteger.ZERO,
-    AAVE_SUPPLY_DECODED,
-)
-
-/** An Aave V3 supply the owner signs for another account: its one step, and the warning that it credits that account. */
-internal fun aaveSupplySample(): Review {
-    val chain = ChainId("eip155:1")
-    return Review(
-        title = "supply",
-        chain = chain,
-        network = NetworkLabel(name = "Ethereum", testnet = false, detail = "Chain ID 1"),
-        summary = listOf(
-            SummaryPart.Text("Calls supply on "),
-            SummaryPart.Counterparty(AAVE_POOL),
-            SummaryPart.Text(", which the signed list approves."),
-        ),
-        facts = sampleNativeReview.facts,
-        sections = listOf(
-            transactionSection(to = "Contract", target = AAVE_POOL, function = "supply(address,uint256,address,uint16)", chain = chain, signer = UR_SIGNER),
-            ReviewSection("Steps", AAVE_STEPS?.lines.orEmpty().map { ReviewRow(it, null, null) }, SectionStyle.Steps),
-        ),
-        warnings = buildList {
-            add(approvedCallWarning("Aave V3: supply an asset to the pool."))
-            AAVE_STEPS?.warnings?.forEach { add(Warning(Danger.CAUTION, "evm.steps", it)) }
-        },
-        coverage = sampleNativeReview.coverage,
+/**
+ * The review the app builds for the call [calldata] to [to] on Ethereum, from a legacy transaction signed by [UR_SIGNER]: the real
+ * [EvmReviewBuilder] with the approved entries above, so its rows, fee, warnings and Recipient row are the ones the sign flow shows.
+ */
+internal fun realReviewOf(to: String, calldata: String): Review {
+    val tx = UnsignedTx(
+        type = TxType.LEGACY_EIP155,
+        chainId = BigInteger.ONE,
+        nonce = BigInteger.valueOf(7),
+        to = to,
+        value = BigInteger.ZERO,
+        data = calldata,
+        gasLimit = BigInteger.valueOf(250_000),
+        gasPrice = BigInteger.valueOf(30_000_000_000L),
+        maxPriorityFeePerGas = null,
+        maxFeePerGas = null,
     )
+    val request = EthSignRequest(
+        requestId = null,
+        signData = checkNotNull(tx.encode()),
+        dataType = DataType.TRANSACTION,
+        chainId = 1L,
+        derivationPath = listOf(PathStep(44, true), PathStep(60, true), PathStep(0, true), PathStep(0, false), PathStep(0, false)),
+        sourceFingerprint = null,
+        address = null,
+        origin = null,
+    )
+    val builder = EvmReviewBuilder(UR_REGISTRY.withWhitelist(APPROVED_ENTRIES), { data, params -> AbiDecoder.decode(data, params) })
+    return (builder.review(EvmRequestParser.parsedOf(request), UR_SIGNER) as EvmReviewResult.Ok).review
 }
 
-private val AAVE_SUPPLY_STEP = keepAddressesWhole(AAVE_STEPS!!.lines.single())
+/** The Universal Router batch that pays [OTHER_ACCOUNT], as the app reviews it. */
+internal fun urBatchPayingOtherSample(): Review = realReviewOf(UR_V1_2, UR_BATCH_PAYING_OTHER)
 
-/** [urBatchSample] for the batch whose unwrap pays another account. */
-internal fun urBatchPayingOtherSample(): Review = urBatchSample(UR_BATCH_PAYING_OTHER)
+/** The Universal Router batch that pays the signer, as the app reviews it. */
+internal fun urBatchRealSample(): Review = realReviewOf(UR_V1_2, UR_BATCH_CALLDATA)
+
+/** The Aave V3 supply on behalf of [OTHER_ACCOUNT], as the app reviews it. */
+internal fun aaveSupplySample(): Review = realReviewOf(AAVE_POOL, AAVE_SUPPLY_CALLDATA)
+
+/** The last step line of [review], as the screen shows it, which a screenshot scrolls to so every step sits in view above it. */
+private fun lastStep(review: Review): String =
+    keepAddressesWhole(review.sections.single { it.style == SectionStyle.Steps }.rows.last().label)
 
 /** A native transfer whose one warning has a check to tick, and few facts, so the review fits on screen with its hold off. */
 private val shortWarningSample = sampleNativeReview.copy(
@@ -618,7 +643,7 @@ class SignScreenshotTest {
     fun reviewUniversalRouterBatchShowsItsSteps() = compose.snapshotScrolled(
         "tx_review_ur_steps",
         // Scrolling to the last step brings all three steps into view above it, and the arguments sit above them in the review.
-        lastUrStep(UR_BATCH_CALLDATA),
+        "Unwrap all WETH the router holds → ETH for you (at least 4.491011881166149117 WETH)",
     ) {
         EvmReviewScreen(review = urBatchSample())
     }
@@ -626,7 +651,7 @@ class SignScreenshotTest {
     @Test
     fun reviewUniversalRouterBatchPayingAnotherAccount() = compose.snapshotScrolled(
         "tx_review_ur_steps_other",
-        lastUrStep(UR_BATCH_PAYING_OTHER),
+        lastStep(urBatchPayingOtherSample()),
     ) {
         EvmReviewScreen(review = urBatchPayingOtherSample())
     }
@@ -635,19 +660,19 @@ class SignScreenshotTest {
     @Config(qualifiers = SCREENSHOT_NIGHT_QUALIFIERS)
     fun reviewUniversalRouterBatchPayingAnotherAccountNight() = compose.snapshotScrolled(
         "tx_review_ur_steps_other_night",
-        lastUrStep(UR_BATCH_PAYING_OTHER),
+        lastStep(urBatchPayingOtherSample()),
     ) {
         EvmReviewScreen(review = urBatchPayingOtherSample())
     }
 
     @Test
-    fun reviewAaveSupplyForAnotherAccount() = compose.snapshotScrolled("tx_review_aave_supply", AAVE_SUPPLY_STEP) {
+    fun reviewAaveSupplyForAnotherAccount() = compose.snapshotScrolled("tx_review_aave_supply", lastStep(aaveSupplySample())) {
         EvmReviewScreen(review = aaveSupplySample())
     }
 
     @Test
     @Config(qualifiers = SCREENSHOT_NIGHT_QUALIFIERS)
-    fun reviewAaveSupplyForAnotherAccountNight() = compose.snapshotScrolled("tx_review_aave_supply_night", AAVE_SUPPLY_STEP) {
+    fun reviewAaveSupplyForAnotherAccountNight() = compose.snapshotScrolled("tx_review_aave_supply_night", lastStep(aaveSupplySample())) {
         EvmReviewScreen(review = aaveSupplySample())
     }
 

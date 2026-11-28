@@ -16,13 +16,16 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import app.airvault.core.model.DisplayValue
 import app.airvault.core.model.Review
 import app.airvault.core.model.SectionStyle
+import app.airvault.core.model.text
+import app.lensly.ui.components.groupAddress
 import app.lensly.ui.screenshot.EvmReviewScreen
 import app.lensly.ui.screenshot.SCREENSHOT_QUALIFIERS
 import app.lensly.ui.screenshot.aaveSupplySample
 import app.lensly.ui.screenshot.urBatchPayingOtherSample
-import app.lensly.ui.screenshot.urBatchSample
+import app.lensly.ui.screenshot.urBatchRealSample
 import app.lensly.ui.theme.LumenTheme
 import org.junit.Rule
 import org.junit.Test
@@ -32,6 +35,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
@@ -50,7 +54,7 @@ class StepLineLayoutTest {
     fun aUniversalRouterBatchPayingAnotherAccountFitsTheScreen() = assertStepTextFits(urBatchPayingOtherSample())
 
     @Test
-    fun aUniversalRouterBatchPayingTheSignerFitsTheScreen() = assertStepTextFits(urBatchSample())
+    fun aUniversalRouterBatchPayingTheSignerFitsTheScreen() = assertStepTextFits(urBatchRealSample())
 
     @Test
     fun anAaveSupplyForAnotherAccountFitsTheScreen() = assertStepTextFits(aaveSupplySample())
@@ -63,6 +67,17 @@ class StepLineLayoutTest {
 
     private fun assertAddressesStayWhole(review: Review) {
         show(review)
+        recipientTexts(review).forEach { text ->
+            // A Recipient row wraps between groups, as every address row does, so each line holds whole groups of four.
+            layoutOf(text).let { layout ->
+                val shown = layout.layoutInput.text.text
+                (0 until layout.lineCount).forEach { line ->
+                    shown.substring(layout.getLineStart(line), layout.getLineEnd(line)).trim().split(' ').forEach { group ->
+                        assertTrue(GROUP.matches(group), "line ${line + 1} of the Recipient $text breaks inside the group \"$group\"")
+                    }
+                }
+            }
+        }
         stepTexts(review).forEach { text ->
             val layout = layoutOf(text)
             val shown = layout.layoutInput.text.text
@@ -74,6 +89,13 @@ class StepLineLayoutTest {
                 )
             }
         }
+    }
+
+    /** The grouped text of each Recipient row, which the review adds for every account its steps pay. It is an address row, not plain text. */
+    private fun recipientTexts(review: Review): List<String> {
+        val rows = review.sections.flatMap { it.rows }.filter { it.label == "Recipient" }
+        assertTrue(rows.isNotEmpty(), "the review has a Recipient row")
+        return rows.map { row -> groupAddress(assertIs<DisplayValue.Address>(row.value).text()) }
     }
 
     private fun stepTexts(review: Review): List<String> =
@@ -94,7 +116,7 @@ class StepLineLayoutTest {
     }
 
     private fun assertStepTextFits(review: Review) {
-        val texts = stepTexts(review)
+        val texts = stepTexts(review) + recipientTexts(review)
         assertTrue(texts.isNotEmpty(), "the review has step lines")
         show(review)
         texts.forEach { text ->
@@ -122,6 +144,7 @@ class StepLineLayoutTest {
 
         /** An account in groups of four, as a step line shows it. */
         val ADDRESS = Regex("0x[0-9A-Fa-f]{4}([ \u00A0][0-9A-Fa-f]{4}|[ \u00A0]…)+")
+        val GROUP = Regex("(0x)?[0-9A-Fa-f]{4}")
         const val NO_BREAK_SPACE = '\u00A0'
     }
 }
