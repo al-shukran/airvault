@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
@@ -164,7 +165,7 @@ internal fun ReviewSummary(
     modifier: Modifier = Modifier,
     icon: (@Composable () -> Unit)? = null,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(modifier = modifier.fillMaxWidth().clipToBounds()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             icon?.let {
                 it()
@@ -191,6 +192,7 @@ internal fun ReviewFactRow(label: String, value: String, mono: Boolean = true, m
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .clipToBounds()
             .padding(vertical = LenslySpacing.xxs),
         verticalAlignment = Alignment.Top,
     ) {
@@ -234,6 +236,7 @@ internal fun ReviewField(
 ) {
     Column(modifier = modifier
         .fillMaxWidth()
+        .clipToBounds()
         .padding(vertical = LenslySpacing.xxs),
     ) {
         Text(
@@ -258,7 +261,7 @@ internal fun ReviewField(
 /** A message the owner reads whole: its label above it, and its text in the monospace face on a raised block, so each character is checkable. */
 @Composable
 internal fun MessageBlock(label: String, text: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs)) {
+    Column(modifier = modifier.fillMaxWidth().clipToBounds().padding(vertical = LenslySpacing.xxs)) {
         Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(LenslySpacing.xxs))
         Box(
@@ -282,7 +285,7 @@ internal fun MessageBlock(label: String, text: String, modifier: Modifier = Modi
 internal fun ReviewHeading(label: String, modifier: Modifier = Modifier) {
     Text(
         text = label,
-        modifier = modifier.fillMaxWidth().padding(vertical = LenslySpacing.xxs),
+        modifier = modifier.fillMaxWidth().clipToBounds().padding(vertical = LenslySpacing.xxs),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -291,7 +294,7 @@ internal fun ReviewHeading(label: String, modifier: Modifier = Modifier) {
 /** One numbered step: its number in the muted colour, then its sentence, which wraps when it must. */
 @Composable
 internal fun ReviewStep(number: Int, text: String, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.fillMaxWidth().padding(bottom = LenslySpacing.sm)) {
+    Row(modifier = modifier.fillMaxWidth().clipToBounds().padding(bottom = LenslySpacing.sm)) {
         Text(text = "$number.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(LenslySpacing.sm))
         Text(
