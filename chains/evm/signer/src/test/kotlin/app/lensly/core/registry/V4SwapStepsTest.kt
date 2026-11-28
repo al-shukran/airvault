@@ -8,7 +8,9 @@ import app.airvault.abi.WhitelistParam
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import org.junit.Test
 import org.web3j.utils.Numeric
 
@@ -128,9 +130,9 @@ class V4SwapStepsTest {
 
         assertEquals(
             listOf(
-                "Swap exactly 0.2985 ETH for ≥ 0 base units of 0xf944…D7E9 via Uniswap v4 (0%)",
+                "Swap exactly 0.2985 ETH for ≥ 0 base units of 0xf944 AbFB … 0c84 D7E9 via Uniswap v4 (0%)",
                 "Pay all ETH the router owes to Uniswap v4 (at most 0.2985 ETH)",
-                "Take all 0xf944…D7E9 owed to the router from Uniswap v4 to you",
+                "Take all 0xf944 AbFB … 0c84 D7E9 owed to the router from Uniswap v4 to you",
             ),
             steps.lines,
         )
@@ -157,7 +159,7 @@ class V4SwapStepsTest {
 
         val viaTake = assertNotNull(stepsOfV4(take, MULTICALL3))
         assertEquals(listOf("Take 0.00001 USDC from Uniswap v4 to Multicall3"), viaTake.lines)
-        assertEquals(listOf("This sends the swap output to 0xcA11…CA11, not you"), viaTake.warnings)
+        assertEquals(listOf("This sends the swap output to 0xcA11 bde0 … 3976 CA11, not you"), viaTake.warnings)
         assertEquals(listOf(MULTICALL3), viaTake.addresses)
 
         val viaTakeAll = assertNotNull(stepsOfV4(takeAll, MULTICALL3))
@@ -176,14 +178,14 @@ class V4SwapStepsTest {
 
         assertEquals(
             listOf(
-                "Swap exactly 48076295626582967852933 base units of 0xf944…D7E9 for ≥ 0 ETH via Uniswap v4 (0%)",
-                "Pay all 0xf944…D7E9 the router owes from you to Uniswap v4 " +
-                    "(at most 48076295626582967852933 base units of 0xf944…D7E9)",
-                "Take all ETH owed to the router from Uniswap v4 to 0xFb35…AF75",
+                "Swap exactly 48076295626582967852933 base units of 0xf944 AbFB … 0c84 D7E9 for ≥ 0 ETH via Uniswap v4 (0%)",
+                "Pay all 0xf944 AbFB … 0c84 D7E9 the router owes from you to Uniswap v4 " +
+                    "(at most 48076295626582967852933 base units of 0xf944 AbFB … 0c84 D7E9)",
+                "Take all ETH owed to the router from Uniswap v4 to 0xFb35 6A46 … d352 AF75",
             ),
             steps.lines,
         )
-        assertEquals(listOf("This sends the swap output to 0xFb35…AF75, not you"), steps.warnings)
+        assertEquals(listOf("This sends the swap output to 0xFb35 6A46 … d352 AF75, not you"), steps.warnings)
         assertEquals("0xfb35", steps.addresses.single().take(6))
     }
 
@@ -195,9 +197,9 @@ class V4SwapStepsTest {
 
         assertEquals(
             listOf(
-                "Swap exactly 1494000000000000000000 base units of 0x118B…a0c0 for ≥ 197.899096 USDT " +
-                    "via Uniswap v4: 0x118B…a0c0 → USDC (0.25%), USDC → USDT (0.0007%)",
-                "Pay all 0x118B…a0c0 the router owes from you to Uniswap v4 (at most 1494000000000000000000 base units of 0x118B…a0c0)",
+                "Swap exactly 1494000000000000000000 base units of 0x118B 70dF … 8C8e a0c0 for ≥ 197.899096 USDT " +
+                    "via Uniswap v4: 0x118B 70dF … 8C8e a0c0 → USDC (0.25%), USDC → USDT (0.0007%)",
+                "Pay all 0x118B 70dF … 8C8e a0c0 the router owes from you to Uniswap v4 (at most 1494000000000000000000 base units of 0x118B 70dF … 8C8e a0c0)",
                 "Take all USDT owed to the router from Uniswap v4 to you (at least 197.899096 USDT)",
             ),
             steps.lines,
@@ -213,15 +215,15 @@ class V4SwapStepsTest {
 
         assertEquals(
             listOf(
-                "Swap exactly 0.121 ETH for ≥ 6551442498777280720010022 base units of 0x2273…171b via Uniswap v4 (0.3%)",
+                "Swap exactly 0.121 ETH for ≥ 6551442498777280720010022 base units of 0x2273 0064 … ec2E 171b via Uniswap v4 (0.3%)",
                 "Pay 0.121 ETH to Uniswap v4",
-                "Take all 0x2273…171b owed to the router from Uniswap v4 to you",
+                "Take all 0x2273 0064 … ec2E 171b owed to the router from Uniswap v4 to you",
             ),
             steps.lines,
         )
         assertEquals(
             listOf(
-                "A pool hook at 0x3Dc1…a145 runs its own code during this swap, so the amounts can differ from those shown.",
+                "A pool hook at 0x3Dc1 0d9E … dc27 a145 runs its own code during this swap, so the amounts can differ from those shown.",
             ),
             steps.warnings,
         )
@@ -235,19 +237,20 @@ class V4SwapStepsTest {
 
         assertEquals(
             listOf(
-                "Swap exactly 7924186602868757900558336 base units of 0x2273…171b for ≥ 0 ETH via Uniswap v4 (0.3%)",
-                "Pay all 0x2273…171b the router owes from you to Uniswap v4 (no limit)",
-                "Take 100% of all ETH owed to the router from Uniswap v4 to 0xc509…d3d4",
+                "Swap exactly 7924186602868757900558336 base units of 0x2273 0064 … ec2E 171b for ≥ 0 ETH via Uniswap v4 (0.3%)",
+                "Pay all 0x2273 0064 … ec2E 171b the router owes from you to Uniswap v4 (no limit)",
+                "Take 100% of all ETH owed to the router from Uniswap v4 to 0xc509 5A64 … 2B60 d3d4",
             ),
             steps.lines,
         )
         assertEquals(
             listOf(
-                "A pool hook at 0x3Dc1…a145 runs its own code during this swap, so the amounts can differ from those shown.",
-                "This sends part of the swap output to 0xc509…d3d4, not you",
+                "A pool hook at 0x3Dc1 0d9E … dc27 a145 runs its own code during this swap, so the amounts can differ from those shown.",
+                "This sends part of the swap output to 0xc509 5A64 … 2B60 d3d4, not you",
             ),
             steps.warnings,
         )
+        assertAddressesInGroupsOfFour(steps)
     }
 
     @Test
@@ -258,10 +261,10 @@ class V4SwapStepsTest {
 
         assertEquals(
             listOf(
-                "Swap up to 200.402795 USDT for exactly 12207000000000000000000 base units of 0xE76c…5dE1 via Uniswap v4 (0.25%)",
+                "Swap up to 200.402795 USDT for exactly 12207000000000000000000 base units of 0xE76c 5b78 … 582a 5dE1 via Uniswap v4 (0.25%)",
                 "Pay all USDT the router owes from you to Uniswap v4 (at most 200.402795 USDT)",
-                "Take all 0xE76c…5dE1 owed to the router from Uniswap v4 to you " +
-                    "(at least 12207000000000000000000 base units of 0xE76c…5dE1)",
+                "Take all 0xE76c 5b78 … 582a 5dE1 owed to the router from Uniswap v4 to you " +
+                    "(at least 12207000000000000000000 base units of 0xE76c 5b78 … 582a 5dE1)",
                 "Take all USDT owed to the router from Uniswap v4 to you",
             ),
             steps.lines,
@@ -272,18 +275,18 @@ class V4SwapStepsTest {
     @Test
     fun anExactOutputPathReadsItsPoolsFromTheInputToTheOutput() {
         // Transaction 0x560ccdb1bf042887de64bb2de90cee86a1cb169a0d0f529f9019dd43648edfb6, on Universal Router V2: a Permit2 permit, an
-        // exact-output swap of USDT through USDC to 0xdeF1…5afe, then a balance check. The path lists the input of each pool first, so the
+        // exact-output swap of USDT through USDC to 0xdeF1 b2D9 … 9017 5afe, then a balance check. The path lists the input of each pool first, so the
         // first pool is USDT to USDC at 0.0007% and the second is USDC to the output at 0.25%.
         val lines = assertNotNull(stepsOf(StepVectors.V4_SWAP_EXACT_OUT_PATH, "0x8bb88a3eafd6ba0b6cce254c0c447c4cf5860afe")).lines
 
         assertEquals(6, lines.size)
         assertEquals(
             listOf(
-                "Swap up to 225.631417 USDT for exactly 67361000000000000000000 base units of 0xdeF1…5afe via Uniswap v4: " +
-                    "USDT → USDC (0.0007%), USDC → 0xdeF1…5afe (0.25%)",
+                "Swap up to 225.631417 USDT for exactly 67361000000000000000000 base units of 0xdeF1 b2D9 … 9017 5afe via Uniswap v4: " +
+                    "USDT → USDC (0.0007%), USDC → 0xdeF1 b2D9 … 9017 5afe (0.25%)",
                 "Pay all USDT the router owes from you to Uniswap v4 (at most 225.631417 USDT)",
-                "Take all 0xdeF1…5afe owed to the router from Uniswap v4 to you " +
-                    "(at least 67361000000000000000000 base units of 0xdeF1…5afe)",
+                "Take all 0xdeF1 b2D9 … 9017 5afe owed to the router from Uniswap v4 to you " +
+                    "(at least 67361000000000000000000 base units of 0xdeF1 b2D9 … 9017 5afe)",
                 "Take all USDT owed to the router from Uniswap v4 to you",
             ),
             lines.subList(1, 5),
@@ -415,5 +418,46 @@ class V4SwapStepsTest {
 
         assertEquals(listOf("No actions: the router does nothing"), steps.lines)
         assertEquals(emptyList(), steps.warnings)
+    }
+
+    @Test
+    fun aTakeToTheRouterLeavesTheOutputThereUntilAnotherStepTakesItOut() {
+        fun leaves(actions: ByteArray, params: List<ByteArray>) = assertNotNull(stepsOfV4(v4Input(actions, params))).leavesInRouter
+        val toRouter = takeParam(USDC, ADDRESS_THIS, BigInteger.TEN)
+
+        assertTrue(leaves(byteArrayOf(0x0e), listOf(toRouter)))
+        assertTrue(leaves(byteArrayOf(0x10), listOf(abiAddressWord(USDC) + abiAddressWord(ADDRESS_THIS) + abiWord(BigInteger.valueOf(50)))))
+        // A take to the signer or the message sender, and a take-all, leave nothing.
+        assertFalse(leaves(byteArrayOf(0x0e), listOf(takeParam(USDC, SIGNER, BigInteger.TEN))))
+        assertFalse(leaves(byteArrayOf(0x0e), listOf(takeParam(USDC, MSG_SENDER, BigInteger.TEN))))
+        assertFalse(leaves(byteArrayOf(0x0f), listOf(pairParam(USDC, BigInteger.ZERO))))
+        // The router pays the whole of it into the pool manager.
+        assertFalse(leaves(byteArrayOf(0x0e, 0x0b), listOf(toRouter, settleParam(USDC, CONTRACT_BALANCE, payerIsUser = false))))
+        assertTrue(leaves(byteArrayOf(0x0e, 0x0b), listOf(toRouter, settleParam(USDC, CONTRACT_BALANCE, payerIsUser = true))))
+    }
+
+    @Test
+    fun aSweepAfterAV4TakeToTheRouterTakesTheOutputOut() {
+        val take = v4Input(byteArrayOf(0x0e), listOf(takeParam(USDC, ADDRESS_THIS, BigInteger.TEN)))
+        val sweep = abiAddressWord(USDC) + abiAddressWord(SIGNER) + abiWord(BigInteger.ZERO)
+        fun leaves(vararg inputs: ByteArray): Boolean = assertNotNull(
+            CallSteps.describe(
+                STEP_REGISTRY,
+                1,
+                UR_V2,
+                EXECUTE,
+                EXECUTE_SIGNATURE,
+                SIGNER,
+                BigInteger.ZERO,
+                listOf(
+                    DecodedParam(EXECUTE_PARAMS[0], AbiValue.Dynamic(if (inputs.size == 1) "10" else "1004")),
+                    DecodedParam(EXECUTE_PARAMS[1], AbiValue.Items(inputs.map { AbiValue.Dynamic(it.toHex()) })),
+                    DecodedParam(EXECUTE_PARAMS[2], AbiValue.Word("00".repeat(ABI_WORD))),
+                ),
+            ),
+        ).leavesInRouter
+
+        assertTrue(leaves(take))
+        assertFalse(leaves(take, sweep))
     }
 }

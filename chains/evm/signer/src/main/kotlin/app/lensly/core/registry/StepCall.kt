@@ -3,6 +3,7 @@ package app.lensly.core.registry
 import app.airvault.abi.AbiValue
 import app.airvault.abi.DecodedParam
 import app.airvault.abi.hexBytesOrNull
+import app.airvault.core.model.AddressGroups
 import app.lensly.core.wallet.toHex
 import java.math.BigInteger
 import java.time.Instant
@@ -21,17 +22,15 @@ internal const val ADDRESS_THIS = "0x0000000000000000000000000000000000000002"
 
 private const val ADDRESS_BYTES = 20
 private const val ADDRESS_HEX = 40
-private const val SHORT_HEAD = 6
-private const val SHORT_TAIL = 4
 
 private val UNTIL: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'").withZone(ZoneOffset.UTC)
 private val MAX_INSTANT_SECONDS: BigInteger = BigInteger.valueOf(Instant.MAX.epochSecond)
 
-/** [address] for a sentence: the first six and last four characters of its EIP-55 checksum. The full value is under Details. */
-internal fun shortAddress(address: String): String {
-    val checksum = Keys.toChecksumAddress(address)
-    return checksum.take(SHORT_HEAD) + "…" + checksum.takeLast(SHORT_TAIL)
-}
+/** The wrapped native coin on Ethereum mainnet, the only network the Uniswap routers are approved on. */
+internal const val WETH_MAINNET = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+
+/** [address] for a sentence: its EIP-55 checksum as the first two and last two groups of 4, as the summary shows it. The full value is under Details. */
+internal fun shortAddress(address: String): String = AddressGroups.ends(Keys.toChecksumAddress(address))
 
 /**
  * The warning of a step that pays or credits [address], or an empty list when [address] is the signer. [what] is the action that reaches
@@ -77,7 +76,8 @@ internal fun ByteArray.addressAt(at: Int): String = "0x" + copyOfRange(at, at + 
  * One approved call a step describes: its contract, the signing address, the native amount it sends, its decoded arguments, and its
  * network. [caller] is the address the contract sees as its message sender: the signer, or the Multicall3 contract that calls it inside a
  * batch. A router flag for the message sender means [caller], so inside a batch it is not the signer. Addresses are lowercase. The names and amounts a step shows come from [registry], so a token it does not know is shown as its
- * short address and raw base units, and never as a guessed symbol or decimals.
+ * short address and raw base units, and never as a guessed symbol or decimals. [held] is the tokens a router step has left in the router and
+ * no later step has taken out, so the steps of one call share it.
  */
 internal class StepCall(
     val registry: Registry,
@@ -87,6 +87,7 @@ internal class StepCall(
     val sent: BigInteger,
     private val params: List<DecodedParam>,
     val caller: String = from,
+    private val held: MutableSet<String> = LinkedHashSet(),
 ) {
     val chainId: Long get() = network.chainId
 
@@ -152,6 +153,30 @@ internal class StepCall(
         ADDRESS_THIS -> "kept in the router"
         else -> "sent to ${recipientName(address)}"
     }
+
+    /** Whether a step has left a token in the router that no later step has taken out, where anyone can take it. */
+    val leavesInRouter: Boolean get() = held.isNotEmpty()
+
+    /** A step that pays [token] to [recipient]: the flag 0x…02 keeps it in the router. */
+    fun keepInRouter(token: String, recipient: String) {
+        if (paid(recipient) == ADDRESS_THIS) held += token
+    }
+
+    /** A step that takes all [token] out of the router to [recipient]: the flag 0x…02 leaves it there. */
+    fun takeFromRouter(token: String, recipient: String) {
+        if (paid(recipient) != ADDRESS_THIS) emptyRouterOf(token)
+    }
+
+    /** A step that spends or unwraps all [token] the router holds, so none is left. */
+    fun emptyRouterOf(token: String) {
+        held -= token
+    }
+
+    /** The same call with its steps' leftover check made: [CallSteps.leavesInRouter] says what the router still holds at the end. */
+    fun checked(steps: CallSteps): CallSteps = steps.copy(leavesInRouter = leavesInRouter)
+
+    /** A call the same contract makes with [params], sharing what the steps so far left in the router. */
+    fun inner(params: List<DecodedParam>): StepCall = StepCall(registry, network, contract, from, BigInteger.ZERO, params, caller, held)
 
     /**
      * The steps of one line that pays [recipient], as [what] reads in "This <what> <address>, not you". A recipient that is not the signer

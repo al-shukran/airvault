@@ -1050,4 +1050,35 @@ class OffChainSignatureReviewTest {
         }
         assertTrue(cautionsOf(reviewed(USD_SEND, ARBITRUM)).none { it.code == "evm.typed.other-type" })
     }
+
+    // The badge comes from the action's own network, not from the registry entry of the chain that only carries the signature (issue 1665).
+    private fun testnetEntry(chainId: Long) =
+        NetworkEntry(chainId, "Some Testnet", "ETH", 18, FeeModel.L1, "Scan", testnet = true, featured = false, kind = NetworkKind.LAYER_1, parentChainId = null)
+
+    private fun headerOf(json: String, chainId: Long?): app.airvault.core.model.NetworkLabel {
+        val registry = Registry(networks = REGISTRY.networks() + listOf(421614L, 1337L).map(::testnetEntry), tokens = emptyList())
+        val result = reviewOf(json.toByteArray(Charsets.UTF_8), chainId, builder = EvmReviewBuilder(registry, { _, _ -> error("no call") }))
+        return assertIs<EvmReviewResult.Ok>(result).review.network
+    }
+
+    @Test
+    fun theTestnetBadgeOfAHyperliquidActionFollowsItsOwnNetworkNotTheRegistryEntryOfTheSignatureChain() {
+        fun usdSend(network: String) = USD_SEND.replace("\"hyperliquidChain\":\"Testnet\"", "\"hyperliquidChain\":\"$network\"")
+
+        assertFalse(headerOf(usdSend("Mainnet"), ARBITRUM).testnet)
+        assertTrue(headerOf(usdSend("Testnet"), ARBITRUM).testnet)
+        // The name agrees with the badge: the registry name of the signature chain ("Some Testnet") is not shown.
+        assertEquals("Hyperliquid Mainnet", headerOf(usdSend("Mainnet"), ARBITRUM).name)
+        assertEquals("Hyperliquid Testnet", headerOf(usdSend("Testnet"), ARBITRUM).name)
+        assertEquals("Hyperliquid Mainnet", headerOf(l1Agent("a", DUMMY_CONNECTION_ID), 1337L).name)
+        assertEquals("Hyperliquid Testnet", headerOf(l1Agent("b", DUMMY_CONNECTION_ID), 1337L).name)
+        // A network value the SDK does not write keeps the registry name and badge.
+        assertEquals("Some Testnet", headerOf(l1Agent("c", DUMMY_CONNECTION_ID), 1337L).name)
+        assertTrue(headerOf(l1Agent("c", DUMMY_CONNECTION_ID), 1337L).testnet)
+        // The signature chain 42161 and the L1 agent on 1337 follow the same rule, whatever the registry says of those chains.
+        assertFalse(headerOf(l1Agent("a", DUMMY_CONNECTION_ID), 1337L).testnet)
+        assertTrue(headerOf(l1Agent("b", DUMMY_CONNECTION_ID), 1337L).testnet)
+        // Another product still takes the badge from the registry.
+        assertTrue(headerOf(asterMessage(421614, ASTER_MASTER_MESSAGE), 421614L).testnet)
+    }
 }

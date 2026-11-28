@@ -79,20 +79,20 @@ class BulkerStepsTest {
 
         assertEquals(
             listOf(
-                "Supply 0.24552811 WBTC as collateral to Compound V3 (cUSDCv3) for 0x1801…24B5",
-                "Withdraw 5,399 USDC from Compound V3 (cUSDCv3) to 0x1801…24B5",
+                "Supply 0.24552811 WBTC as collateral to Compound V3 (cUSDCv3) for 0x1801 C32e … 4880 24B5",
+                "Withdraw 5,399 USDC from Compound V3 (cUSDCv3) to 0x1801 C32e … 4880 24B5",
             ),
             steps.lines,
         )
-        assertEquals(listOf("This supplies to 0x1801…24B5, not you", "This withdraws to 0x1801…24B5, not you"), steps.warnings)
+        assertEquals(listOf("This supplies to 0x1801 C32e … 4880 24B5, not you", "This withdraws to 0x1801 C32e … 4880 24B5, not you"), steps.warnings)
     }
 
     @Test
     fun aNativeSupplyForAnotherAccountWarns() {
         val steps = assertNotNull(stepsOf(StepVectors.BULKER_SUPPLY_NATIVE, "0x0000000000000000000000000000000000000abc", BigInteger("114000000000000000")))
 
-        assertEquals(listOf("Supply 0.114 ETH to Compound V3 (cWETHv3) for 0x9ff4…B058"), steps.lines)
-        assertEquals(listOf("This supplies to 0x9ff4…B058, not you"), steps.warnings)
+        assertEquals(listOf("Supply 0.114 ETH to Compound V3 (cWETHv3) for 0x9ff4 4CBE … ebCb B058"), steps.lines)
+        assertEquals(listOf("This supplies to 0x9ff4 4CBE … ebCb B058, not you"), steps.warnings)
     }
 
     @Test
@@ -109,8 +109,8 @@ class BulkerStepsTest {
             CallSteps.describe(STEP_REGISTRY, 1, BULKER, BULKER_SELECTOR, BULKER_SIGNATURE, SIGNER, BigInteger.ZERO, params),
         )
 
-        assertEquals(listOf("Supply your borrow balance on Compound V3 (cWETHv3) for 0x9ff4…B058, up to the value sent, and get the rest back (the exact amount is not read)"), steps.lines)
-        assertEquals(listOf("This supplies to 0x9ff4…B058, not you"), steps.warnings)
+        assertEquals(listOf("Supply your borrow balance on Compound V3 (cWETHv3) for 0x9ff4 4CBE … ebCb B058, up to the value sent, and get the rest back (the exact amount is not read)"), steps.lines)
+        assertEquals(listOf("This supplies to 0x9ff4 4CBE … ebCb B058, not you"), steps.warnings)
     }
 
     @Test

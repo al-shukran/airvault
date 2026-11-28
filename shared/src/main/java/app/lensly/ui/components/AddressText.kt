@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.airvault.core.model.AddressGroups
 import app.lensly.ui.theme.LenslySpacing
 import app.lensly.ui.theme.LocalMonoFamily
 
@@ -97,10 +98,7 @@ fun AddressText(
  * the groups, so an EVM address reads `0x1a2B 3c4D …`. Only the display changes: the full address is kept, and text wraps only at the
  * spaces.
  */
-fun groupAddress(address: String): String {
-    val prefix = if (address.startsWith("0x")) "0x" else ""
-    return prefix + address.removePrefix(prefix).chunked(4).joinToString(" ")
-}
+fun groupAddress(address: String): String = AddressGroups.group(address)
 
 /** Copies [address] through [copyToClipboard], then confirms with a short toast. */
 internal fun copyAddress(context: Context, address: String) {

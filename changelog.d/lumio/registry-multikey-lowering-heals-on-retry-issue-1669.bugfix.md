@@ -1,0 +1,1 @@
+Installing a recovery package that revokes a leaked key can no longer leave the registry store unverified and refusing the same package again when the phone's key storage fails twice during the install.

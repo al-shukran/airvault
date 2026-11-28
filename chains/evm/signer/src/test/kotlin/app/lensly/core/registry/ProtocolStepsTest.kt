@@ -153,8 +153,9 @@ class ProtocolStepsTest {
             ),
         )
 
-        assertEquals(listOf("Supply 71.06853 USDC to Aave V3 on behalf of 0x1593…5343"), steps.lines)
-        assertEquals(listOf("This supplies to 0x1593…5343, not you"), steps.warnings)
+        assertEquals(listOf("Supply 71.06853 USDC to Aave V3 on behalf of 0x1593 D398 … 3eA2 5343"), steps.lines)
+        assertEquals(listOf("This supplies to 0x1593 D398 … 3eA2 5343, not you"), steps.warnings)
+        assertAddressesInGroupsOfFour(steps)
     }
 
     /**
@@ -177,16 +178,16 @@ class ProtocolStepsTest {
         // The function, the contract, its calldata and params, and the warning it earns for [other].
         class Case(val signature: String, val selector: String, val contract: String, val params: List<WhitelistParam>, val input: String, val warning: String)
         val cases = listOf(
-            Case("supply(address,uint256,address,uint16)", "0x617ba037", AAVE_POOL, AAVE_SUPPLY, call("0x617ba037", asset, amount, account, zero), "This supplies to 0x1593…5343, not you"),
-            Case("withdraw(address,uint256,address)", "0x69328dec", AAVE_POOL, AAVE_WITHDRAW, call("0x69328dec", asset, amount, account), "This withdraws to 0x1593…5343, not you"),
-            Case("repay(address,uint256,uint256,address)", "0x573ade81", AAVE_POOL, AAVE_REPAY, call("0x573ade81", asset, amount, abiWord(BigInteger.valueOf(2)), account), "This repays the debt of 0x1593…5343, not you"),
+            Case("supply(address,uint256,address,uint16)", "0x617ba037", AAVE_POOL, AAVE_SUPPLY, call("0x617ba037", asset, amount, account, zero), "This supplies to 0x1593 D398 … 3eA2 5343, not you"),
+            Case("withdraw(address,uint256,address)", "0x69328dec", AAVE_POOL, AAVE_WITHDRAW, call("0x69328dec", asset, amount, account), "This withdraws to 0x1593 D398 … 3eA2 5343, not you"),
+            Case("repay(address,uint256,uint256,address)", "0x573ade81", AAVE_POOL, AAVE_REPAY, call("0x573ade81", asset, amount, abiWord(BigInteger.valueOf(2)), account), "This repays the debt of 0x1593 D398 … 3eA2 5343, not you"),
             Case(
                 "supplyWithPermit(address,uint256,address,uint16,uint256,uint8,bytes32,bytes32)",
                 "0x02c205f0",
                 AAVE_POOL,
                 supplyPermitParams,
                 call("0x02c205f0", asset, amount, account, zero, zero, zero, zero, zero),
-                "This supplies to 0x1593…5343, not you",
+                "This supplies to 0x1593 D398 … 3eA2 5343, not you",
             ),
             Case(
                 "repayWithPermit(address,uint256,uint256,address,uint256,uint8,bytes32,bytes32)",
@@ -194,11 +195,11 @@ class ProtocolStepsTest {
                 AAVE_POOL,
                 AAVE_REPAY_WITH_PERMIT,
                 call("0xee3e210b", asset, amount, abiWord(BigInteger.valueOf(2)), account, zero, zero, zero, zero),
-                "This repays the debt of 0x1593…5343, not you",
+                "This repays the debt of 0x1593 D398 … 3eA2 5343, not you",
             ),
-            Case("depositETH(address,address,uint16)", "0x474cf53d", AAVE_GATEWAY, AAVE_GATEWAY_DEPOSIT, call("0x474cf53d", zero, account, zero), "This supplies to 0x1593…5343, not you"),
-            Case("withdrawETH(address,uint256,address)", "0x80500d20", AAVE_GATEWAY, AAVE_GATEWAY_WITHDRAW, call("0x80500d20", zero, amount, account), "This withdraws to 0x1593…5343, not you"),
-            Case("repayETH(address,uint256,address)", "0xbcc3c255", AAVE_GATEWAY, AAVE_GATEWAY_REPAY, call("0xbcc3c255", zero, amount, account), "This repays the debt of 0x1593…5343, not you"),
+            Case("depositETH(address,address,uint16)", "0x474cf53d", AAVE_GATEWAY, AAVE_GATEWAY_DEPOSIT, call("0x474cf53d", zero, account, zero), "This supplies to 0x1593 D398 … 3eA2 5343, not you"),
+            Case("withdrawETH(address,uint256,address)", "0x80500d20", AAVE_GATEWAY, AAVE_GATEWAY_WITHDRAW, call("0x80500d20", zero, amount, account), "This withdraws to 0x1593 D398 … 3eA2 5343, not you"),
+            Case("repayETH(address,uint256,address)", "0xbcc3c255", AAVE_GATEWAY, AAVE_GATEWAY_REPAY, call("0xbcc3c255", zero, amount, account), "This repays the debt of 0x1593 D398 … 3eA2 5343, not you"),
         )
 
         for (case in cases) {
@@ -315,7 +316,7 @@ class ProtocolStepsTest {
         )
 
         assertEquals(
-            listOf("Supply 25113604000000000000 base units of 0x1f98…F984 as collateral to Compound V3 (cUSDCv3)"),
+            listOf("Supply 25113604000000000000 base units of 0x1f98 40a8 … 4201 F984 as collateral to Compound V3 (cUSDCv3)"),
             steps.lines,
         )
     }
@@ -332,7 +333,7 @@ class ProtocolStepsTest {
 
     @Test
     fun aCompoundSupplyToAnotherAccountNamesTheAccountAndWarns() {
-        // Transaction 0xd5d49512: supplies 9,301 USDC to the base market, credited to 0xC5Cd…Cc46, which is not the signer.
+        // Transaction 0xd5d49512: supplies 9,301 USDC to the base market, credited to 0xC5Cd 3aBe … 3239 Cc46, which is not the signer.
         val steps = assertNotNull(
             stepsOf(
                 StepVectors.COMPOUND_SUPPLY_TO_USDC,
@@ -344,13 +345,13 @@ class ProtocolStepsTest {
             ),
         )
 
-        assertEquals(listOf("Supply 9,301 USDC to Compound V3 (cUSDCv3) for 0xC5Cd…Cc46"), steps.lines)
-        assertEquals(listOf("This supplies to 0xC5Cd…Cc46, not you"), steps.warnings)
+        assertEquals(listOf("Supply 9,301 USDC to Compound V3 (cUSDCv3) for 0xC5Cd 3aBe … 3239 Cc46"), steps.lines)
+        assertEquals(listOf("This supplies to 0xC5Cd 3aBe … 3239 Cc46, not you"), steps.warnings)
     }
 
     @Test
     fun aCompoundWithdrawFromAnotherAccountNamesBothAccountsAndWarns() {
-        // Transaction 0x4680103d: withdraws all USDC of 0x02D2…4113 from the base market, paid to the signer.
+        // Transaction 0x4680103d: withdraws all USDC of 0x02D2 C77C … 474D 4113 from the base market, paid to the signer.
         val steps = assertNotNull(
             stepsOf(
                 StepVectors.COMPOUND_WITHDRAW_FROM_USDC,
@@ -362,8 +363,8 @@ class ProtocolStepsTest {
             ),
         )
 
-        assertEquals(listOf("Withdraw all USDC from Compound V3 (cUSDCv3) of 0x02D2…4113 to you"), steps.lines)
-        assertEquals(listOf("This withdraws from 0x02D2…4113, not you"), steps.warnings)
+        assertEquals(listOf("Withdraw all USDC from Compound V3 (cUSDCv3) of 0x02D2 C77C … 474D 4113 to you"), steps.lines)
+        assertEquals(listOf("This withdraws from 0x02D2 C77C … 474D 4113, not you"), steps.warnings)
     }
 
     @Test
@@ -405,7 +406,7 @@ class ProtocolStepsTest {
             ),
         )
 
-        assertEquals(listOf("Stake 3 ETH with Lido for stETH (referral 0x11d0…11d0)"), steps.lines)
+        assertEquals(listOf("Stake 3 ETH with Lido for stETH (referral 0x11d0 0000 … 0000 11d0)"), steps.lines)
     }
 
     @Test
@@ -642,7 +643,7 @@ class ProtocolStepsTest {
 
     @Test
     fun aCompoundWithdrawToAnotherAccountWarns() {
-        // Transaction 0xaf636d76, Compound V3 cWETHv3: withdraw 0.371294586194255254 WETH to 0x5eD4…C592, which is not the sender.
+        // Transaction 0xaf636d76, Compound V3 cWETHv3: withdraw 0.371294586194255254 WETH to 0x5eD4 9535 … C3DD C592, which is not the sender.
         val steps = assertNotNull(
             stepsOf(
                 StepVectors.COMPOUND_WITHDRAW_TO,
@@ -658,8 +659,8 @@ class ProtocolStepsTest {
             ),
         )
 
-        assertEquals(listOf("Withdraw 0.371294586194255254 WETH from Compound V3 (cWETHv3) to 0x5eD4…C592"), steps.lines)
-        assertEquals(listOf("This withdraws to 0x5eD4…C592, not you"), steps.warnings)
+        assertEquals(listOf("Withdraw 0.371294586194255254 WETH from Compound V3 (cWETHv3) to 0x5eD4 9535 … C3DD C592"), steps.lines)
+        assertEquals(listOf("This withdraws to 0x5eD4 9535 … C3DD C592, not you"), steps.warnings)
     }
 
     @Test
@@ -669,7 +670,7 @@ class ProtocolStepsTest {
             stepsOf(StepVectors.WSTETH_WRAP, WSTETH, "0xea598cb0", "wrap(uint256)", ONE_AMOUNT, from = "0x1bb1ea7d387c142ab874715f50741cadcfcfc407"),
         )
 
-        assertEquals(listOf("Wrap 5000000000000000000 base units of 0xae7a…fE84 into wstETH"), steps.lines)
+        assertEquals(listOf("Wrap 5000000000000000000 base units of 0xae7a b965 … 12D7 fE84 into wstETH"), steps.lines)
         assertEquals(emptyList(), steps.warnings)
     }
 
@@ -687,7 +688,7 @@ class ProtocolStepsTest {
             ),
         )
 
-        assertEquals(listOf("Unwrap 434956435649819 base units of 0x7f39…2Ca0 into stETH"), steps.lines)
+        assertEquals(listOf("Unwrap 434956435649819 base units of 0x7f39 C581 … 935E 2Ca0 into stETH"), steps.lines)
     }
 
     @Test
@@ -705,7 +706,7 @@ class ProtocolStepsTest {
         )
 
         assertEquals(
-            listOf("Request a withdrawal of 8708677820110489 base units of 0xae7a…fE84 as ETH for you"),
+            listOf("Request a withdrawal of 8708677820110489 base units of 0xae7a b965 … 12D7 fE84 as ETH for you"),
             steps.lines,
         )
         assertEquals(emptyList(), steps.warnings)

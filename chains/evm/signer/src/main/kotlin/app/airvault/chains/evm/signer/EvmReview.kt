@@ -111,10 +111,17 @@ class EvmReviewBuilder(
             DataType.TYPED_DATA -> (parsed.typed as? TypedDataParser.Result.Ok)?.data?.domainChainId == null
             else -> false
         }
+        // A Hyperliquid action runs on the network its own message names. Its domain chain only carries the signature, so it sets neither the header's name nor its badge.
+        private val hyperliquidNetwork = (parsed.typed as? TypedDataParser.Result.Ok)?.data
+            ?.let { offChainLabelOf(it.domain, it.primaryType)?.hyperliquidNetwork(it.message) }
         private val headerNetwork = if (bindsNoChain) {
             NetworkLabel(name = ANY_CHAIN_NAME, testnet = false, detail = null)
         } else {
-            NetworkLabel(name = networkName, testnet = network?.testnet == true, detail = network?.let { "Chain ID $chainId" })
+            NetworkLabel(
+                name = hyperliquidNetwork?.label ?: networkName,
+                testnet = hyperliquidNetwork?.let { it == HyperliquidNetwork.TESTNET } ?: (network?.testnet == true),
+                detail = network?.let { "Chain ID $chainId" },
+            )
         }
         private val chain = ChainId("eip155:$chainId")
         private val header = ArrayList<ReviewRow>()
@@ -604,6 +611,7 @@ class EvmReviewBuilder(
                 ),
             )
             if (gap.proxy != null) add(Warning(Danger.DANGER, CODE_PROXY, PROXY_WARNING, field, ACK_UPGRADE))
+            if (gap.steps?.leavesInRouter == true) add(Warning(Danger.DANGER, CODE_ROUTER_LEFTOVER, ROUTER_LEFTOVER_WARNING, field, ACK_ROUTER_LEFTOVER))
             val paysOther = batched && gap.steps?.addresses?.isNotEmpty() == true
             gap.steps?.warnings?.forEach {
                 add(if (paysOther) Warning(Danger.DANGER, CODE_STEPS, it, field, ACK_STEP_PAYEE) else Warning(Danger.CAUTION, CODE_STEPS, it, field))
@@ -1197,6 +1205,12 @@ internal const val ACK_ALL_NFTS = "I understand this grants control of all NFTs 
 /** The check the owner ticks for a batch call whose router step pays an account other than the signer, by name. */
 internal const val ACK_STEP_PAYEE = "I understand this call pays an account other than mine."
 
+/** The DANGER on a router call whose steps leave tokens in the router, where the next caller can take them. */
+internal const val ROUTER_LEFTOVER_WARNING = "This leaves the swap output in the router, where anyone can take it"
+
+/** The check the owner ticks for a router call that leaves tokens in the router, by name. */
+internal const val ACK_ROUTER_LEFTOVER = "I understand this call leaves tokens in the router, where anyone can take them."
+
 /** The check the owner ticks for a transfer that moves tokens out of an account other than the signer, by name. */
 internal const val ACK_FOREIGN_FROM = "I understand these tokens move out of another account."
 
@@ -1214,6 +1228,7 @@ internal const val CODE_REGISTRY = "evm.registry"
 internal const val CODE_WHITELIST = "evm.whitelisted-call"
 internal const val CODE_PROXY = "evm.proxy"
 internal const val CODE_STEPS = "evm.steps"
+internal const val CODE_ROUTER_LEFTOVER = "evm.router-leftover"
 internal const val CODE_MESSAGE = "evm.personal-message"
 private const val CODE_MESSAGE_CHAIN = "evm.personal-message.chain"
 internal const val CODE_MESSAGE_HASH = "evm.personal-message.hash"
