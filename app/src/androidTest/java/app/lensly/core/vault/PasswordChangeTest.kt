@@ -7,6 +7,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -14,8 +15,10 @@ import org.junit.runner.RunWith
 
 /**
  * An App Password change on the device. Rekey re-wraps the vault key under the new password. So the new password opens
- * the vault, the old one does not, and every record is still there and unchanged. A change that stops before its commit
- * leaves the old key file in place, so one of the two passwords still opens the vault.
+ * the vault, the old one does not, and every record is still there and unchanged. A change that stops while it writes the
+ * new key file leaves the old key file in place, so the old password still opens the vault. A change that stops after the
+ * failure state names the new key file and before the rename leaves a key file the state does not name, which is
+ * unverifiable, so the next unlock erases the vault.
  */
 @RunWith(AndroidJUnit4::class)
 class PasswordChangeTest {
@@ -89,26 +92,22 @@ class PasswordChangeTest {
     }
 
     @Test
-    fun aChangeStoppedBeforeItsCommitKeepsTheOldPasswordWorking() {
+    fun aChangeStoppedBetweenNamingTheNewKeyFileAndTheRenameErasesTheVault() {
         runBlocking {
             vault.create(OLD.toCharArray())
             val session = unlocked(vault.unlock(OLD.toCharArray()))
-            val wallet = session.createWallet()
-            session.putRecord(wallet, "secret", SEED)
+            session.createWallet()
             val oldKeyFile = vaultKeyFile.readBytes()
 
-            // Run the whole change, then put the files back to the moment before the rename. The new key file is
-            // complete and verified, but it is still the pending file, and the old key file is the one in place.
+            // Run the whole change, then put the files back to the moment before the rename. The failure state names the new
+            // key file already, so the old key file in place is not the one last written.
             assertEquals(CreateResult.Created, vault.rekey(session, NEW.toCharArray()))
             session.close()
             pendingKeyFile.writeBytes(vaultKeyFile.readBytes())
             vaultKeyFile.writeBytes(oldKeyFile)
 
-            assertRejected(vault.unlock(NEW.toCharArray()))
-            clock.advance(FailureDelay.LEARNING_CAP_MS)
-            val reopened = unlocked(vault.unlock(OLD.toCharArray()))
-            assertArrayEquals(SEED, reopened.getRecord(wallet, "secret"))
-            reopened.close()
+            assertEquals(UnlockResult.Erased, vault.unlock(OLD.toCharArray()))
+            assertFalse(vault.exists())
         }
     }
 
