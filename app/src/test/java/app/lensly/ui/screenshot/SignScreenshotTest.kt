@@ -62,6 +62,7 @@ import app.lensly.core.registry.FeeModel
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.NetworkKind
 import app.lensly.core.registry.ProxyBinding
+import app.lensly.core.registry.ProxyPolicy
 import app.lensly.core.registry.Registry
 import app.lensly.core.registry.TokenEntry
 import app.lensly.core.registry.WhitelistEntry
@@ -381,7 +382,7 @@ private val APPROVED_ENTRIES = listOf(
     ),
     WhitelistEntry(
         chainId = 1L,
-        contract = AAVE_POOL,
+        contract = AAVE_POOL.lowercase(),
         selector = "0x617ba037",
         signature = "supply(address,uint256,address,uint16)",
         meaning = "Aave V3: deposit an asset into the pool to earn interest. It can be used as collateral.",
@@ -398,7 +399,7 @@ private val APPROVED_ENTRIES = listOf(
 
 /**
  * The review the app builds for the call [calldata] to [to] on Ethereum, from a legacy transaction signed by [UR_SIGNER]: the real
- * [EvmReviewBuilder] with the approved entries above, so its rows, fee, warnings and Recipient row are the ones the sign flow shows.
+ * [EvmReviewBuilder] with the approved entries above (Aave is an upgradeable proxy, so the owner has chosen to warn and confirm), so its rows, fee, warnings and Recipient row are the ones the sign flow shows.
  */
 internal fun realReviewOf(to: String, calldata: String): Review {
     val tx = UnsignedTx(
@@ -423,8 +424,13 @@ internal fun realReviewOf(to: String, calldata: String): Review {
         address = null,
         origin = null,
     )
-    val builder = EvmReviewBuilder(UR_REGISTRY.withWhitelist(APPROVED_ENTRIES), { data, params -> AbiDecoder.decode(data, params) })
-    return (builder.review(EvmRequestParser.parsedOf(request), UR_SIGNER) as EvmReviewResult.Ok).review
+    val builder = EvmReviewBuilder(
+        UR_REGISTRY.withWhitelist(APPROVED_ENTRIES),
+        { data, params -> AbiDecoder.decode(data, params) },
+        ProxyPolicy.WARN_AND_CONFIRM,
+    )
+    val result = builder.review(EvmRequestParser.parsedOf(request), UR_SIGNER)
+    return (result as? EvmReviewResult.Ok ?: error("the sample is refused: ${(result as? EvmReviewResult.Refused)?.reason}")).review
 }
 
 /** The Universal Router batch that pays [OTHER_ACCOUNT], as the app reviews it. */

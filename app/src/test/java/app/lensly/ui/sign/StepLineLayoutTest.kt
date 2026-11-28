@@ -67,7 +67,6 @@ class StepLineLayoutTest {
 
     private fun assertAddressesStayWhole(review: Review) {
         show(review)
-        assertTrue(recipientTexts(review).isNotEmpty(), "the review pays another account, so it has a Recipient row")
         recipientTexts(review).forEach { text ->
             // A Recipient row wraps between groups, as every address row does, so each line holds whole groups of four.
             layoutOf(text).let { layout ->
@@ -79,10 +78,12 @@ class StepLineLayoutTest {
                 }
             }
         }
+        var addresses = 0
         stepTexts(review).forEach { text ->
             val layout = layoutOf(text)
             val shown = layout.layoutInput.text.text
             ADDRESS.findAll(shown).forEach { address ->
+                addresses++
                 assertEquals(
                     layout.getLineForOffset(address.range.first),
                     layout.getLineForOffset(address.range.last),
@@ -90,9 +91,10 @@ class StepLineLayoutTest {
                 )
             }
         }
+        assertTrue(addresses > 0, "the steps of the review name an account in groups of four")
     }
 
-    /** The grouped text of each Recipient row, which the review adds for every account other than the signer that its steps pay. It is an address row, not plain text. */
+    /** The grouped text of each Recipient row, which the review adds for an account other than the signer that a Universal Router batch pays. It is an address row, not plain text. */
     private fun recipientTexts(review: Review): List<String> {
         val rows = review.sections.flatMap { it.rows }.filter { it.label == "Recipient" }
         return rows.map { row -> groupAddress(assertIs<DisplayValue.Address>(row.value).text()) }
