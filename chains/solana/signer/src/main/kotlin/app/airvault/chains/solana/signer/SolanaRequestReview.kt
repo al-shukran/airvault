@@ -119,11 +119,19 @@ class SolanaRequestReview internal constructor(
         get() = computeUnitLimit == null && instructions.any { it is SolanaInstruction.SetComputeUnitPrice }
 
     /**
-     * The base fee in lamports: [SolanaFees.lamportsPerSignature] for each signature the transaction requires. Zero for a message. The
-     * product cannot wrap: a message header counts at most 255 signatures and [SolanaFees] caps the fee of one far below 2^64 / 255.
+     * The base fee in lamports: [SolanaFees.lamportsPerSignature] for each signature the transaction requires, and for each signature a
+     * signature-verify instruction (Ed25519, secp256k1 or secp256r1) checks. The network reads that count from the first data byte of the
+     * instruction, and counts 0 when the data is empty. Zero for a message. The sum cannot wrap: a transaction holds far fewer than 2^16
+     * instructions of 255 signatures each, and [SolanaFees] caps the fee of one far below 2^64 / 2^24.
      */
     val baseFeeLamports: ULong
-        get() = (message?.header?.numRequiredSignatures ?: 0).toULong() * fees.lamportsPerSignature.toULong()
+        get() {
+            val tx = message ?: return 0uL
+            val verified = tx.instructions
+                .filter { tx.account(it.programIdIndex).let { program -> SIGNATURE_VERIFY_PROGRAMS.any(program::isStatic) } }
+                .sumOf { (it.data.firstOrNull()?.toInt() ?: 0) and 0xff }
+            return (tx.header.numRequiredSignatures + verified).toULong() * fees.lamportsPerSignature.toULong()
+        }
 
     /**
      * The most the transaction can cost in fees: the base fee and the priority fee, capped at the largest u64 when their sum would wrap. It is
@@ -223,6 +231,13 @@ fun priorityFee(units: UInt, microLamportsPerUnit: ULong): ULong {
 }
 
 private val MICRO_LAMPORTS_PER_LAMPORT: BigInteger = BigInteger.valueOf(1_000_000)
+
+/** The Ed25519, secp256k1 and secp256r1 signature-verify programs. The network charges the base fee for each signature they check. */
+private val SIGNATURE_VERIFY_PROGRAMS = listOf(
+    "Ed25519SigVerify111111111111111111111111111",
+    "KeccakSecp256k11111111111111111111111111111",
+    "Secp256r1SigVerify1111111111111111111111111",
+)
 
 /** The programs a new account can be given to without a warning. */
 private val SYSTEM_AND_TOKEN_PROGRAMS = setOf(SYSTEM_PROGRAM, TOKEN_PROGRAM, TOKEN_2022_PROGRAM)

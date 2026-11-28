@@ -244,7 +244,14 @@ class SolanaRequestCheckTest {
                 computePrice(price),
             ),
             "limit with an account" to listOf(Compiled(3, listOf(1), byteArrayOf(2) + le32(1_400_000))),
-            "an instruction of another compute budget tag" to listOf(Compiled(3, emptyList(), byteArrayOf(1) + le32(65_536))),
+            "an instruction of another compute budget tag" to listOf(Compiled(3, emptyList(), byteArrayOf(5) + le32(65_536))),
+            "the removed RequestUnits tag" to listOf(Compiled(3, emptyList(), byteArrayOf(0) + le32(65_536) + le32(0))),
+            "an unknown tag" to listOf(Compiled(3, emptyList(), byteArrayOf(-1) + le32(65_536))),
+            "heap size with a trailing byte" to listOf(Compiled(3, emptyList(), byteArrayOf(1) + le32(65_536) + byteArrayOf(0))),
+            "heap size with an account" to listOf(Compiled(3, listOf(1), byteArrayOf(1) + le32(65_536))),
+            "account data limit with a trailing byte" to listOf(Compiled(3, emptyList(), byteArrayOf(4) + le32(100_000) + byteArrayOf(0))),
+            "account data limit with an account" to listOf(Compiled(3, listOf(1), byteArrayOf(4) + le32(100_000))),
+            "account data limit with short data" to listOf(Compiled(3, emptyList(), byteArrayOf(4) + byteArrayOf(1, 2))),
         )
         for ((name, budget) in cases) {
             val signData = legacyMessage(
@@ -255,6 +262,64 @@ class SolanaRequestCheckTest {
             for (policy in UnknownCallPolicy.entries) {
                 assertEquals(SolanaRequestCheck.UNREAD_COMPUTE_BUDGET, refusal(request(signData), listOf(key(1)), policy), "$name, $policy")
             }
+        }
+    }
+
+    /** A heap size (tag 1) and an account data limit (tag 4) change no fee, so a well-formed one is read, raises no warning and leaves the fee as it was. */
+    @Test
+    fun aHeapSizeAndAnAccountDataLimitAreReadAndLeaveTheFeeUnchanged() {
+        val keys = listOf(key(1), key(9), system(), computeBudget())
+        val plain = review(request(legacyMessage(keys, listOf(transfer(from = 0, to = 1)), readonlyUnsigned = 2)), listOf(key(1)))
+        val cases = mapOf(
+            "heap size" to Compiled(3, emptyList(), byteArrayOf(1) + le32(65_536)),
+            "account data limit" to Compiled(3, emptyList(), byteArrayOf(4) + le32(100_000)),
+        )
+        for ((name, budget) in cases) {
+            for (policy in UnknownCallPolicy.entries) {
+                val signData = legacyMessage(keys, listOf(budget, transfer(from = 0, to = 1)), readonlyUnsigned = 2)
+                val review = review(request(signData), listOf(key(1)), policy)
+                assertTrue(review.warnings.isEmpty(), "$name, $policy")
+                assertTrue(review.instructions.none { it is SolanaInstruction.Raw }, "$name, $policy")
+                assertEquals(plain.baseFeeLamports, review.baseFeeLamports, "$name, $policy")
+                assertEquals(0uL, review.priorityFeeLamports, "$name, $policy")
+                assertEquals(plain.maxFeeLamports, review.maxFeeLamports, "$name, $policy")
+            }
+        }
+        // They count as builtin instructions for the default units of a priced transaction, like the other compute budget instructions.
+        val priced = review(
+            request(legacyMessage(keys, listOf(cases.getValue("heap size"), computePrice(1_000_000L), transfer(from = 0, to = 1)), readonlyUnsigned = 2)),
+            listOf(key(1)),
+        )
+        assertEquals(3uL * SolanaFees.DEFAULT.builtinUnitsPerInstruction.toULong(), priced.priorityFeeLamports)
+    }
+
+    /**
+     * The network charges the base fee for each signature a signature-verify instruction checks, read from the first data byte, so the
+     * fee shown counts them. A hostile request that packs a System transfer with 100 Ed25519 instructions of 255 signatures each costs
+     * (1 + 100 * 255) signatures.
+     */
+    @Test
+    fun theBaseFeeCountsTheSignaturesOfSignatureVerifyInstructions() {
+        val keys = listOf(key(1), key(9), system(), fr.acinq.bitcoin.Base58.decode(ED25519_VERIFY))
+        val hostile = legacyMessage(
+            keys = keys,
+            instructions = listOf(transfer(from = 0, to = 1)) + List(100) { Compiled(3, emptyList(), byteArrayOf(-1)) },
+            readonlyUnsigned = 2,
+        )
+        val review = review(request(hostile), listOf(key(1)))
+        assertEquals(127_505_000uL, review.baseFeeLamports)
+        assertEquals(127_505_000uL, review.maxFeeLamports)
+    }
+
+    @Test
+    fun eachSignatureVerifyProgramCountsItsSignaturesAndAnEmptyOneCountsNone() {
+        for (program in listOf(ED25519_VERIFY, "KeccakSecp256k11111111111111111111111111111", "Secp256r1SigVerify1111111111111111111111111")) {
+            val keys = listOf(key(1), key(9), system(), fr.acinq.bitcoin.Base58.decode(program))
+            fun fee(verify: Compiled) =
+                review(request(legacyMessage(keys, listOf(transfer(from = 0, to = 1), verify), readonlyUnsigned = 2)), listOf(key(1))).baseFeeLamports
+            assertEquals(10_000uL, fee(Compiled(3, emptyList(), byteArrayOf(1))), program)
+            assertEquals(25_000uL, fee(Compiled(3, emptyList(), byteArrayOf(4, 0, 0))), program)
+            assertEquals(5_000uL, fee(Compiled(3, emptyList(), ByteArray(0))), program)
         }
     }
 
@@ -450,6 +515,7 @@ class SolanaRequestCheckTest {
 
     private companion object {
         const val COMPUTE_BUDGET = "ComputeBudget111111111111111111111111111111"
+        const val ED25519_VERIFY = "Ed25519SigVerify111111111111111111111111111"
         const val RECENT_BLOCKHASHES = "SysvarRecentB1ockHashes11111111111111111111"
     }
 

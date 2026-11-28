@@ -65,6 +65,18 @@ sealed interface SolanaInstruction {
         val microLamports: ULong,
     ) : SolanaInstruction
 
+    /** ComputeBudget RequestHeapFrame (instruction tag 1), the program heap size in bytes. It does not change the fee. */
+    data class SetHeapSize(
+        override val programId: SolanaMessageAccount,
+        val bytes: UInt,
+    ) : SolanaInstruction
+
+    /** ComputeBudget SetLoadedAccountsDataSizeLimit (instruction tag 4), the cap on loaded account data in bytes. It does not change the fee. */
+    data class SetAccountDataLimit(
+        override val programId: SolanaMessageAccount,
+        val bytes: UInt,
+    ) : SolanaInstruction
+
     /**
      * System Program AdvanceNonceAccount (instruction index 4). The network reads a durable nonce only from the first instruction, so this
      * is recognised only there. [nonceAccount] holds the nonce, and [authority] must sign to advance it.
