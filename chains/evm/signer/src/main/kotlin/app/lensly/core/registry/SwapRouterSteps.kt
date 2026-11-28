@@ -169,18 +169,24 @@ internal object SwapRouterSteps {
             "Swap up to ${c.amount(limit, tokenIn)} for exactly ${c.amount(amount, tokenOut)}"
         }
         val to = c.destination(recipient)?.let { ", $it" }.orEmpty()
-        if (exactIn && amount.signum() == 0) c.emptyRouterOf(tokenIn)
-        if (tokenIn == WETH_MAINNET) spendEth(c, amount, exactIn)
+        val allIn = exactIn && amount.signum() == 0
+        // pay() wraps the router's ETH instead of its WETH, so with ETH held an exact input of zero on WETH keeps the WETH in the router.
+        val wrapped = allIn && tokenIn == WETH_MAINNET && c.wrapEthInstead(tokenIn, strands = false)
+        if (allIn && !wrapped) c.emptyRouterOf(tokenIn)
+        if (tokenIn == WETH_MAINNET && !wrapped) spendEth(c, amount, exactIn)
+        // The same for a WETH hop between two pools: its WETH is left in the router when ETH is wrapped for the next pool instead.
+        if (WETH_MAINNET in route.tokens.drop(1).dropLast(1)) c.wrapEthInstead(WETH_MAINNET, strands = true)
         c.keepInRouter(tokenOut, recipient)
         return c.paying("$sentence ${via(c, V3, route)}$to", "pays the swap output to", recipient)
     }
 
     /**
      * A swap paid in WETH wraps the ETH the router holds first, when it holds enough for the amount: an exact input of [amount] spends that
-     * much ETH, and an exact output spends some of it, how much is not known. An exact input of zero spends the WETH balance, not ETH.
+     * much ETH, and an exact output spends some of it, how much is not known. An exact input of zero is not read here: with ETH held it
+     * wraps ETH too, see [StepCall.wrapEthInstead].
      */
     private fun spendEth(c: StepCall, amount: BigInteger, exactIn: Boolean) {
-        if (!exactIn) c.spendUnknownFromRouter(NATIVE_COIN) else if (amount.signum() != 0) c.spendFromRouterIfHeld(NATIVE_COIN, amount)
+        if (exactIn) c.spendFromRouterIfHeld(NATIVE_COIN, amount) else c.spendUnknownFromRouter(NATIVE_COIN)
     }
 
     /** Unwraps all the WETH the router holds, if at least the minimum, and sends the ETH to [recipient] less any [fee]. A null [recipient] is the message sender. */
