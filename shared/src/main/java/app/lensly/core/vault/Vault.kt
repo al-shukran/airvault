@@ -20,6 +20,7 @@ import java.security.MessageDigest
 import java.security.ProviderException
 import java.security.SecureRandom
 import java.util.Arrays
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import javax.crypto.AEADBadTagException
@@ -737,15 +738,21 @@ class Vault constructor(
     private fun resumePhotoCopies(session: VaultSession) {
         if (photoCopiesRunning.get() > 0) return
         val decoyPublicKey = session.photoCopiesPending() ?: return
-        val realPhotoKey = session.photoPrivateKey() ?: return
-        val onEnd = clearMarkAfter(session.copyOfVaultKey(), session.side, decoyPublicKey)
+        val realPhotoKey = session.photoPrivateKey()?.tracked() ?: return
+        val onEnd = clearMarkAfter(session.copyOfVaultKey().tracked(), session.side, decoyPublicKey)
         val decoySide = 1 - session.side
-        PhotoStore.sealer.execute {
-            try {
-                startPhotoCopies(layout, decoySide, decoyPublicKey, realPhotoKey, onEnd)
-            } catch (e: Exception) {
-                // The mark stays and the next unlock tries again. The keys were zeroed.
+        try {
+            PhotoStore.sealer.execute {
+                try {
+                    startPhotoCopies(layout, decoySide, decoyPublicKey, realPhotoKey, onEnd)
+                } catch (e: Exception) {
+                    // The mark stays and the next unlock tries again. The keys were zeroed.
+                }
             }
+        } catch (e: RejectedExecutionException) {
+            // The task never ran, so nothing else zeroes the keys. The mark stays and the next unlock tries again.
+            Arrays.fill(realPhotoKey, 0)
+            onEnd(false)
         }
     }
 
@@ -1272,7 +1279,7 @@ class Vault constructor(
             // must not lose.
             var marked = false
             val realPhotoKey = try {
-                realSession.photoPrivateKey()?.also {
+                realSession.photoPrivateKey()?.tracked()?.also {
                     marked = decoyKeyMade && try {
                         realSession.setPhotoCopiesPending(photoKey)
                         true
@@ -1293,7 +1300,11 @@ class Vault constructor(
             } finally {
                 realSession.close()
             }
-            dropSidePhotos(layout, decoySide, photoKey, realPhotoKey, if (marked) clearMarkAfter(vaultKey.copyOf(), side, photoKey) else { _ -> })
+            try {
+                dropSidePhotos(layout, decoySide, photoKey, realPhotoKey, if (marked) clearMarkAfter(vaultKey.copyOf().tracked(), side, photoKey) else { _ -> })
+            } catch (e: RejectedExecutionException) {
+                // The decoy is whole and the keys are zeroed. The mark stays, so the next unlock of the real vault makes the copies.
+            }
             if (realPhotoKey != null && !marked) while (photoCopiesRunning.get() > 0) PhotoStore.whileNoSaveRuns {}
         }
         return DuressResult.Enabled
@@ -1916,6 +1927,8 @@ internal fun deviceIsEmulator(): Boolean {
  * @throws VaultException if the marker cannot be written, if some file could not be removed, or if [deleteKeys] threw.
  */
 fun wipeVault(layout: VaultLayout, deleteKeys: () -> Unit) {
+    // Every run of photo copies still queued stops at its next task, which ends it and zeroes its keys.
+    photoCopyGeneration.incrementAndGet()
     val markerFailure = try {
         markWipe(layout)
         null
@@ -2008,8 +2021,27 @@ private fun dropSidePhotos(
     realPhotoKey: ByteArray? = null,
     onEnd: (completed: Boolean) -> Unit = {},
 ) {
-    PhotoStore.whileNoSaveRuns { startPhotoCopies(layout, side, keyFile, realPhotoKey, onEnd) }
+    var started = false
+    try {
+        PhotoStore.whileNoSaveRuns {
+            started = true
+            startPhotoCopies(layout, side, keyFile, realPhotoKey, onEnd)
+        }
+    } catch (e: Throwable) {
+        // A task that the sealer refused never ran, so nothing else zeroes the keys. Once it has run, [startPhotoCopies] has done it.
+        if (!started) {
+            realPhotoKey?.fill(0)
+            onEnd(false)
+        }
+        throw e
+    }
 }
+
+/** Test hook: called with each copy of a key that a run of photo copies takes over and must zero, so a test can see that it is zeroed. */
+@Volatile
+internal var keyCopyForTesting: ((ByteArray) -> Unit)? = null
+
+private fun ByteArray.tracked(): ByteArray = also { keyCopyForTesting?.invoke(it) }
 
 /** The first half of [dropSidePhotos]. It runs on the sealer and queues the copies. See there for the arguments. */
 private fun startPhotoCopies(layout: VaultLayout, side: Int, keyFile: ByteArray, realPhotoKey: ByteArray?, onEnd: (Boolean) -> Unit) {
@@ -2073,26 +2105,37 @@ private val photoCopyGeneration = AtomicLong()
  */
 private fun runPhotoCopies(generation: Long, copies: List<Pair<File, () -> Unit>>, end: (Boolean) -> Unit) {
     photoCopiesRunning.incrementAndGet()
-    fun queue(index: Int): Unit = PhotoStore.sealer.execute {
-        var queuedNext = false
+    fun queue(index: Int) {
         try {
-            if (photoCopiesKilledForTesting) return@execute
-            val latest = photoCopyGeneration.get() == generation
-            if (latest && index < copies.size) {
-                val (photo, copy) = copies[index]
+            PhotoStore.sealer.execute {
+                var queuedNext = false
                 try {
-                    resealHookForTesting?.invoke(photo)
-                    if (photo.exists()) copy()
-                } catch (e: Exception) {
-                    // See above.
+                    if (photoCopiesKilledForTesting) return@execute
+                    val latest = photoCopyGeneration.get() == generation
+                    if (latest && index < copies.size) {
+                        val (photo, copy) = copies[index]
+                        try {
+                            resealHookForTesting?.invoke(photo)
+                            if (photo.exists()) copy()
+                        } catch (e: Exception) {
+                            // See above.
+                        }
+                        queue(index + 1)
+                        queuedNext = true
+                    } else {
+                        end(latest)
+                    }
+                } finally {
+                    if (!queuedNext) photoCopiesRunning.decrementAndGet()
                 }
-                queuedNext = true
-                queue(index + 1)
-            } else {
-                end(latest)
             }
-        } finally {
-            if (!queuedNext) photoCopiesRunning.decrementAndGet()
+        } catch (e: RejectedExecutionException) {
+            // The task never runs, so the run ends here with its keys zeroed, and nobody waits for it.
+            try {
+                end(false)
+            } finally {
+                photoCopiesRunning.decrementAndGet()
+            }
         }
     }
     queue(0)

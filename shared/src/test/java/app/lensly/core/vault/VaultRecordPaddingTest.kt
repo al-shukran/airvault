@@ -31,6 +31,7 @@ class VaultRecordPaddingTest {
     }
 
     private fun awaitCleanup() = runBlocking { vault.awaitCleanup() }
+    private fun awaitPhotoCopies() = runBlocking { vault.awaitPhotoCopies() }
 
     private fun create() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })
@@ -108,6 +109,8 @@ class VaultRecordPaddingTest {
         before = stamps()
         assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { it.createWallet() } })
         real.close()
+        // The last copy of the cover photos clears its mark in the background, which writes a record file after setDuress has returned.
+        awaitPhotoCopies()
         assertFolderLooksUniform(before)
 
         // The promotion retires the old vault's files and gives them new names, and a pass makes them look alike.

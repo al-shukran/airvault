@@ -3,8 +3,11 @@ package app.lensly.core.vault
 import app.lensly.ui.camera.PhotoStore
 import java.io.File
 import java.math.BigInteger
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executor
 import java.util.concurrent.FutureTask
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertContentEquals
@@ -365,6 +368,122 @@ class VaultDuressPhotosTest {
         gallery.list().forEach { assertContentEquals(PHOTO, gallery.photoBytes(it.file)) }
         gallery.close()
         promoted.close()
+    }
+
+    @Test
+    fun aWipeStopsTheQueuedCopiesAtOnceAndZeroesTheirKeys() {
+        val session = unlocked(APP)
+        session.createWallet()
+        (1..3).forEach { shoot(nowMs = it * 1_000L) }
+        val keys = trackKeyCopies()
+        val copies = AtomicInteger()
+        val atFirstCopy = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        resealHookForTesting = {
+            if (copies.incrementAndGet() == 1) {
+                atFirstCopy.countDown()
+                release.await(30, TimeUnit.SECONDS)
+            }
+        }
+        try {
+            assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+            assertTrue(atFirstCopy.await(30, TimeUnit.SECONDS))
+            vault.wipe()
+        } finally {
+            release.countDown()
+            resealHookForTesting = null
+            keyCopyForTesting = null
+        }
+        awaitSealer()
+        session.close()
+
+        assertEquals(1, copies.get(), "the copies queued before the wipe are cancelled, not run")
+        assertAllZero(keys)
+    }
+
+    @Test
+    fun aSealerThatRefusesTheCopiesStillZeroesEveryKeyCopyOfASetup() {
+        val session = unlocked(APP)
+        session.createWallet()
+        shoot()
+        val keys = trackKeyCopies(onFirstCopy = ::refuseNextSealerTask)
+        try {
+            assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+        } finally {
+            keyCopyForTesting = null
+        }
+        awaitSealer()
+        session.close()
+
+        assertAllZero(keys)
+    }
+
+    @Test
+    fun aSealerThatRefusesTheCopiesStillZeroesEveryKeyCopyOfAResume() {
+        val session = unlocked(APP)
+        session.createWallet()
+        shoot()
+        photoCopiesKilledForTesting = true
+        try {
+            assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+            awaitSealer()
+        } finally {
+            photoCopiesKilledForTesting = false
+        }
+        session.close()
+
+        val keys = trackKeyCopies(onFirstCopy = ::refuseNextSealerTask)
+        try {
+            unlocked(APP).close()
+        } finally {
+            keyCopyForTesting = null
+        }
+        awaitSealer()
+
+        assertAllZero(keys)
+    }
+
+    @Test
+    fun aSealerThatRefusesTheNextCopyEndsTheRunWithItsKeysZeroedAndNobodyWaitingForIt() {
+        val session = unlocked(APP)
+        session.createWallet()
+        (1..3).forEach { shoot(nowMs = it * 1_000L) }
+        val keys = trackKeyCopies()
+        resealHookForTesting = { refuseNextSealerTask() }
+        try {
+            assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+            awaitSealer()
+        } finally {
+            resealHookForTesting = null
+            keyCopyForTesting = null
+        }
+        session.close()
+
+        assertAllZero(keys)
+    }
+
+    /** Records every key copy that a run of photo copies takes over, and calls [onFirstCopy] when the first one is made. */
+    private fun trackKeyCopies(onFirstCopy: () -> Unit = {}): List<ByteArray> {
+        val keys = CopyOnWriteArrayList<ByteArray>()
+        keyCopyForTesting = { key ->
+            if (keys.isEmpty()) onFirstCopy()
+            keys += key
+        }
+        return keys
+    }
+
+    private fun assertAllZero(keys: List<ByteArray>) {
+        assertTrue(keys.size >= 2, "the vault key copy and the photo key copy were made")
+        keys.forEach { assertTrue(it.all { b -> b == 0.toByte() }, "a key copy was left in memory") }
+    }
+
+    /** Makes the next task that is queued on the sealer fail as a stopped executor does, then gives the sealer back. */
+    private fun refuseNextSealerTask() {
+        val real = PhotoStore.sealer
+        PhotoStore.sealer = Executor {
+            PhotoStore.sealer = real
+            throw RejectedExecutionException("refused for the test")
+        }
     }
 
     @Test
