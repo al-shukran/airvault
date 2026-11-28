@@ -170,8 +170,17 @@ internal object SwapRouterSteps {
         }
         val to = c.destination(recipient)?.let { ", $it" }.orEmpty()
         if (exactIn && amount.signum() == 0) c.emptyRouterOf(tokenIn)
+        if (tokenIn == WETH_MAINNET) spendEth(c, amount, exactIn)
         c.keepInRouter(tokenOut, recipient)
         return c.paying("$sentence ${via(c, V3, route)}$to", "pays the swap output to", recipient)
+    }
+
+    /**
+     * A swap paid in WETH wraps the ETH the router holds first, when it holds enough for the amount: an exact input of [amount] spends that
+     * much ETH, and an exact output spends some of it, how much is not known. An exact input of zero spends the WETH balance, not ETH.
+     */
+    private fun spendEth(c: StepCall, amount: BigInteger, exactIn: Boolean) {
+        if (!exactIn) c.spendUnknownFromRouter(NATIVE_COIN) else if (amount.signum() != 0) c.spendFromRouterIfHeld(NATIVE_COIN, amount)
     }
 
     /** Unwraps all the WETH the router holds, if at least the minimum, and sends the ETH to [recipient] less any [fee]. A null [recipient] is the message sender. */

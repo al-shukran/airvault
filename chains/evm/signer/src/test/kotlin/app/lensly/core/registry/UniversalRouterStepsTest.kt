@@ -29,9 +29,9 @@ private val EXECUTE_PARAMS = listOf(
 )
 
 /** The steps of a real [calldata] sent to [contract] by [from], decoded as the sandbox decodes an approved call. */
-private fun stepsOf(calldata: String, contract: String, from: String = SIGNER): CallSteps? {
+private fun stepsOf(calldata: String, contract: String, from: String = SIGNER, value: BigInteger = BigInteger.ZERO): CallSteps? {
     val decoded = (AbiDecoder.decode(Numeric.hexStringToByteArray(calldata), EXECUTE_PARAMS) as CallDecode.Ok).params
-    return CallSteps.describe(STEP_REGISTRY, 1, contract, EXECUTE, EXECUTE_SIGNATURE, from, BigInteger.ZERO, decoded)
+    return CallSteps.describe(STEP_REGISTRY, 1, contract, EXECUTE, EXECUTE_SIGNATURE, from, value, decoded)
 }
 
 /** Multicall3, and a lookalike of [SIGNER]: the same first and last four hex characters, so a shortened address reads as the signer. */
@@ -39,15 +39,24 @@ private const val MULTICALL3 = "0xca11bde05977b3631167028862be2a173976ca11"
 private const val OTHER = "0x00000000000000000000000000000000000000aa"
 private const val LOOKALIKE = "0x0bf9" + "00000000000000000000000000000000" + "777f"
 
-/** The steps of a call built from its [commands] and their [inputs], for the cases a real router call does not show. [caller] calls the router. */
-private fun stepsOfParts(contract: String, commands: ByteArray, inputs: List<ByteArray>, caller: String = SIGNER): CallSteps? = CallSteps.describe(
+/**
+ * The steps of a call built from its [commands] and their [inputs], for the cases a real router call does not show. [caller] calls the
+ * router, and [value] is the ETH sent with the call.
+ */
+private fun stepsOfParts(
+    contract: String,
+    commands: ByteArray,
+    inputs: List<ByteArray>,
+    caller: String = SIGNER,
+    value: BigInteger = BigInteger.ZERO,
+): CallSteps? = CallSteps.describe(
     STEP_REGISTRY,
     1,
     contract,
     EXECUTE,
     EXECUTE_SIGNATURE,
     SIGNER,
-    BigInteger.ZERO,
+    value,
     listOf(
         DecodedParam(EXECUTE_PARAMS[0], AbiValue.Dynamic(commands.toHex())),
         DecodedParam(EXECUTE_PARAMS[1], AbiValue.Items(inputs.map { AbiValue.Dynamic(it.toHex()) })),
@@ -93,7 +102,18 @@ private const val UNWRAP = 0x0c.toByte()
 private data class RouterStep(val name: String, val command: Byte, val input: (String) -> ByteArray)
 
 /** The input of WRAP_ETH to [recipient]. */
-private fun wrapInput(recipient: String): ByteArray = abiAddressWord(recipient) + abiWord(BigInteger.TEN.pow(18))
+private fun wrapInput(recipient: String, amount: BigInteger = ONE_ETH): ByteArray = abiAddressWord(recipient) + abiWord(amount)
+
+private val ONE_ETH: BigInteger = BigInteger.TEN.pow(18)
+private const val PERMIT2_TRANSFER_FROM_BATCH = 0x0d.toByte()
+
+/** The input of a command that takes (token, recipient, amount) of the native coin. */
+private fun nativeInput(recipient: String, amount: BigInteger): ByteArray = abiAddressWord(NATIVE_COIN) + abiAddressWord(recipient) + abiWord(amount)
+
+/** The input of PERMIT2_TRANSFER_FROM_BATCH for one detail: (from, to, amount, token). */
+private fun permit2BatchInput(to: String, amount: BigInteger): ByteArray =
+    abiWord(BigInteger.valueOf(ABI_WORD.toLong())) + abiWord(BigInteger.ONE) +
+        abiAddressWord(SIGNER) + abiAddressWord(to) + abiWord(amount) + abiAddressWord(USDC)
 
 /** The input of a command that takes (token, recipient, amount). */
 private fun tokenInput(recipient: String, amount: BigInteger = BigInteger.TEN): ByteArray =
@@ -514,5 +534,82 @@ class UniversalRouterStepsTest {
         val half = v3ExactInInput(WETH_TO_USDC, SIGNER, payerIsUser = false, amountIn = BigInteger.valueOf(5).multiply(BigInteger.TEN.pow(17)))
         assertFalse(leaves(byteArrayOf(WRAP, V3_SWAP, V3_SWAP), listOf(wrap, half, half)))
         assertTrue(leaves(byteArrayOf(WRAP, V3_SWAP), listOf(wrap, half)))
+    }
+
+    /** Whether the router still holds anything after [commands] on [inputs], called with [value] ETH. */
+    private fun leavesWith(value: BigInteger, commands: ByteArray, inputs: List<ByteArray>): Boolean =
+        assertNotNull(stepsOfParts(UR_V2, commands, inputs, value = value)).leavesInRouter
+
+    @Test
+    fun ethSentWithTheCallAndNotSpentIsLeftInTheRouter() {
+        val half = ONE_ETH.divide(BigInteger.TWO)
+        val wrapHalf = wrapInput(ADDRESS_THIS, half)
+        val spendHalf = v3ExactInInput(WETH_TO_USDC, SIGNER, payerIsUser = false, amountIn = half)
+
+        // A wrap of 0.5 ETH and a swap of it, with 1 ETH sent: 0.5 ETH stays.
+        assertTrue(leavesWith(ONE_ETH, byteArrayOf(WRAP, V3_SWAP), listOf(wrapHalf, spendHalf)))
+        // A swap paid by the signer that never uses the ETH sent: all of it stays.
+        assertTrue(leavesWith(ONE_ETH, byteArrayOf(V3_SWAP), listOf(v3ExactInInput(USDC_TO_WETH, SIGNER))))
+        assertTrue(leavesWith(ONE_ETH, byteArrayOf(WRAP), listOf(wrapInput(SIGNER, half))))
+        // The ETH sent equals the wrap, and the swap spends it: nothing stays.
+        assertFalse(leavesWith(half, byteArrayOf(WRAP, V3_SWAP), listOf(wrapHalf, spendHalf)))
+        // A wrap of the whole balance takes all of it, and a call with no ETH leaves none.
+        assertFalse(leavesWith(ONE_ETH, byteArrayOf(WRAP, V3_SWAP), listOf(wrapInput(ADDRESS_THIS, ALL_OF_BALANCE), spendAll())))
+        assertFalse(leavesWith(BigInteger.ZERO, byteArrayOf(V3_SWAP), listOf(v3ExactInInput(USDC_TO_WETH, SIGNER))))
+    }
+
+    private fun spendAll(): ByteArray = v3ExactInInput(WETH_TO_USDC, SIGNER, payerIsUser = false, amountIn = ALL_OF_BALANCE)
+
+    @Test
+    fun ethSentWithTheCallLeavesTheRouterWhenASweepOrATransferTakesAllOfIt() {
+        fun after(command: Byte, input: ByteArray) = leavesWith(ONE_ETH, byteArrayOf(command), listOf(input))
+
+        assertFalse(after(SWEEP, nativeInput(SIGNER, BigInteger.ZERO)))
+        assertFalse(after(PAY_PORTION, nativeInput(SIGNER, BigInteger.valueOf(10_000))))
+        assertFalse(after(TRANSFER, nativeInput(SIGNER, ONE_ETH)))
+        assertTrue(after(TRANSFER, nativeInput(SIGNER, ONE_ETH.divide(BigInteger.TWO))))
+        // The router sends a native transfer of the whole-balance value as the amount it is, which no balance holds, so it moves nothing.
+        assertTrue(after(TRANSFER, nativeInput(SIGNER, ALL_OF_BALANCE)))
+        // A sweep to the router moves nothing, and an unwrap does not take the ETH sent out.
+        assertTrue(after(SWEEP, nativeInput(ADDRESS_THIS, BigInteger.ZERO)))
+        assertTrue(leavesWith(ONE_ETH, byteArrayOf(UNWRAP), listOf(abiAddressWord(SIGNER) + abiWord(BigInteger.ZERO))))
+    }
+
+    @Test
+    fun theRealWrapSwapAndSweepLeavesNothingWhenTheEthSentIsTheWrapAndSomethingWhenItIsMore() {
+        val signer = "0x1753603034a750ec6c42565ce4c6ae88d8bcd706"
+        val wrapped = BigInteger("8456000000000000")
+
+        assertFalse(assertNotNull(stepsOf(StepVectors.UR_WRAP_V2_SWEEP, UR_V1_2, from = signer, value = wrapped)).leavesInRouter)
+        assertTrue(assertNotNull(stepsOf(StepVectors.UR_WRAP_V2_SWEEP, UR_V1_2, from = signer, value = wrapped + BigInteger.ONE)).leavesInRouter)
+    }
+
+    @Test
+    fun aPermit2TransferIntoTheRouterLeavesTheTokensThereUntilAStepSpendsOrTakesThemOut() {
+        val thousand = BigInteger.valueOf(1_000_000_000)
+        val transfer = tokenInput(ADDRESS_THIS, thousand)
+        val spendAll = v3ExactInInput(USDC_TO_WETH, SIGNER, payerIsUser = false, amountIn = thousand)
+        val spendLess = v3ExactInInput(USDC_TO_WETH, SIGNER, payerIsUser = false, amountIn = thousand - BigInteger.ONE)
+
+        assertTrue(leaves(byteArrayOf(PERMIT2_TRANSFER_FROM), listOf(transfer)))
+        assertTrue(leaves(byteArrayOf(PERMIT2_TRANSFER_FROM), listOf(tokenInput(UR_V2, thousand))))
+        assertFalse(leaves(byteArrayOf(PERMIT2_TRANSFER_FROM), listOf(tokenInput(SIGNER, thousand))))
+        // The usual swap of a token: the transfer, then a swap of exactly that amount paid by the router.
+        assertFalse(leaves(byteArrayOf(PERMIT2_TRANSFER_FROM, V3_SWAP), listOf(transfer, spendAll)))
+        assertTrue(leaves(byteArrayOf(PERMIT2_TRANSFER_FROM, V3_SWAP), listOf(transfer, spendLess)))
+        assertFalse(leaves(byteArrayOf(PERMIT2_TRANSFER_FROM, SWEEP), listOf(transfer, tokenInput(SIGNER, BigInteger.ZERO))))
+    }
+
+    @Test
+    fun aBatchedPermit2TransferLeavesTheTokensInTheRouterOnlyWhenItNamesTheRouterItself() {
+        val amount = BigInteger.valueOf(1_000_000_000)
+
+        assertTrue(leaves(byteArrayOf(PERMIT2_TRANSFER_FROM_BATCH), listOf(permit2BatchInput(UR_V2, amount))))
+        // Permit2 takes the flag 0x…02 as a plain address, so that transfer pays another payee and is not the router's.
+        assertFalse(leaves(byteArrayOf(PERMIT2_TRANSFER_FROM_BATCH), listOf(permit2BatchInput(ADDRESS_THIS, amount))))
+        assertFalse(leaves(byteArrayOf(PERMIT2_TRANSFER_FROM_BATCH), listOf(permit2BatchInput(SIGNER, amount))))
+        assertFalse(
+            leaves(byteArrayOf(PERMIT2_TRANSFER_FROM_BATCH, SWEEP), listOf(permit2BatchInput(UR_V2, amount), tokenInput(SIGNER, BigInteger.ZERO))),
+        )
     }
 }

@@ -204,6 +204,7 @@ internal object UniversalRouterSteps {
         val recipient = values[1].address()
         val amount = values[2].word()
         val line = "Transfer ${call.amount(amount, token)} from ${call.callerName} to ${call.recipientName(recipient)} via Permit2"
+        call.keepInRouter(token, amount, recipient)
         return call.paying(line, "moves your tokens to", recipient)
     }
 
@@ -259,12 +260,13 @@ internal object UniversalRouterSteps {
         val name = call.recipientName(recipient)
         val value = values[2].word()
         // The router reads CONTRACT_BALANCE for tokens only, so a native transfer of that value is shown as the amount it is.
-        val sentence = if (token != NATIVE_COIN && value == CONTRACT_BALANCE) {
+        val allOfToken = token != NATIVE_COIN && value == CONTRACT_BALANCE
+        val sentence = if (allOfToken) {
             "Transfer all ${call.symbolOf(token)} held by the router to $name"
         } else {
             "Transfer ${call.amount(value, token)} from the router to $name"
         }
-        if (token != NATIVE_COIN) call.takeFromRouter(token, recipient, value.takeIf { it != CONTRACT_BALANCE })
+        if (allOfToken || value != CONTRACT_BALANCE) call.takeFromRouter(token, recipient, value.takeIf { !allOfToken })
         return call.paying(sentence, "transfers the router's tokens to", recipient)
     }
 
@@ -288,7 +290,14 @@ internal object UniversalRouterSteps {
         } else {
             call.nativeAmount(amount)
         }
-        if (amount == CONTRACT_BALANCE) call.keepInRouter(WETH_MAINNET, recipient) else call.keepInRouter(WETH_MAINNET, amount, recipient)
+        // The wrap spends the router's ETH: all of it for CONTRACT_BALANCE, and the stated amount otherwise.
+        if (amount == CONTRACT_BALANCE) {
+            call.emptyRouterOf(NATIVE_COIN)
+            call.keepInRouter(WETH_MAINNET, recipient)
+        } else {
+            call.spendFromRouter(NATIVE_COIN, amount)
+            call.keepInRouter(WETH_MAINNET, amount, recipient)
+        }
         val place = when (val name = call.recipientName(recipient)) {
             "the router" -> " in the router"
             "you" -> ""
@@ -319,6 +328,8 @@ internal object UniversalRouterSteps {
             val from = call.who(detail[0].address())
             val to = call.who(detail[1].address())
             val line = "Transfer ${call.amount(detail[2].word(), detail[3].address())} from $from to $to via Permit2"
+            // Permit2 takes the recipient as it is, so only the router's own address keeps the tokens there, and the flag 0x…02 does not.
+            if (detail[1].address() == call.contract) call.keepInRouter(detail[3].address(), detail[2].word(), call.contract)
             call.payingAddress(line, "moves tokens to", detail[1].address())
         }
         return CallSteps(steps.flatMap { it.lines }, steps.flatMap { it.warnings }, steps.flatMap { it.addresses }.distinct())

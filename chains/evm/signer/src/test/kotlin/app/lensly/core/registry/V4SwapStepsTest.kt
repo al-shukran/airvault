@@ -34,20 +34,20 @@ private val EXECUTE_PARAMS = listOf(
 )
 
 /** The steps of a real [calldata] that UR V2 runs for [from], decoded as the sandbox decodes an approved call. */
-private fun stepsOf(calldata: String, from: String): CallSteps? {
+private fun stepsOf(calldata: String, from: String, value: BigInteger = BigInteger.ZERO): CallSteps? {
     val decoded = (AbiDecoder.decode(Numeric.hexStringToByteArray(calldata), EXECUTE_PARAMS) as CallDecode.Ok).params
-    return CallSteps.describe(STEP_REGISTRY, 1, UR_V2, EXECUTE, EXECUTE_SIGNATURE, from, BigInteger.ZERO, decoded)
+    return CallSteps.describe(STEP_REGISTRY, 1, UR_V2, EXECUTE, EXECUTE_SIGNATURE, from, value, decoded)
 }
 
 /** The steps of a call whose only command is V4_SWAP (0x10) with [input], sent by the signer, or by [caller] when a batch makes the call. */
-private fun stepsOfV4(input: ByteArray, caller: String = SIGNER): CallSteps? = CallSteps.describe(
+private fun stepsOfV4(input: ByteArray, caller: String = SIGNER, value: BigInteger = BigInteger.ZERO): CallSteps? = CallSteps.describe(
     STEP_REGISTRY,
     1,
     UR_V2,
     EXECUTE,
     EXECUTE_SIGNATURE,
     SIGNER,
-    BigInteger.ZERO,
+    value,
     listOf(
         DecodedParam(EXECUTE_PARAMS[0], AbiValue.Dynamic("10")),
         DecodedParam(EXECUTE_PARAMS[1], AbiValue.Items(listOf(AbiValue.Dynamic(input.toHex())))),
@@ -469,5 +469,57 @@ class V4SwapStepsTest {
         assertTrue(leaves(byteArrayOf(0x0e), listOf(toRouter)))
         assertTrue(leaves(byteArrayOf(0x10), listOf(abiAddressWord(USDC) + abiAddressWord(UR_V2) + abiWord(BigInteger.valueOf(50)))))
         assertFalse(leaves(byteArrayOf(0x0e, 0x0b), listOf(toRouter, settleParam(USDC, CONTRACT_BALANCE, payerIsUser = false))))
+    }
+
+    @Test
+    fun ethSentWithAV4SwapIsSpentByTheSwapThatPaysItAndOtherwiseLeftInTheRouter() {
+        val ethIn = BigInteger("2985").multiply(BigInteger.TEN.pow(14))
+        val signer = "0x5ea7fcf5a8ac7a5d9aaa762ed9ffdd98323c703e"
+
+        // The real swap of 0.2985 ETH, with exactly that sent, leaves nothing. More than that sent leaves the rest.
+        assertFalse(assertNotNull(stepsOf(StepVectors.V4_SWAP_EXACT_IN_SINGLE_TAKE_ALL, signer, ethIn)).leavesInRouter)
+        assertTrue(assertNotNull(stepsOf(StepVectors.V4_SWAP_EXACT_IN_SINGLE_TAKE_ALL, signer, ethIn + BigInteger.ONE)).leavesInRouter)
+    }
+
+    @Test
+    fun ethSentWithAV4CallThatNeverSpendsItIsLeftInTheRouterUnlessASettleOfTheWholeBalanceTakesIt() {
+        fun leaves(actions: ByteArray, params: List<ByteArray>, value: BigInteger = BigInteger.TEN) =
+            assertNotNull(stepsOfV4(v4Input(actions, params), value = value)).leavesInRouter
+        val takeToSigner = takeParam(USDC, SIGNER, BigInteger.TEN)
+
+        assertTrue(leaves(byteArrayOf(0x0e), listOf(takeToSigner)))
+        assertFalse(leaves(byteArrayOf(0x0e), listOf(takeToSigner), value = BigInteger.ZERO))
+        // A settle of the router's whole ETH balance takes all of it, and a settle of a stated amount does not, nor does a settle-all.
+        assertFalse(leaves(byteArrayOf(0x0e, 0x0b), listOf(takeToSigner, settleParam(NATIVE_COIN, CONTRACT_BALANCE, payerIsUser = false))))
+        assertTrue(leaves(byteArrayOf(0x0e, 0x0b), listOf(takeToSigner, settleParam(NATIVE_COIN, BigInteger.ONE, payerIsUser = false))))
+        assertTrue(leaves(byteArrayOf(0x0e, 0x0c), listOf(takeToSigner, pairParam(NATIVE_COIN, BigInteger.TEN))))
+    }
+
+    @Test
+    fun anExactOutputSwapFromEthSpendsAnUnknownPartOfTheEthSent() {
+        val key = poolKey(NATIVE_COIN, USDC, 500)
+        val exactOut = singlePool(key, zeroForOne = true, amount = BigInteger.TEN, limit = BigInteger.TEN)
+        val sweepNative = abiAddressWord(NATIVE_COIN) + abiAddressWord(SIGNER) + abiWord(BigInteger.ZERO)
+        fun steps(vararg inputs: ByteArray, commands: String) = assertNotNull(
+            CallSteps.describe(
+                STEP_REGISTRY,
+                1,
+                UR_V2,
+                EXECUTE,
+                EXECUTE_SIGNATURE,
+                SIGNER,
+                BigInteger.TEN,
+                listOf(
+                    DecodedParam(EXECUTE_PARAMS[0], AbiValue.Dynamic(commands)),
+                    DecodedParam(EXECUTE_PARAMS[1], AbiValue.Items(inputs.map { AbiValue.Dynamic(it.toHex()) })),
+                    DecodedParam(EXECUTE_PARAMS[2], AbiValue.Word("00".repeat(ABI_WORD))),
+                ),
+            ),
+        )
+        val swap = v4Input(byteArrayOf(0x08), listOf(exactOut))
+
+        // The router cannot say how much ETH the swap used, so the rest is left until a sweep of the native coin takes it out.
+        assertTrue(steps(swap, commands = "10").leavesInRouter)
+        assertFalse(steps(swap, sweepNative, commands = "1004").leavesInRouter)
     }
 }
