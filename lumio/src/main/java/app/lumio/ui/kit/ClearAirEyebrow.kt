@@ -12,13 +12,13 @@ import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
 
 /**
- * An eyebrow: the small capitals that name a group of rows. Eyebrows are all caps by design, so [text] is set in capitals here. [top] and [bottom]
+ * An eyebrow: the small capitals that name a group of rows. Eyebrows are all caps by design, so [text] is set in capitals here, but for a mint address, which keeps its case. [top] and [bottom]
  * are its space above and below, which a panel's sections set to their own mock values.
  */
 @Composable
 fun ClearAirEyebrow(text: String, modifier: Modifier = Modifier, top: Dp = 18.dp, bottom: Dp = ClearAirSpacing.xxs, textAlign: TextAlign? = null) {
     Text(
-        text = text.uppercase(),
+        text = uppercaseKeepingMints(text),
         modifier = modifier.padding(top = top, bottom = bottom).spokenMint(text),
         style = ClearAirType.eyebrow,
         color = LocalClearAirPalette.current.ink2,

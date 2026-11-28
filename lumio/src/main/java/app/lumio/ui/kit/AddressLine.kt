@@ -95,6 +95,19 @@ internal fun spokenMintName(text: String): AnnotatedString? {
     }
 }
 
+/** [text] in capitals, except an unlisted mint written by [addressLineText], which keeps its case: a mint is base58, so another case is another address. */
+internal fun uppercaseKeepingMints(text: String): String {
+    var from = 0
+    return buildString {
+        MINT_NAME.findAll(text).forEach { mint ->
+            append(text.substring(from, mint.range.first).uppercase())
+            append(mint.value)
+            from = mint.range.last + 1
+        }
+        append(text.substring(from).uppercase())
+    }
+}
+
 /** A screen reader reads the [text] this modifier sits on as [spokenMintName] says it, and as it is written when it holds no mint. */
 internal fun Modifier.spokenMint(text: String): Modifier =
     spokenMintName(text)?.let { spoken -> clearAndSetSemantics { this.text = spoken } } ?: this

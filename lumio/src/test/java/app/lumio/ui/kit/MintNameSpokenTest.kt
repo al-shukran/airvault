@@ -94,6 +94,14 @@ class MintNameSpokenTest {
     }
 
     @Test
+    fun anEyebrowKeepsTheCaseOfAMintAndCapitalisesTheRest() {
+        compose.setContent { ClearAirTheme { ClearAirEyebrow(text = "Token $name") } }
+
+        compose.onNodeWithText("TOKEN $name").assertExists()
+        assertEquals("ABC UNLISTED", uppercaseKeepingMints("abc unlisted"))
+    }
+
+    @Test
     fun thePageHeaderReadsTheMintInGroups() {
         compose.setContent { ClearAirTheme { ClearAirPageTopBar(title = name, backLabel = null, onBack = {}, onLock = {}) } }
 
