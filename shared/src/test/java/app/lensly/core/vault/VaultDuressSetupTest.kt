@@ -156,6 +156,29 @@ class VaultDuressSetupTest {
         }
     }
 
+    /**
+     * The reset of a record that fails authentication belongs to the unlock that finishes a promotion. The main password's unlock, with or
+     * without a Decoy Vault, never rewrites a record file: a tampered one stays as it is and refuses to read.
+     */
+    @Test
+    fun aTamperedRecordOfTheRealVaultIsNotResetByAnUnlock() {
+        val real = unlocked(P1)
+        real.putVaultRecord("settings", byteArrayOf(7))
+        val decoyKey = setDuress(real)
+        val file = File(layout.vaultRecords, VaultRecordNames.fileName(real.copyOfVaultKey(), "settings"))
+        real.close()
+        val tampered = file.readBytes().also { it[it.size - 1] = (it[it.size - 1].toInt() xor 1).toByte() }
+        file.writeBytes(tampered)
+
+        val again = unlocked(P1)
+        awaitCleanup()
+
+        assertContentEquals(tampered, file.readBytes(), "an unlock of the real vault leaves a record that fails authentication alone")
+        assertTrue(runCatching { again.getVaultRecord("settings") }.exceptionOrNull() is VaultException)
+        again.close()
+        decoyKey.fill(0)
+    }
+
     @Test
     fun settingADuressPasswordKeepsTheTwoPhotoFoldersAlike() {
         val real = unlocked(P1)
