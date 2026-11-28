@@ -21,6 +21,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -115,7 +117,9 @@ fun ClearAirRow(
                     text = title,
                     style = titleStyle,
                     color = if (destructive) palette.rose else palette.ink,
-                    modifier = Modifier.weight(1f, fill = false),
+                    modifier = Modifier.weight(1f, fill = false).then(
+                        spokenMintName(title)?.let { spoken -> Modifier.clearAndSetSemantics { text = spoken } } ?: Modifier,
+                    ),
                 )
                 if (index != null) {
                     Text(text = index, style = INDEX, color = palette.ink2, maxLines = 1, modifier = Modifier.padding(start = ClearAirSpacing.xxs))
