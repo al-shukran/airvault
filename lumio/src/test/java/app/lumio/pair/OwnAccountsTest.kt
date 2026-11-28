@@ -3,6 +3,7 @@ package app.lumio.pair
 import app.lensly.app.InternalAccount
 import app.lensly.app.addressKeyOf
 import app.lensly.core.algorand.AlgorandAccount
+import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcNetwork
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.btc.ScriptType
@@ -139,6 +140,19 @@ class OwnAccountsTest {
     }
 
     @Test
+    fun aBitcoinAccountIsNamedByEveryReceiveAndChangeAddressWithinTheGapLimit() {
+        val accounts = ownAccountsOf(listOf(wallet("Vault", bitcoinAccounts = listOf(bitcoin, bitcoinTestnet), bitcoinNames = listOf("Cold storage", null))))
+        val named = InternalAccount(displayName = "Cold storage", autoName = "Vault 0", label = null)
+
+        assertEquals(named, accounts[addressKeyOf(bitcoin.receiveAddress(BtcAccount.GAP_LIMIT - 1))])
+        assertEquals(named, accounts[addressKeyOf(bitcoin.changeAddress(0))])
+        assertEquals(named, accounts[addressKeyOf(bitcoin.changeAddress(BtcAccount.GAP_LIMIT - 1))])
+        assertEquals(InternalAccount(displayName = null, autoName = "Vault 0", label = null), accounts[addressKeyOf(bitcoinTestnet.changeAddress(2))])
+        assertNull(accounts[addressKeyOf(bitcoin.receiveAddress(BtcAccount.GAP_LIMIT))])
+        assertNull(accounts[addressKeyOf(bitcoin.changeAddress(BtcAccount.GAP_LIMIT))])
+    }
+
+    @Test
     fun aWalletBuiltWithoutNamesStillNamesEachAccountByItsAutoName() {
         val accounts = ownAccountsOf(listOf(wallet("Vault", solana = listOf(solanaKey))))
 
@@ -156,13 +170,8 @@ class OwnAccountsTest {
             ),
         ).plainNames()
 
-        assertEquals(
-            mapOf(
-                addressKeyOf(bitcoin.receiveAddress(0)) to "Cold storage",
-                addressKeyOf(SolanaAccount.addressOf(solanaKey)) to "Daily",
-                addressKeyOf(AlgorandAccount.addressOf(algorandKey)) to "Rewards",
-            ),
-            own,
-        )
+        assertEquals("Cold storage", own[addressKeyOf(bitcoin.receiveAddress(0))])
+        assertEquals("Daily", own[addressKeyOf(SolanaAccount.addressOf(solanaKey))])
+        assertEquals("Rewards", own[addressKeyOf(AlgorandAccount.addressOf(algorandKey))])
     }
 }

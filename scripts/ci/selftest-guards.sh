@@ -2,7 +2,7 @@
 # Checks the CI guards against broken inputs: each case must make its guard fail, and the real files must still pass. Needs yq and
 # python3, no Gradle and no network. Runs in the static step of ci.yml (run-step.sh static), so a guard that stops rejecting a case fails a pull request.
 #   check-cleartext-sources.sh   cleartext allowed outside src/debug/ (#1406, #1441)
-#   check-address-short.sh       a local short-address helper outside AddressGroups (#1684)
+#   check-address-short.sh       a local short-address helper outside AddressGroups (#1684, #1766, #1767, #1768, #1769)
 #   check-workflow-guards.sh     comment-run trusted gate, release refusal order, signing environment, sign-job steps and the always-run pr-ok (#1407, #1408, #1442, #1451, #1465, #1470, #1481, #1482, #1493, #1531, #1532, #1581, #1604)
 #   sign-release.sh              the hash, secrets and version-code checks that come before the APK is signed (#1493)
 #   close-refresh-pr.sh          the refresh pull request is closed and the comment posted once (#1396, #1443)
@@ -134,6 +134,46 @@ for exempt in core/model/src/main/kotlin/app/airvault/core/model/AddressGroups.k
 done
 kotlin app/src/main/java/app/lensly/ui/sign/ReviewBlocks.kt $'internal fun shortAddress(a: String) = "${a.take(10)}...${a.takeLast(6)}"\nfun shortEvm(a: String) = a.take(6) + "…" + a.takeLast(4)'
 expect_fail "a 0x helper after an exempt function in the same file" "$address_short" "$work/tree"
+# Other spellings of the slicing calls (#1766), a helper split over functions (#1767), code after an exempt function (#1768) and an ellipsis that is not a plain literal (#1769).
+reviewblocks=app/src/main/java/app/lensly/ui/sign/ReviewBlocks.kt
+kotlin lumio/src/main/java/A.kt 'fun s(a: String) = a.take(6) + "…" + a.dropLast(38)'
+expect_fail "a take and dropLast helper" "$address_short" "$work/tree"
+kotlin lumio/src/main/java/A.kt 'fun s(a: String) = a.take(6) + "…" + a.drop(38)'
+expect_fail "a take and drop helper" "$address_short" "$work/tree"
+kotlin lumio/src/main/java/A.kt 'fun s(a: String) = a.substring(0, 0x6) + "…" + a.substring(38)'
+expect_fail "a hex substring and substring helper" "$address_short" "$work/tree"
+kotlin lumio/src/main/java/A.kt 'fun s(a: String, n: Int) = a.substring(0, n) + "…" + a.takeLast(4)'
+expect_fail "a substring to a lowercase name and takeLast helper" "$address_short" "$work/tree"
+kotlin lumio/src/main/java/A.kt 'fun s(a: String) = String.format("%.6s…%.4s", a, a)'
+expect_fail "a String.format width helper" "$address_short" "$work/tree"
+kotlin lumio/src/main/java/A.kt 'fun s(a: String) = a.slice(0..5) + "…" + a.removeRange(0, 38)'
+expect_fail "a slice and removeRange helper" "$address_short" "$work/tree"
+kotlin lumio/src/main/java/A.kt $'fun head(a: String) = a.take(6)\nfun tail(a: String) = a.takeLast(4)\nfun s(a: String) = head(a) + "…" + tail(a)'
+expect_fail "a helper split over head, tail and joiner functions" "$address_short" "$work/tree"
+kotlin "$reviewblocks" $'internal fun shortAddress(a: String) = "${a.take(10)}...${a.takeLast(6)}"\nval shortEvm = { a: String -> a.take(6) + "…" + a.takeLast(4) }'
+expect_fail "a lambda after an exempt function" "$address_short" "$work/tree"
+kotlin "$reviewblocks" $'internal fun shortAddress(a: String) = "${a.take(10)}...${a.takeLast(6)}"\nval o = fun(a: String) = a.take(6) + "…" + a.takeLast(4)'
+expect_fail "an anonymous function after an exempt function" "$address_short" "$work/tree"
+kotlin "$reviewblocks" $'internal fun shortAddress(a: String) = "${a.take(10)}...${a.takeLast(6)}"\nfun shortAddress(a: Int) = a.toString().take(6) + "…" + a.toString().takeLast(4)'
+expect_fail "an overload of an exempt function" "$address_short" "$work/tree"
+kotlin "$reviewblocks" $'internal fun shortAddress(a: String): String {\n    return "${a.take(10)}...${a.takeLast(6)}"\n}\nval shortEvm = { a: String -> a.take(6) + "…" + a.takeLast(4) }'
+expect_fail "a lambda after an exempt function with a block body" "$address_short" "$work/tree"
+kotlin "$reviewblocks" $'internal fun shortAddress(a: String) = "${a.take(10)}...${a.takeLast(6)}"\n\nfun other(a: String) = a.length\nval n = 5'
+expect_pass "an exempt function and plain code after it" "$address_short" "$work/tree"
+kotlin lumio/src/main/java/A.kt $'val E = String(Character.toChars(0x2026))\nfun s(a: String) = a.take(6) + E + a.takeLast(4)'
+expect_fail "an ellipsis built from Character.toChars" "$address_short" "$work/tree"
+kotlin lumio/src/main/java/A.kt $'val E = ".." + "."\nfun s(a: String) = a.take(6) + E + a.takeLast(4)'
+expect_fail "an ellipsis built from two strings" "$address_short" "$work/tree"
+kotlin lumio/src/main/java/A.kt $'private const val E: String = "…"\nfun s(a: String) = a.take(6) + E + a.takeLast(4)'
+expect_fail "an ellipsis in a typed constant" "$address_short" "$work/tree"
+kotlin lumio/src/main/java/A.kt 'fun s(a: String) = a.take(6) + Typography.ellipsis + a.takeLast(4)'
+expect_fail "Typography.ellipsis" "$address_short" "$work/tree"
+kotlin lumio/src/main/java/A.kt 'fun s(a: String) = a.take(6) + 0x2026.toChar() + a.takeLast(4)'
+expect_fail "an ellipsis written as 0x2026" "$address_short" "$work/tree"
+kotlin lumio/src/main/java/A.kt $'/** Shows "a..." for a long name. */\nfun s(a: String) = a.take(6)\nfun t(a: String) = a.takeLast(4)\nfun r() = (0..5).map { it }'
+expect_pass "an ellipsis in a comment and a range" "$address_short" "$work/tree"
+kotlin lumio/src/main/java/A.kt $'fun name(a: String) = a.take(8) + "…"\nfun trim(a: String) = a.dropLast(1)'
+expect_pass "a name cut and a dropLast with no tail slice to join" "$address_short" "$work/tree"
 expect_pass "the repository sources" "$address_short"
 
 # --- check-workflow-guards.sh: each mutation is applied to a copy of the real workflows.
