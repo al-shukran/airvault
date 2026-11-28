@@ -460,4 +460,14 @@ class V4SwapStepsTest {
         assertTrue(leaves(take))
         assertFalse(leaves(take, sweep))
     }
+
+    @Test
+    fun aTakeToTheRoutersOwnAddressLeavesTheOutputThereAndAnExactSettleFromTheRouterTakesItOut() {
+        fun leaves(actions: ByteArray, params: List<ByteArray>) = assertNotNull(stepsOfV4(v4Input(actions, params))).leavesInRouter
+        val toRouter = takeParam(USDC, UR_V2, BigInteger.TEN)
+
+        assertTrue(leaves(byteArrayOf(0x0e), listOf(toRouter)))
+        assertTrue(leaves(byteArrayOf(0x10), listOf(abiAddressWord(USDC) + abiAddressWord(UR_V2) + abiWord(BigInteger.valueOf(50)))))
+        assertFalse(leaves(byteArrayOf(0x0e, 0x0b), listOf(toRouter, settleParam(USDC, CONTRACT_BALANCE, payerIsUser = false))))
+    }
 }

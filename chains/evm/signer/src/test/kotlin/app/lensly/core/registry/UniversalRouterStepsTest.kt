@@ -464,4 +464,55 @@ class UniversalRouterStepsTest {
         assertFalse(assertNotNull(stepsOf(StepVectors.UR_V2_SWAP, UR_V1_2, from = "0x7095688dbbe3dd2649cc4ddd77d5be84e97d4c54")).leavesInRouter)
         assertFalse(assertNotNull(stepsOf(StepVectors.UR_WRAP_V2_SWEEP, UR_V1_2, from = "0x1753603034a750ec6c42565ce4c6ae88d8bcd706")).leavesInRouter)
     }
+
+    @Test
+    fun aStepThatPaysTheRoutersOwnAddressLeavesTheTokensThereLikeTheRouterFlag() {
+        fun after(command: Byte, input: ByteArray) =
+            assertNotNull(stepsOfParts(UR_V2, byteArrayOf(V3_SWAP, command), listOf(v3ExactInInput(WETH_TO_USDC, UR_V2), input)))
+
+        val swap = assertNotNull(stepsOfParts(UR_V2, byteArrayOf(V3_SWAP), listOf(v3ExactInInput(WETH_TO_USDC, UR_V2))))
+        assertTrue(swap.leavesInRouter)
+        assertTrue(swap.lines.single().endsWith(", kept in the router"), swap.lines.single())
+        assertEquals(emptyList(), swap.warnings)
+        // A sweep, a transfer of all of it, or a payout of all of it to the router's own address moves nothing out.
+        assertTrue(after(SWEEP, tokenInput(UR_V2, BigInteger.ZERO)).leavesInRouter)
+        assertTrue(after(TRANSFER, tokenInput(UR_V2, ALL_OF_BALANCE)).leavesInRouter)
+        assertTrue(after(PAY_PORTION, tokenInput(UR_V2, BigInteger.valueOf(10_000))).leavesInRouter)
+        assertEquals("Sweep all USDC held by the router to the router", after(SWEEP, tokenInput(UR_V2, BigInteger.ZERO)).lines.last())
+        // The same steps to the signer take it out, and a swap to any other address still pays it as a warned payee and leaves nothing.
+        assertFalse(after(SWEEP, tokenInput(SIGNER, BigInteger.ZERO)).leavesInRouter)
+        assertFalse(assertNotNull(stepsOfParts(UR_V2, byteArrayOf(V3_SWAP), listOf(v3ExactInInput(WETH_TO_USDC, OTHER)))).leavesInRouter)
+        // The V1.2 router is its own address, and the V2 address is just another payee to it.
+        assertTrue(assertNotNull(stepsOfParts(UR_V1_2, byteArrayOf(V3_SWAP), listOf(v3ExactInInput(WETH_TO_USDC, UR_V1_2)))).leavesInRouter)
+        assertFalse(assertNotNull(stepsOfParts(UR_V1_2, byteArrayOf(V3_SWAP), listOf(v3ExactInInput(WETH_TO_USDC, UR_V2)))).leavesInRouter)
+    }
+
+    @Test
+    fun aWrapThatLeavesTheWrappedCoinInTheRouterIsLeftOverUntilAStepSpendsOrTakesItOut() {
+        val wrap = wrapInput(ADDRESS_THIS)
+        val spendsAll = v3ExactInInput(WETH_TO_USDC, SIGNER, payerIsUser = false)
+        fun wrapThen(command: Byte, input: ByteArray) = leaves(byteArrayOf(WRAP, command), listOf(wrap, input))
+
+        assertTrue(leaves(byteArrayOf(WRAP), listOf(wrap)))
+        assertTrue(leaves(byteArrayOf(WRAP), listOf(wrapInput(UR_V2))))
+        // A wrap to the signer or the message sender leaves nothing in the router.
+        assertFalse(leaves(byteArrayOf(WRAP), listOf(wrapInput(SIGNER))))
+        assertFalse(leaves(byteArrayOf(WRAP), listOf(wrapInput(MSG_SENDER))))
+        // The usual swap of ETH spends exactly the wrapped amount, and so does a transfer of it.
+        assertFalse(wrapThen(V3_SWAP, spendsAll))
+        assertFalse(wrapThen(V3_SWAP, v3ExactInInput(WETH_TO_USDC, SIGNER, payerIsUser = false, amountIn = ALL_OF_BALANCE)))
+        assertFalse(wrapThen(SWEEP, abiAddressWord(WETH) + abiAddressWord(SIGNER) + abiWord(BigInteger.ZERO)))
+        assertFalse(wrapThen(UNWRAP, abiAddressWord(SIGNER) + abiWord(BigInteger.ZERO)))
+        assertFalse(wrapThen(TRANSFER, abiAddressWord(WETH) + abiAddressWord(SIGNER) + abiWord(BigInteger.TEN.pow(18))))
+        // A swap of less, a swap paid by the signer, a sweep of another token or to the router, or a transfer of less leaves it.
+        assertTrue(wrapThen(V3_SWAP, v3ExactInInput(WETH_TO_USDC, SIGNER, payerIsUser = false, amountIn = BigInteger.TEN.pow(17))))
+        assertTrue(wrapThen(V3_SWAP, v3ExactInInput(WETH_TO_USDC, SIGNER, payerIsUser = true)))
+        assertTrue(wrapThen(SWEEP, tokenInput(SIGNER, BigInteger.ZERO)))
+        assertTrue(wrapThen(SWEEP, abiAddressWord(WETH) + abiAddressWord(UR_V2) + abiWord(BigInteger.ZERO)))
+        assertTrue(wrapThen(TRANSFER, abiAddressWord(WETH) + abiAddressWord(SIGNER) + abiWord(BigInteger.TEN.pow(17))))
+        // Two swaps that between them spend the wrapped amount take it out, and a swap of less after one that spent too little does not.
+        val half = v3ExactInInput(WETH_TO_USDC, SIGNER, payerIsUser = false, amountIn = BigInteger.valueOf(5).multiply(BigInteger.TEN.pow(17)))
+        assertFalse(leaves(byteArrayOf(WRAP, V3_SWAP, V3_SWAP), listOf(wrap, half, half)))
+        assertTrue(leaves(byteArrayOf(WRAP, V3_SWAP), listOf(wrap, half)))
+    }
 }
