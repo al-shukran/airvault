@@ -1943,6 +1943,9 @@ internal fun deviceIsEmulator(): Boolean {
 fun wipeVault(layout: VaultLayout, deleteKeys: () -> Unit) {
     // Every run of photo copies still queued stops at its next task, which ends it and zeroes its keys.
     photoCopyGeneration.incrementAndGet()
+    // A copy that is already past that check cannot be stopped, so the erase waits for it: it could otherwise write a twin between the
+    // overwrite of the photos folder and its deletion, and that file would be deleted without being overwritten.
+    PhotoStore.whileNoSaveRuns {}
     val markerFailure = try {
         markWipe(layout)
         null

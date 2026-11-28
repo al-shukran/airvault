@@ -388,7 +388,7 @@ class VaultDuressPhotosTest {
         try {
             assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
             assertTrue(atFirstCopy.await(30, TimeUnit.SECONDS))
-            vault.wipe()
+            wipeUntilTheHeldCopyEnds(release)
         } finally {
             release.countDown()
         }
@@ -549,7 +549,7 @@ class VaultDuressPhotosTest {
             assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
             assertTrue(atFirstCopy.await(30, TimeUnit.SECONDS))
             session.close()
-            vault.wipe()
+            wipeUntilTheHeldCopyEnds(release)
         } finally {
             release.countDown()
             resealHookForTesting = null
@@ -559,6 +559,44 @@ class VaultDuressPhotosTest {
         assertTrue(!layout.exists(), "the vault is gone")
         assertEquals(emptyList(), layout.root.walkTopDown().filter { it.isFile }.toList(), "no copy brought a file back")
         assertEquals(emptyList(), layout.photos.walkTopDown().filter { it.isFile }.toList(), "no copy brought a photo back")
+    }
+
+    @Test
+    fun aWipeWaitsForACopyThatIsAlreadyRunning() {
+        val session = unlocked(APP)
+        session.createWallet()
+        shoot()
+        val atFirstCopy = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        resealHookForTesting = { atFirstCopy.countDown(); release.await(30, TimeUnit.SECONDS) }
+        try {
+            assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+            assertTrue(atFirstCopy.await(30, TimeUnit.SECONDS))
+            session.close()
+            assertTrue(wipeUntilTheHeldCopyEnds(release), "the wipe ended while a copy was still running, and that copy could write a twin into the photos it was erasing")
+        } finally {
+            release.countDown()
+            resealHookForTesting = null
+        }
+        awaitSealer()
+
+        assertTrue(!layout.exists(), "the vault is gone")
+        assertEquals(emptyList(), layout.photos.walkTopDown().filter { it.isFile }.toList(), "no copy brought a photo back")
+    }
+
+    /**
+     * Wipes the vault on its own thread while a copy is held on the sealer, and lets the copy go once the wipe waits for it. Returns whether
+     * the wipe was still waiting at that point, that is, whether it did not end before the copy did.
+     */
+    private fun wipeUntilTheHeldCopyEnds(release: CountDownLatch): Boolean {
+        val wipe = FutureTask { vault.wipe() }
+        val thread = Thread(wipe).apply { start() }
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30)
+        while (!wipe.isDone && thread.state != Thread.State.WAITING && System.nanoTime() < deadline) Thread.onSpinWait()
+        val stillWaiting = !wipe.isDone
+        release.countDown()
+        wipe.get(30, TimeUnit.SECONDS)
+        return stillWaiting
     }
 
     @Test
