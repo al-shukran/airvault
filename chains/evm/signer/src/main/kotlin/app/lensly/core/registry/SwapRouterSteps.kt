@@ -32,8 +32,6 @@ internal object SwapRouterSteps {
     private const val SINGLE = "(address,address,uint24,address,uint256,uint256,uint160)"
     private const val PATH = "(bytes,address,uint256,uint256)"
     private const val V3 = "Uniswap v3"
-    private const val MSG_SENDER = "0x0000000000000000000000000000000000000001"
-    private const val ADDRESS_THIS = "0x0000000000000000000000000000000000000002"
 
     /** A call the router runs: its signature, the layout of its arguments, and the steps it reads from them. */
     private class Call(val signature: String, val layout: List<WhitelistParam>, val describe: (StepCall) -> CallSteps?)
@@ -66,12 +64,14 @@ internal object SwapRouterSteps {
         if (items.isEmpty()) return CallSteps(listOf("No calls: the router does nothing"), emptyList())
         val lines = ArrayList<String>()
         val warnings = ArrayList<String>()
+        val addresses = ArrayList<String>()
         items.forEach { item ->
             val steps = callSteps(call, item.bytes())
             lines += steps.lines
             warnings += steps.warnings
+            addresses += steps.addresses
         }
-        return CallSteps(lines, warnings)
+        return CallSteps(lines, warnings, addresses.distinct())
     }
 
     /** The steps of one call inside a multicall: its selector names it, and its arguments are read with the layout it names. */
@@ -82,7 +82,7 @@ internal object SwapRouterSteps {
         if (selector == MULTICALL || selector == MULTICALL_DEADLINE) return unreadable(selector, input)
         val known = CALLS[selector] ?: return unknown(selector, input)
         val decoded = decode(input, known.layout) ?: return unreadable(selector, input)
-        val inner = StepCall(call.registry, call.network, call.contract, call.from, BigInteger.ZERO, decoded)
+        val inner = StepCall(call.registry, call.network, call.contract, call.from, BigInteger.ZERO, decoded, call.caller)
         return known.describe(inner) ?: unreadable(selector, input)
     }
 
@@ -132,26 +132,25 @@ internal object SwapRouterSteps {
         } else {
             "Swap up to ${c.amount(limit, tokenIn)} for exactly ${c.amount(amount, tokenOut)}"
         }
-        val to = when (recipient) {
-            MSG_SENDER -> ""
-            ADDRESS_THIS -> ", kept in the router"
-            else -> if (recipient == c.from) "" else ", sent to ${shortAddress(recipient)}"
-        }
-        return CallSteps(listOf("$sentence ${via(c, V3, route)}$to"), emptyList())
+        val to = c.destination(recipient)?.let { ", $it" }.orEmpty()
+        return c.paying("$sentence ${via(c, V3, route)}$to", "pays the swap output to", recipient)
     }
 
     /** Unwraps all the WETH the router holds, if at least the minimum, and sends the ETH to [recipient]. */
     private fun unwrapWeth(c: StepCall, minimum: BigInteger, recipient: String): CallSteps {
         val least = if (minimum.signum() == 0) "" else " (at least ${c.wrappedAmount(minimum)})"
-        return CallSteps(
-            listOf("Unwrap all ${c.wrappedSymbol} the router holds → ${c.network.nativeSymbol} for ${c.who(recipient)}$least"),
-            emptyList(),
-        )
+        // The router takes this recipient as it is: no flag is mapped.
+        val line = "Unwrap all ${c.wrappedSymbol} the router holds → ${c.network.nativeSymbol} for ${c.who(recipient)}$least"
+        return c.payingAddress(line, "sends the unwrapped ${c.network.nativeSymbol} to", recipient)
     }
 
-    /** Sends all the native coin the router holds to the signer. */
+    /** Sends all the native coin the router holds to the message sender. */
     private fun refund(c: StepCall): CallSteps =
-        CallSteps(listOf("Refund all ${c.network.nativeSymbol} the router holds to you"), emptyList())
+        c.paying(
+            "Refund all ${c.network.nativeSymbol} the router holds to ${c.callerName}",
+            "refunds the router's ${c.network.nativeSymbol} to",
+            MSG_SENDER,
+        )
 
     /** The named fields of a call, in the order its signature lists them. */
     private fun params(vararg fields: Pair<String, String>): List<WhitelistParam> =
