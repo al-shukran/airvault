@@ -969,6 +969,14 @@ class OffChainSignatureReviewTest {
     }
 
     @Test
+    fun aPartyEntryMatchesAnAddressStringOfAnUnlistedHyperliquidTypeToo() {
+        for (member in listOf("destination", "destinationRecipient", "builder", "fromSubAccount")) {
+            assertEquals("Known drainer.", refusalUnderPartyBlock(hlStringMember("SomethingNew", member, denied), denied), member)
+            assertEquals(null, refusalUnderPartyBlock(hlStringMember("SomethingNew", member, notDenied), denied), member)
+        }
+    }
+
+    @Test
     fun aPartyEntryMatchesTheVerifyingContractOfAnyTypedDomain() {
         fun note(contract: String) = """{"types":{"Note":[{"name":"text","type":"string"}],"EIP712Domain":[$DOMAIN_TYPES]},"primaryType":"Note",""" +
             """"domain":{"name":"Token","version":"1","chainId":$ARBITRUM,"verifyingContract":"$contract"},"message":{"text":"hi"}}"""
