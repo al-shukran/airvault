@@ -1,0 +1,1 @@
+A Uniswap router step that sends your tokens or the swap output to another address now warns "not you" and shows that address in full, with its Address Book name and the lookalike check, and swap reviews inside batches now name who receives the output.

@@ -16,8 +16,8 @@ private const val UR_V2 = "0x66a9893cc07d91d95644aedd05d03f95e1dba8af"
 private const val EXECUTE = "0x3593564c"
 private const val EXECUTE_SIGNATURE = "execute(bytes,bytes[],uint256)"
 private const val NO_HOOK = "0x0000000000000000000000000000000000000000"
-private const val MSG_SENDER = "0x0000000000000000000000000000000000000001"
-private const val ADDRESS_THIS = "0x0000000000000000000000000000000000000002"
+private const val MULTICALL3 = "0xca11bde05977b3631167028862be2a173976ca11"
+private const val OTHER = "0x00000000000000000000000000000000000000aa"
 
 /** ActionConstants.CONTRACT_BALANCE: a settle amount for the router's whole balance. */
 private val CONTRACT_BALANCE: BigInteger = BigInteger.ONE.shiftLeft(255)
@@ -37,8 +37,8 @@ private fun stepsOf(calldata: String, from: String): CallSteps? {
     return CallSteps.describe(STEP_REGISTRY, 1, UR_V2, EXECUTE, EXECUTE_SIGNATURE, from, BigInteger.ZERO, decoded)
 }
 
-/** The steps of a call whose only command is V4_SWAP (0x10) with [input], sent by the signer. */
-private fun stepsOfV4(input: ByteArray): CallSteps? = CallSteps.describe(
+/** The steps of a call whose only command is V4_SWAP (0x10) with [input], sent by the signer, or by [caller] when a batch makes the call. */
+private fun stepsOfV4(input: ByteArray, caller: String = SIGNER): CallSteps? = CallSteps.describe(
     STEP_REGISTRY,
     1,
     UR_V2,
@@ -51,6 +51,7 @@ private fun stepsOfV4(input: ByteArray): CallSteps? = CallSteps.describe(
         DecodedParam(EXECUTE_PARAMS[1], AbiValue.Items(listOf(AbiValue.Dynamic(input.toHex())))),
         DecodedParam(EXECUTE_PARAMS[2], AbiValue.Word("00".repeat(ABI_WORD))),
     ),
+    caller,
 )
 
 /** Asserts that a V4_SWAP command with [input] is shown raw, with its warning, and no partial summary. */
@@ -137,6 +138,37 @@ class V4SwapStepsTest {
     }
 
     @Test
+    fun aTakeToAnotherAddressWarnsAndATakeToTheSignerOrTheRouterDoesNot() {
+        fun take(recipient: String) = assertNotNull(stepsOfV4(v4Input(byteArrayOf(0x0e), listOf(takeParam(USDC, recipient, BigInteger.TEN)))))
+
+        assertEquals(listOf("This sends the swap output to ${shortAddress(OTHER)}, not you"), take(OTHER).warnings)
+        assertEquals(listOf(OTHER), take(OTHER).addresses)
+        listOf(SIGNER, MSG_SENDER, ADDRESS_THIS).forEach { own ->
+            assertEquals(emptyList(), take(own).warnings, own)
+            assertEquals(emptyList(), take(own).addresses, own)
+        }
+    }
+
+    @Test
+    fun aTakeInsideABatchPaysTheBatchContractWhereTheFlagOrTakeAllNamesTheMessageSender() {
+        val take = v4Input(byteArrayOf(0x0e), listOf(takeParam(USDC, MSG_SENDER, BigInteger.TEN)))
+        val takeAll = v4Input(byteArrayOf(0x0f), listOf(pairParam(USDC, BigInteger.ZERO)))
+        val settleAll = v4Input(byteArrayOf(0x0c), listOf(pairParam(USDC, BigInteger.ONE)))
+
+        val viaTake = assertNotNull(stepsOfV4(take, MULTICALL3))
+        assertEquals(listOf("Take 0.00001 USDC from Uniswap v4 to Multicall3"), viaTake.lines)
+        assertEquals(listOf("This sends the swap output to 0xcA11…CA11, not you"), viaTake.warnings)
+        assertEquals(listOf(MULTICALL3), viaTake.addresses)
+
+        val viaTakeAll = assertNotNull(stepsOfV4(takeAll, MULTICALL3))
+        assertEquals(listOf("Take all USDC owed to the router from Uniswap v4 to Multicall3"), viaTakeAll.lines)
+        assertEquals(listOf(MULTICALL3), viaTakeAll.addresses)
+
+        assertEquals(listOf("Pay all USDC the router owes from Multicall3 to Uniswap v4 (at most 0.000001 USDC)"), assertNotNull(stepsOfV4(settleAll, MULTICALL3)).lines)
+        assertEquals(emptyList(), assertNotNull(stepsOfV4(takeAll)).addresses)
+    }
+
+    @Test
     fun anExactInputSwapToAnotherAccountNamesThatAccountInItsTake() {
         // Transaction 0x1ce3654a423cfd4fac1c3d63dc666eb141a21b2773b8304aa5073e44ba0ab93f, on Universal Router V2: a swap of a token for ETH,
         // then SETTLE_ALL, then TAKE of the whole credit to another account.
@@ -151,7 +183,8 @@ class V4SwapStepsTest {
             ),
             steps.lines,
         )
-        assertEquals(emptyList(), steps.warnings)
+        assertEquals(listOf("This sends the swap output to 0xFb35…AF75, not you"), steps.warnings)
+        assertEquals("0xfb35", steps.addresses.single().take(6))
     }
 
     @Test
@@ -211,6 +244,7 @@ class V4SwapStepsTest {
         assertEquals(
             listOf(
                 "A pool hook at 0x3Dc1…a145 runs its own code during this swap, so the amounts can differ from those shown.",
+                "This sends part of the swap output to 0xc509…d3d4, not you",
             ),
             steps.warnings,
         )
