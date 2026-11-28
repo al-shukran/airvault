@@ -452,6 +452,8 @@ class VaultDuressTest {
         val decoyPhoto = savePhoto(side = 1)
 
         runBlocking { vault.removeDuress(real) }
+        // The random overwrite is queued on the sealer, so the test waits for it before it reads the photo.
+        runBlocking { vault.awaitPhotoCopies() }
         real.close()
 
         assertTrue(realPhoto.exists())
@@ -504,7 +506,7 @@ class VaultDuressTest {
     ): DuressResult = runBlocking {
         vault.setDuress(session, password.toCharArray()) { decoy ->
             repeat(wallets) { decoy.createWallet() }
-        }
+        }.also { vault.awaitPhotoCopies() }
     }
 
     /** What [setDuressKeepingKey] found: the result, and the decoy's key and wallet ids as [populate] saw them. */
@@ -521,6 +523,7 @@ class VaultDuressTest {
                 ids = decoy.listWallets()
             }
         }
+        runBlocking { vault.awaitPhotoCopies() }
         return KeptDecoy(result, key, ids)
     }
 

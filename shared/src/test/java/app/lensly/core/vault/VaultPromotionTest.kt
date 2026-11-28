@@ -979,6 +979,8 @@ class VaultPromotionTest {
             }
         }
         assertEquals(DuressResult.Enabled, result)
+        // The photo copies are made after the setup returns.
+        runBlocking { vault.awaitPhotoCopies() }
         return Decoy(key, ids)
     }
 
