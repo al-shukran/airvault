@@ -29,7 +29,7 @@ to master, a failed diff and an empty list run it. Nightly runs everything.
 | Step | Runs | Where |
 |---|---|---|
 | `resolve` | `./gradlew resolveAll`, the only online step; retried when a repository is unreachable | `ci.yml` and nightly `build`, on a dependency-cache miss |
-| `static` | `bash -n` on every script, `check-test-network.sh`, `check-mnemonics.sh`, `check-cleartext-sources.sh`, `check-workflow-guards.sh`, `selftest-guards.sh` | `ci.yml` |
+| `static` | `bash -n` on every script, `check-test-network.sh`, `check-mnemonics.sh`, `check-cleartext-sources.sh`, `check-address-short.sh`, `check-workflow-guards.sh`, `selftest-guards.sh` | `ci.yml` |
 | `manifest` | merged manifests (no INTERNET or ACCESS_NETWORK_STATE in `:app`, Lumio's allow-list), no OkHttp on `:app`'s release classpath | `ci.yml` |
 | `compile` | the main and unit-test code of `:app`, `:lumio`, `:shared` and every pure JVM module with a `src/test` set | `ci.yml` |
 | `unit` | every unit test with `--fail-fast` (it fails first when `app`, `lumio` or `shared` has no `src/test` folder with a `*Test.kt` file, which Gradle would pass as NO-SOURCE), except the pixel tests of `:app` and `:lumio` (`-PskipScreenshotTests` leaves out `*ScreenshotTest`) and the fuzz targets | `ci.yml`; nightly `build` on the schedule |

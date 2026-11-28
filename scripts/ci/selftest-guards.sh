@@ -2,6 +2,7 @@
 # Checks the CI guards against broken inputs: each case must make its guard fail, and the real files must still pass. Needs yq and
 # python3, no Gradle and no network. Runs in the static step of ci.yml (run-step.sh static), so a guard that stops rejecting a case fails a pull request.
 #   check-cleartext-sources.sh   cleartext allowed outside src/debug/ (#1406, #1441)
+#   check-address-short.sh       a local short-address helper outside AddressGroups (#1684)
 #   check-workflow-guards.sh     comment-run trusted gate, release refusal order, signing environment, sign-job steps and the always-run pr-ok (#1407, #1408, #1442, #1451, #1465, #1470, #1481, #1482, #1493, #1531, #1532, #1581, #1604)
 #   sign-release.sh              the hash, secrets and version-code checks that come before the APK is signed (#1493)
 #   close-refresh-pr.sh          the refresh pull request is closed and the comment posted once (#1396, #1443)
@@ -88,6 +89,32 @@ echo '<broken' >"$work/tree/lumio/src/main/res.xml"
 rm "$work/tree/lumio/src/main/AndroidManifest.xml"
 expect_fail "XML that cannot be parsed" "$cleartext" "$work/tree"
 expect_pass "the repository sources" "$cleartext"
+
+# --- check-address-short.sh: each variant is a Kotlin file written into a fresh tree.
+address_short=$root/scripts/ci/check-address-short.sh
+kotlin() {
+    # kotlin <path> <source line>: a tree with one Kotlin file at <path>.
+    rm -rf "$work/tree"
+    mkdir -p "$work/tree/$(dirname "$1")"
+    printf '%s\n' "$2" >"$work/tree/$1"
+}
+kotlin app/src/main/java/A.kt 'fun shortAddress(a: String) = AddressGroups.short(a)'
+expect_pass "a call of AddressGroups" "$address_short" "$work/tree"
+kotlin app/src/main/java/A.kt 'fun shortAddress(a: String) = a.take(6) + "…" + a.takeLast(4)'
+expect_fail "a take, ellipsis and takeLast helper" "$address_short" "$work/tree"
+kotlin app/src/main/java/A.kt 'fun shorten(a: String) = "${a.take(10)}...${a.takeLast(6)}"'
+expect_fail "a three dot helper" "$address_short" "$work/tree"
+kotlin shared/src/main/java/A.kt 'fun shorten(a: String) = a.substring(0, 6) + "…"'
+expect_fail "a substring helper" "$address_short" "$work/tree"
+kotlin chains/evm/signer/src/main/kotlin/A.kt 'val label = name.take(8) + "…"'
+expect_pass "a cut of a name with no takeLast" "$address_short" "$work/tree"
+kotlin lumio/src/main/java/A.kt 'fun shortAddress(a: String) = a.take(6) + "…" + a.takeLast(4)'
+expect_pass "a Lumio source, which waits for a design decision" "$address_short" "$work/tree"
+kotlin app/src/test/java/A.kt 'fun shortAddress(a: String) = a.take(6) + "…" + a.takeLast(4)'
+expect_pass "a test source" "$address_short" "$work/tree"
+kotlin core/model/src/main/kotlin/app/airvault/core/model/AddressGroups.kt 'fun short(a: String) = a.take(6) + "…" + a.takeLast(4)'
+expect_pass "AddressGroups itself" "$address_short" "$work/tree"
+expect_pass "the repository sources" "$address_short"
 
 # --- check-workflow-guards.sh: each mutation is applied to a copy of the real workflows.
 guards=$root/scripts/ci/check-workflow-guards.sh

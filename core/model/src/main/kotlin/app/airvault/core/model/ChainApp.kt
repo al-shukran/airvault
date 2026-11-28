@@ -16,9 +16,6 @@ interface AddressCodec {
 
     /** The address for [publicKey] in the requested [kind]. */
     fun fromPublicKey(chain: ChainId, publicKey: ByteArray, kind: AddressKind = AddressKind.DEFAULT): String
-
-    /** A short form for tight UI. The full address is still shown on review. */
-    fun short(address: String): String = address.take(6) + "…" + address.takeLast(6)
 }
 
 sealed interface AddressResult {

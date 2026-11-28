@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import app.airvault.core.model.AddressGroups
 import app.lensly.core.registry.NetworkEntry
 import app.lensly.core.registry.WhitelistEntry
 import app.lensly.ui.components.AddressText
@@ -197,7 +198,7 @@ private fun ApprovalCard(entry: WhitelistEntry) {
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                AddressText(address = entry.contract, shown = shortAddress(entry.contract), icon = false)
+                AddressText(address = entry.contract, shown = AddressGroups.ends(entry.contract), icon = false)
             }
             if (entry.proxy != null) PillChip(text = "Proxy")
         }

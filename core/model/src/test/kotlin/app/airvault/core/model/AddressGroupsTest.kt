@@ -17,4 +17,12 @@ class AddressGroupsTest {
         assertEquals("abcd efgh ij", AddressGroups.ends("abcdefghij"))
         assertEquals("abcd efgh ijkl mnop", AddressGroups.ends("abcdefghijklmnop"))
     }
+
+    @Test
+    fun aRowWritesAnEvmAddressAsItsEndsAndAnyOtherAddressAsItsFirstSixAndLastFour() {
+        assertEquals("0x1a2B 3c4D … 7e8F 9a0B", AddressGroups.short(evm))
+        assertEquals("0xabc", AddressGroups.short("0xabc"))
+        assertEquals("bc1qar…5mdq", AddressGroups.short("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"))
+        assertEquals("1A1zP1eP5Q", AddressGroups.short("1A1zP1eP5Q"))
+    }
 }
