@@ -88,7 +88,8 @@ class BiometricUnlock internal constructor(
         if (isOn()) return true
         var plain: ByteArray? = null
         try {
-            plain = session.copyOfVaultKey() + session.side.toByte()
+            // Built inside the lock from the session's own key, so no separate copy of the Vault Key exists to be left behind.
+            plain = session.withKeyLocked { key -> key.copyOf(key.size + 1).also { it[key.size] = session.side.toByte() } }
             if (!withContext(Dispatchers.IO) { crypto.createKey() }) return false
             val wrapped = crypto.wrap(plain) ?: run {
                 discardKey()
