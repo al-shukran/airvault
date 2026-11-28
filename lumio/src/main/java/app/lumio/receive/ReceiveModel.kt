@@ -106,6 +106,13 @@ internal class ReceiveFlow(val assets: List<ReceiveCoin>, start: ReceiveAnswers)
     }
 }
 
+/** The address as the account rows show it: its first six characters, an ellipsis, and its last four, as in 0x1020…122b. The shared words never use it. */
+internal fun shortAddress(address: String): String =
+    if (address.length <= SHORT_HEAD + SHORT_TAIL) address else address.take(SHORT_HEAD) + "…" + address.takeLast(SHORT_TAIL)
+
+private const val SHORT_HEAD = 6
+private const val SHORT_TAIL = 4
+
 /** The warning under the address of a Receive on [network]. */
 internal fun receiveNote(network: String): String = "Send only $network assets here. Assets sent on other networks may be lost."
 

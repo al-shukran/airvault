@@ -98,9 +98,9 @@ kotlin() {
     mkdir -p "$work/tree/$(dirname "$1")"
     printf '%s\n' "$2" >"$work/tree/$1"
 }
-kotlin lumio/src/main/java/A.kt 'fun shortAddress(a: String) = AddressGroups.short(a)'
+kotlin app/src/main/java/A.kt 'fun shortAddress(a: String) = AddressGroups.short(a)'
 expect_pass "a call of AddressGroups" "$address_short" "$work/tree"
-kotlin lumio/src/main/java/A.kt 'fun shortAddress(a: String) = a.take(6) + "…" + a.takeLast(4)'
+kotlin app/src/main/java/A.kt 'fun shortAddress(a: String) = a.take(6) + "…" + a.takeLast(4)'
 expect_fail "a take, ellipsis and takeLast helper" "$address_short" "$work/tree"
 kotlin app/src/main/java/A.kt 'fun shorten(a: String) = "${a.take(10)}...${a.takeLast(6)}"'
 expect_fail "a three dot helper" "$address_short" "$work/tree"
@@ -108,7 +108,9 @@ kotlin shared/src/main/java/A.kt 'fun shorten(a: String) = a.substring(0, 6) + "
 expect_fail "a substring helper" "$address_short" "$work/tree"
 kotlin chains/evm/signer/src/main/kotlin/A.kt 'val label = name.take(8) + "…"'
 expect_pass "a cut of a name with no takeLast" "$address_short" "$work/tree"
-kotlin lumio/src/test/java/A.kt 'fun shortAddress(a: String) = a.take(6) + "…" + a.takeLast(4)'
+kotlin lumio/src/main/java/A.kt 'fun shortAddress(a: String) = a.take(6) + "…" + a.takeLast(4)'
+expect_pass "a Lumio source, which waits for a design decision" "$address_short" "$work/tree"
+kotlin app/src/test/java/A.kt 'fun shortAddress(a: String) = a.take(6) + "…" + a.takeLast(4)'
 expect_pass "a test source" "$address_short" "$work/tree"
 kotlin core/model/src/main/kotlin/app/airvault/core/model/AddressGroups.kt 'fun short(a: String) = a.take(6) + "…" + a.takeLast(4)'
 expect_pass "AddressGroups itself" "$address_short" "$work/tree"

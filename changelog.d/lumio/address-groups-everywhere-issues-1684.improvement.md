@@ -1,1 +1,0 @@
-Ethereum addresses on the Activity rows, the transaction page, the wallet and asset lists, Receive and the Address Book now read as the first and last two groups of four, such as 0x1234 5678 … 1234 5678, the same way Lensly writes them, instead of the first six and last four characters.

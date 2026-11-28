@@ -26,7 +26,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import app.airvault.core.model.AddressGroups
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.addressChainLabel
 import app.lensly.ui.theme.ClearAirSpacing
@@ -174,8 +173,14 @@ private fun AddressBookEntry.matches(query: String): Boolean {
  * The line under a name: the chain the address is on (a testnet4 address names its network), the label, and the address short. An EVM address is one account on every EVM network, so
  * it names the family, Ethereum.
  */
-internal fun AddressBookEntry.subtitle(): String =
-    listOfNotNull(addressChainLabel(address), label, AddressGroups.short(address)).joinToString(" · ")
+private fun AddressBookEntry.subtitle(): String =
+    listOfNotNull(addressChainLabel(address), label, shortAddress(address)).joinToString(" · ")
+
+/** [address] cut to its first and last characters, such as 0x9f3c…41d0: the 0x and four characters, or four, then the last four. */
+private fun shortAddress(address: String): String {
+    val head = if (address.startsWith("0x")) 6 else 4
+    return if (address.length <= head + 4) address else "${address.take(head)}…${address.takeLast(4)}"
+}
 
 /** The note under the top bar: the book is edited on Lensly, so it cannot be changed here. */
 private const val READ_ONLY = "Read only · edited on Lensly"

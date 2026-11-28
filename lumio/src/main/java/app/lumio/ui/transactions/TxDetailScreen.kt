@@ -36,7 +36,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import app.airvault.core.model.AddressGroups
 import app.lensly.app.AddressBookEntry
 import app.lensly.app.addressEnds
 import app.lensly.app.addressKeyOf
@@ -212,7 +211,7 @@ private fun counterpartyLine(entry: AddressBookEntry?): AddressLine = if (entry 
 
 /** The wallet's own account: its name when it has one, and the line that says it is the owner's, with the ends of its address. */
 private fun ownLine(address: String, name: String?): AddressLine = AddressLine(
-    name = name ?: AddressGroups.short(address),
+    name = name ?: ActivityText.shortAddress(address),
     detail = "Your account · ${addressEnds(address)}",
     named = true,
 )
@@ -359,7 +358,7 @@ private fun Details(detail: TxDetail) {
     ) {
         Text(text = "Hash", style = ClearAirType.body, color = palette.ink2, modifier = Modifier.weight(1f))
         Text(
-            text = if (copy.copied) "Hash copied" else AddressGroups.short(detail.tx.hash),
+            text = if (copy.copied) "Hash copied" else ActivityText.shortAddress(detail.tx.hash),
             style = ClearAirType.rowValue,
             color = palette.ink,
             textAlign = TextAlign.End,

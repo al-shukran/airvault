@@ -1,6 +1,5 @@
 package app.lumio.transactions
 
-import app.airvault.core.model.AddressGroups
 import app.lumio.coinNames
 import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxDirection
@@ -77,7 +76,7 @@ object ActivityText {
             tx.direction == TxDirection.OUT && isContractCall(tx) -> "Contract Call"
             else -> "Sent"
         }
-        val who = (tx.counterparty?.let { party ?: AddressGroups.short(it) })
+        val who = (tx.counterparty?.let { party ?: shortAddress(it) })
         val time = CLOCK.format(Instant.ofEpochMilli(tx.timestampMs).atZone(zone))
         val pending = tx.status == TxStatus.PENDING
         val direction = when {
@@ -109,4 +108,10 @@ object ActivityText {
 
     /** Whether [tx] calls a contract: an outgoing transaction that carries call data. A plain transfer carries none. */
     private fun isContractCall(tx: LumioTx): Boolean = tx.inputData?.let { it.isNotEmpty() && it != "0x" } == true
+
+    /** The first six and the last four characters of [address], with an ellipsis between, such as "0x1020…122b". */
+    fun shortAddress(address: String): String =
+        if (address.length <= SHORT_LIMIT) address else "${address.take(6)}…${address.takeLast(4)}"
+
+    private const val SHORT_LIMIT = 12
 }
