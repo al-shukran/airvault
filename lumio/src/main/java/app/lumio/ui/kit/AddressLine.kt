@@ -73,6 +73,13 @@ internal fun spokenAddress(address: String, lead: String? = "address "): Annotat
 /** What a screen reader says of a transaction [hash]: its groups verbatim, as [spokenAddress] says an address, with no lead. */
 internal fun spokenHash(hash: String): AnnotatedString = spoken(AddressGroups.ends(hash), lead = null)
 
+/**
+ * What a screen reader says of a token [name] that is an unlisted mint written by [addressLineText]: its groups verbatim, as [spokenAddress] says an
+ * address, with no lead. Null for any other name, which is read as it is written.
+ */
+internal fun spokenMintName(name: String): AnnotatedString? =
+    if (name.contains(ELLIPSIS) && name.contains(NO_BREAK)) spoken(name.replace(NO_BREAK, ' '), lead = null) else null
+
 private fun spoken(ends: String, lead: String?): AnnotatedString = buildAnnotatedString {
     lead?.let(::append)
     val parts = ends.split(' ')

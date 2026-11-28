@@ -84,6 +84,12 @@ internal object SwapRouterSteps {
         ) { c -> fee(c.uint(2), c.address(3))?.let { sweepToken(c, c.address(0), c.uint(1), recipient = null, fee = it) } },
     )
 
+    /**
+     * Whether [contract] on [chainId] is known to run its `multicall` by delegating to itself, so each call keeps the message sender of the
+     * batch. Only SwapRouter02 on mainnet is known to. Any other contract is read as making ordinary calls, which its own address sends.
+     */
+    fun delegatesItsBatch(chainId: Long, contract: String): Boolean = chainId == MAINNET && contract.lowercase() == ROUTER
+
     /** The steps of [call] when it is an approved SwapRouter02 call on mainnet, and null for any other call. */
     fun describe(call: StepCall, selector: String, signature: String): CallSteps? {
         if (call.chainId != MAINNET || call.contract != ROUTER) return null
