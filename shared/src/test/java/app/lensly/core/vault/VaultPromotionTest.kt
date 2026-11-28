@@ -651,6 +651,63 @@ class VaultPromotionTest {
         decoy.key.fill(0)
     }
 
+    /** A kill between the claim and the marker's rewrite leaves the marker unmarked, so the next unlock claims again and resets the damaged record. */
+    @Test
+    fun aKillBetweenTheClaimAndTheMarkRunsTheClaimAgainOnTheNextUnlock() {
+        create(P1)
+        val real = unlocked(P1)
+        val decoy = setDuress(real, P2)
+        real.close()
+        vault.skipCleanupForTesting = true
+        val first = unlocked(P2)
+        first.putVaultRecord("settings", byteArrayOf(7))
+        val file = File(layout.vaultRecords, VaultRecordNames.fileName(first.copyOfVaultKey(), "settings"))
+        first.close()
+        // The mark is lost, as when the kill came before its rename.
+        layout.promotionMarker.writeBytes(markerDigest().toByteArray(Charsets.US_ASCII))
+        val damaged = file.readBytes().also { it[it.size - 1] = (it[it.size - 1].toInt() xor 1).toByte() }
+        file.writeBytes(damaged)
+
+        val again = unlocked(P2)
+
+        assertFalse(damaged.contentEquals(file.readBytes()), "the claim ran again and reset the record")
+        assertTrue(String(layout.promotionMarker.readBytes(), Charsets.US_ASCII).endsWith("+claimed"))
+        again.close()
+        decoy.key.fill(0)
+    }
+
+    /** A marker that is not exactly the digest, or the digest and one mark, names no file: it is dropped and nothing it says is believed. */
+    @Test
+    fun aMalformedMarkerIsDroppedAndNeverClaimsOrCleansAnything() {
+        val bad = listOf("+claimed+claimed", "+claimed ", "+CLAIMED", "+claime", "\n+claimed", "+claimed\u0000", "+")
+        bad.forEachIndexed { index, suffix ->
+            layout = layoutAt("v$index")
+            vault = Vault(layout, keys, clock, KDF)
+            create(P1)
+            val real = unlocked(P1)
+            val decoy = setDuress(real, P2)
+            real.close()
+            vault.skipCleanupForTesting = true
+            val first = unlocked(P2)
+            first.putVaultRecord("settings", byteArrayOf(7))
+            val file = File(layout.vaultRecords, VaultRecordNames.fileName(first.copyOfVaultKey(), "settings"))
+            first.close()
+            layout.promotionMarker.writeBytes((markerDigest() + suffix).toByteArray(Charsets.ISO_8859_1))
+            val keyFile = layout.vaultKey.readBytes()
+            val damaged = file.readBytes().also { it[it.size - 1] = (it[it.size - 1].toInt() xor 1).toByte() }
+            file.writeBytes(damaged)
+
+            vault = Vault(layout, keys, clock, KDF)
+            val again = unlocked(P2)
+
+            assertFalse(layout.promotionMarker.exists(), "marker with suffix [$suffix] is dropped")
+            assertContentEquals(keyFile, layout.vaultKey.readBytes())
+            assertContentEquals(damaged, file.readBytes(), "nothing is claimed for [$suffix]")
+            again.close()
+            decoy.key.fill(0)
+        }
+    }
+
     @Test
     fun anOverwriteThatFailsWithAnyExceptionStillCommitsThePromotionAndNothingAfterItIsSkipped() {
         val (_, decoy) = setUpForPromotion()
