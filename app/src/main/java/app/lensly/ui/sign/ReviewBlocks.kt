@@ -30,8 +30,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -154,6 +155,18 @@ internal fun ReviewChip(text: String, tone: Color? = null, leading: (@Composable
     }
 }
 
+/** How far a row's drawing may reach past its sides: a glyph of normal text can overhang its box by a pixel or two. */
+private val ROW_SIDE_OVERHANG = 16.dp
+
+/**
+ * Clips what a row draws to its own height, so a text with stacked combining marks cannot cover the row above or below it. The sides are left
+ * open by [ROW_SIDE_OVERHANG], since a clip at the exact width would cut the last pixel of an overhanging glyph of a normal text.
+ */
+private fun Modifier.clipToRow(): Modifier = drawWithContent {
+    val overhang = ROW_SIDE_OVERHANG.toPx()
+    clipRect(left = -overhang, right = size.width + overhang) { this@drawWithContent.drawContent() }
+}
+
 /**
  * The summary of a review: one large sentence that names the verb, the amount and the counterparty, with the [icon] of the amount
  * beside it when there is one, then the key/value list.
@@ -165,7 +178,7 @@ internal fun ReviewSummary(
     modifier: Modifier = Modifier,
     icon: (@Composable () -> Unit)? = null,
 ) {
-    Column(modifier = modifier.fillMaxWidth().clipToBounds()) {
+    Column(modifier = modifier.fillMaxWidth().clipToRow()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             icon?.let {
                 it()
@@ -192,7 +205,7 @@ internal fun ReviewFactRow(label: String, value: String, mono: Boolean = true, m
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clipToBounds()
+            .clipToRow()
             .padding(vertical = LenslySpacing.xxs),
         verticalAlignment = Alignment.Top,
     ) {
@@ -236,7 +249,7 @@ internal fun ReviewField(
 ) {
     Column(modifier = modifier
         .fillMaxWidth()
-        .clipToBounds()
+        .clipToRow()
         .padding(vertical = LenslySpacing.xxs),
     ) {
         Text(
@@ -261,7 +274,7 @@ internal fun ReviewField(
 /** A message the owner reads whole: its label above it, and its text in the monospace face on a raised block, so each character is checkable. */
 @Composable
 internal fun MessageBlock(label: String, text: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier.fillMaxWidth().clipToBounds().padding(vertical = LenslySpacing.xxs)) {
+    Column(modifier = modifier.fillMaxWidth().clipToRow().padding(vertical = LenslySpacing.xxs)) {
         Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(LenslySpacing.xxs))
         Box(
@@ -285,7 +298,7 @@ internal fun MessageBlock(label: String, text: String, modifier: Modifier = Modi
 internal fun ReviewHeading(label: String, modifier: Modifier = Modifier) {
     Text(
         text = label,
-        modifier = modifier.fillMaxWidth().clipToBounds().padding(vertical = LenslySpacing.xxs),
+        modifier = modifier.fillMaxWidth().clipToRow().padding(vertical = LenslySpacing.xxs),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -294,7 +307,7 @@ internal fun ReviewHeading(label: String, modifier: Modifier = Modifier) {
 /** One numbered step: its number in the muted colour, then its sentence, which wraps when it must. */
 @Composable
 internal fun ReviewStep(number: Int, text: String, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.fillMaxWidth().clipToBounds().padding(bottom = LenslySpacing.sm)) {
+    Row(modifier = modifier.fillMaxWidth().clipToRow().padding(bottom = LenslySpacing.sm)) {
         Text(text = "$number.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(LenslySpacing.sm))
         Text(
