@@ -601,7 +601,8 @@ class VaultPromotionTest {
 
         val order = events.dropWhile { it != "sync ${layout.root.name}" }
         assertEquals(listOf("sync ${layout.root.name}", "overwrite"), order.take(2), "the sync comes right before the overwrite")
-        assertTrue(events.indexOf("state saved") in 0 until events.indexOf("sync ${layout.root.name}"), "the state is saved before the sync")
+        val idxSync = events.indexOf("sync ${layout.root.name}")
+        assertEquals("state saved", events.getOrNull(idxSync - 1), "the state is saved right before the sync")
         session.close()
         decoy.key.fill(0)
     }

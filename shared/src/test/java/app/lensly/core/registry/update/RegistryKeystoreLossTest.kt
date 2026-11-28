@@ -120,6 +120,23 @@ class RegistryKeystoreLossTest {
     }
 
     @Test
+    fun aRecoveryPackageNoNewerThanTheBuildDoesNotEscapeAHugeSequenceFile() {
+        install(byRecovery(1, emptyList())).getOrThrow()
+        install(byRelease(1_000_000, emptyList())).getOrThrow()
+        loseKeystore()
+        val build = Registry(baked.networks(), baked.tokens(), baked.whitelistEntries(), catalogSequence = 5)
+        val before = storeBytes()
+
+        // It revokes the signer of the installed file, but it does not beat the build's catalog, so the huge sequence still pins the floor.
+        val refused = RegistryUpdate.install(byRecovery(5, listOf(TestPackages.THIRD_KEY_ID)), keys, build, dir, keystore)
+        assertIs<RegistryUpdateException.NotNewer>(refused.exceptionOrNull())
+        assertEquals(before, storeBytes())
+        assertEquals(emptyList(), keystore.registryRevokedKeyIds())
+        // One above the build's catalog escapes.
+        assertEquals(6L, RegistryUpdate.install(byRecovery(6, listOf(TestPackages.THIRD_KEY_ID)), keys, build, dir, keystore).getOrThrow().sequence)
+    }
+
+    @Test
     fun anOldRecoveryPackageCannotBeInstalledAgainToDropARevocation() {
         install(byRecovery(1, emptyList())).getOrThrow()
         install(byRecovery(2)).getOrThrow()
