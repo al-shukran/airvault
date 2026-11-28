@@ -19,7 +19,7 @@ import java.nio.ByteBuffer
  */
 internal object PairRecords {
     /** The layout of the META and account records. */
-    private const val VERSION: Byte = 4
+    private const val VERSION: Byte = 5
 
     /** The layout of the Bitcoin record. */
     private const val BITCOIN_VERSION: Byte = 2
@@ -49,11 +49,31 @@ internal object PairRecords {
     private const val META_COUNT_BYTES = 1
 
     /**
+     * The room in the META record for the names of the Bitcoin, Solana and Algorand accounts, each counted as [nameRoom] counts it. The record holds
+     * 8192 bytes and its other fields at most 4314, so this leaves a margin.
+     */
+    const val MAX_NAME_ROOM = 3800
+
+    /** The bytes that [names] take in the META record: one length byte and the text of each name. */
+    fun nameRoom(names: List<String?>): Int = names.sumOf { 1 + it.orEmpty().toByteArray(Charsets.UTF_8).size }
+
+    /**
      * The META record: the wallet's master fingerprint, when Lumio first paired it, its creation time, its name, and the address of each of its
      * Ethereum accounts. The number of accounts is the number of addresses, which is zero for a wallet with no Ethereum account.
-     * Each address is in its EIP-55 form.
+     * Each address is in its EIP-55 form. The name of each Bitcoin, Solana and Algorand account follows, in account order: Ethereum accounts keep
+     * their names in their own records. A null name is stored empty.
      */
-    class Meta(val fingerprint: Long, val createdAtMs: Long, val name: String, val addresses: List<String>)
+    class Meta(
+        val fingerprint: Long,
+        val createdAtMs: Long,
+        val name: String,
+        val addresses: List<String>,
+        val bitcoinNames: List<String?>,
+        val solanaNames: List<String?>,
+        val algorandNames: List<String?>,
+    ) {
+        val otherNames: List<List<String?>> get() = listOf(bitcoinNames, solanaNames, algorandNames)
+    }
 
     fun encodeMeta(meta: Meta): ByteArray {
         val name = meta.name.toByteArray(Charsets.UTF_8)
@@ -62,7 +82,13 @@ internal object PairRecords {
             "A wallet holds 0 to ${PairingCodec.MAX_ETHEREUM_ACCOUNTS} accounts."
         }
         require(meta.addresses.all { evmAddressOf(it) == it }) { "An account's address is an Ethereum address in EIP-55 form." }
-        val buffer = ByteBuffer.allocate(META_HEADER_BYTES + name.size + META_COUNT_BYTES + meta.addresses.size * ADDRESS_CHARS)
+        val names = meta.otherNames.map { list -> list.map { it.orEmpty().toByteArray(Charsets.UTF_8) } }
+        require(names.all { list -> list.all { it.size <= PairingCodec.MAX_NAME_BYTES } }) {
+            "A name holds at most ${PairingCodec.MAX_NAME_BYTES} bytes."
+        }
+        require(meta.otherNames.sumOf { nameRoom(it) } <= MAX_NAME_ROOM) { "The account names take more room than the wallet record holds." }
+        val namesBytes = names.sumOf { list -> META_COUNT_BYTES + list.sumOf { 1 + it.size } }
+        val buffer = ByteBuffer.allocate(META_HEADER_BYTES + name.size + META_COUNT_BYTES + meta.addresses.size * ADDRESS_CHARS + namesBytes)
             .put(VERSION)
             .putInt(meta.fingerprint.toInt())
             .putLong(meta.createdAtMs)
@@ -70,6 +96,10 @@ internal object PairRecords {
             .put(name)
             .put(meta.addresses.size.toByte())
         meta.addresses.forEach { buffer.put(it.toByteArray(Charsets.US_ASCII)) }
+        names.forEach { list ->
+            buffer.put(list.size.toByte())
+            list.forEach { buffer.put(it.size.toByte()).put(it) }
+        }
         return buffer.array()
     }
 
@@ -84,14 +114,28 @@ internal object PairRecords {
         val name = String(bytes, buffer.position(), length, Charsets.UTF_8)
         buffer.position(buffer.position() + length)
         val accountCount = buffer.get().toInt() and UNSIGNED_BYTE_MASK
-        require(accountCount in 0..PairingCodec.MAX_ETHEREUM_ACCOUNTS && buffer.remaining() == accountCount * ADDRESS_CHARS) {
+        require(accountCount in 0..PairingCodec.MAX_ETHEREUM_ACCOUNTS && buffer.remaining() >= accountCount * ADDRESS_CHARS) {
             "Not a pairing record."
         }
-        val addresses = List(accountCount) { index ->
-            String(bytes, buffer.position() + index * ADDRESS_CHARS, ADDRESS_CHARS, Charsets.US_ASCII)
+        val addresses = List(accountCount) {
+            ByteArray(ADDRESS_CHARS).also { buffer.get(it) }.toString(Charsets.US_ASCII)
         }
         require(addresses.all { evmAddressOf(it) == it }) { "Not a pairing record." }
-        return Meta(fingerprint, createdAtMs, name, addresses)
+        val (bitcoin, solana, algorand) = List(3) { namesIn(buffer) }
+        require(!buffer.hasRemaining()) { "Not a pairing record." }
+        return Meta(fingerprint, createdAtMs, name, addresses, bitcoin, solana, algorand)
+    }
+
+    /** The account names that follow the addresses of a META record: a count, then each name with its length. Empty text is a null name. */
+    private fun namesIn(buffer: ByteBuffer): List<String?> {
+        require(buffer.hasRemaining()) { "Not a pairing record." }
+        val count = buffer.get().toInt() and UNSIGNED_BYTE_MASK
+        return List(count) {
+            require(buffer.hasRemaining()) { "Not a pairing record." }
+            val length = buffer.get().toInt() and UNSIGNED_BYTE_MASK
+            require(length <= PairingCodec.MAX_NAME_BYTES && buffer.remaining() >= length) { "Not a pairing record." }
+            ByteArray(length).also { buffer.get(it) }.toString(Charsets.UTF_8).ifEmpty { null }
+        }
     }
 
     /** One Ethereum account's record: the name, label and group that Lensly gave it. An absent field is stored with length 0. */

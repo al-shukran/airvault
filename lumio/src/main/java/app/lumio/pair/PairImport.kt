@@ -66,6 +66,8 @@ object PairImport {
     private const val OUT_OF_ORDER = "The code's accounts on one chain are not numbered 0 to n-1 in order."
     private const val DUPLICATE = "The code lists one account more than once."
     private const val BAD_KEY = "The code's public key is not valid."
+    private const val NAMES_TOO_LONG =
+        "The code's names for Bitcoin, Solana and Algorand accounts are longer than Lumio keeps. Shorten some of them in Lensly, then pair again."
     private const val BAD_ADDRESS = "The code's Address Book holds an address that is not a valid address of a supported chain."
     private const val COMPRESSED_KEY_BYTES = 33
     private const val ED25519_KEY_BYTES = 32
@@ -118,6 +120,10 @@ object PairImport {
             val count = accounts.count { it.export.chain.namespace == namespace }
             val max = requireNotNull(ACCOUNT_LIMITS[namespace]) { "An installed chain has an account limit." }
             if (count > max) throw PairingRefusal("The code carries $count ${nameOf(namespace)} accounts. Lumio pairs up to $max.")
+        }
+        val named = listOf(Networks.BIP122, Networks.SOLANA, Networks.ALGORAND)
+        if (accounts.filter { it.export.chain.namespace in named }.sumOf { PairRecords.nameRoom(listOf(it.name)) } > PairRecords.MAX_NAME_ROOM) {
+            throw PairingRefusal(NAMES_TOO_LONG)
         }
         if (accounts.map { it.export.chain to it.export.signer.path }.distinct().size != accounts.size) throw PairingRefusal(DUPLICATE)
         accounts.forEach { checkAccount(it.export) }
