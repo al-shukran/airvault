@@ -54,25 +54,39 @@ class GalleryGateTest {
 
     @Test
     fun theDuressPasswordPromotesTheDecoyErasesTheRealVaultAndOpensThePromotedGallery() {
-        saveCoverPhoto()
+        val shot = saveCoverPhoto()
         val oldKeyFile = layout.vaultKey.readBytes()
 
-        // Not the wrong-password answer: a gallery opens. The Decoy Vault starts with no photos of its own.
+        // Not the wrong-password answer: a gallery opens. It lists the photo the cover took after the Duress Password was set.
         val first = assertNotNull(galleryAfterDelay(DURESS))
-        assertEquals(emptyList(), first.list())
+        assertEquals(listOf(shot.name), first.list().map { it.file.name })
+        assertContentEquals(PHOTO, first.photoBytes(first.list().single().file))
         assertEquals(0, vault.failureCountForTesting())
         // The real vault is gone: a new key file is in place, the cleanup finished before the gallery returned, and the App Password opens nothing.
         assertTrue(!oldKeyFile.contentEquals(layout.vaultKey.readBytes()))
         assertTrue(!layout.promotionMarker.exists())
         assertNull(galleryAfterDelay(APP))
-        // The gallery is the promoted vault's: the Duress Password opens it, and the cover's next photo is listed there.
-        val photo = saveCoverPhoto()
+        // The gallery is the promoted vault's: the Duress Password opens it, and the cover's next photo is listed there too.
+        val next = saveCoverPhoto()
         val promoted = assertNotNull(galleryAfterDelay(DURESS))
-        assertEquals(listOf(photo.name), promoted.list().map { it.file.name })
-        assertContentEquals(PHOTO, promoted.photoBytes(promoted.list().single().file))
+        assertEquals(setOf(shot.name, next.name), promoted.list().map { it.file.name }.toSet())
         val session = (runBlocking { clock.advance(FailureDelay.LEARNING_CAP_MS); vault.unlock(DURESS.toCharArray()) } as UnlockResult.Unlocked).session
         assertEquals(listOf(decoyWallet), session.listWallets())
         session.close()
+    }
+
+    @Test
+    fun theAppPasswordStillOpensACoverPhotoBeforeAnyPromotionAndTheDecoysKeyFileKeepsItsShape() {
+        val keyFile = layout.photoKeyFile(1)
+        val sizeAtSetup = keyFile.length()
+        val shot = saveCoverPhoto()
+
+        val gallery = assertNotNull(galleryAfterDelay(APP))
+
+        assertEquals(listOf(shot.name), gallery.list().map { it.file.name })
+        assertEquals(sizeAtSetup, layout.photoKeyFile(0).length())
+        assertEquals(layout.photoKeyFile(0).length(), keyFile.length())
+        assertEquals(layout.photoKeyFile(0).name.length, keyFile.name.length)
     }
 
     @Test
