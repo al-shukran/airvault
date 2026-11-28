@@ -60,10 +60,10 @@ class StepLineLayoutTest {
     fun anAaveSupplyForAnotherAccountFitsTheScreen() = assertStepTextFits(aaveSupplySample())
 
     @Test
-    fun anAddressInAUniversalRouterStepLineIsNeverSplitAcrossLines() = assertAddressesStayWhole(urBatchPayingOtherSample())
+    fun anAddressInAUniversalRouterStepLineIsNeverSplitAcrossLines() = assertAddressesStayWhole(urBatchPayingOtherSample(), expectRecipient = true)
 
     @Test
-    fun anAddressInAnAaveStepLineIsNeverSplitAcrossLines() = assertAddressesStayWhole(aaveSupplySample())
+    fun anAddressInAnAaveStepLineIsNeverSplitAcrossLines() = assertAddressesStayWhole(aaveSupplySample(), expectRecipient = false)
 
     @Test
     fun onlyTheGroupsOfAnAddressAreJoined() {
@@ -74,9 +74,12 @@ class StepLineLayoutTest {
         assertEquals("Unknown bulker action 0x1234 56789: raw", keepAddressesWhole("Unknown bulker action 0x1234 56789: raw"))
     }
 
-    private fun assertAddressesStayWhole(review: Review) {
+    private fun assertAddressesStayWhole(review: Review, expectRecipient: Boolean) {
         show(review)
-        recipientTexts(review).forEach { text ->
+        val recipients = recipientTexts(review)
+        // A top-level call adds no Recipient row; only a step called by a batch does. Pinning which, so the loop below can never pass on zero rows.
+        assertEquals(expectRecipient, recipients.isNotEmpty(), "the review ${if (expectRecipient) "has" else "has no"} Recipient row")
+        recipients.forEach { text ->
             // A Recipient row wraps between groups, as every address row does, so each line holds whole groups of four.
             layoutOf(text).let { layout ->
                 val shown = layout.layoutInput.text.text
@@ -103,7 +106,7 @@ class StepLineLayoutTest {
         assertTrue(addresses > 0, "the steps of the review name an account in groups of four")
     }
 
-    /** The grouped text of each Recipient row, which the review adds for an account other than the signer that a Universal Router batch pays. It is an address row, not plain text. */
+    /** The grouped text of each Recipient row, which the review adds for an account other than the signer that a step called by a Universal Router batch pays. A top-level call, such as an Aave supply, has none. It is an address row, not plain text. */
     private fun recipientTexts(review: Review): List<String> {
         val rows = review.sections.flatMap { it.rows }.filter { it.label == "Recipient" }
         return rows.map { row -> groupAddress(assertIs<DisplayValue.Address>(row.value).text()) }
