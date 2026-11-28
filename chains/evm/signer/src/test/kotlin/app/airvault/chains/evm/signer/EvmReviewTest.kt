@@ -1026,6 +1026,26 @@ class EvmReviewTest {
     }
 
     @Test
+    fun aWhitelistedDeadlineMulticallThatIsNotKnownToDelegateNamesTheBatchContractAsTheCallerOfItsSteps() {
+        val borrow = Numeric.hexStringToByteArray(
+            "0xa415bcad",
+        ) + word(BigInteger(USDC.removePrefix("0x"), 16)) + word(BigInteger.valueOf(1_000_000)) + word(BigInteger.TWO) + word(BigInteger.ZERO) +
+            word(BigInteger(SENDER.removePrefix("0x"), 16))
+        val call = InnerCall(target = null, allowFailure = null, value = null, calldata = borrow, call = null, nested = null)
+        val batch = encodeMulticall(MulticallShape.DEADLINE_BYTES_ARRAY, deadline = BigInteger.valueOf(1_900_000_000), calls = listOf(call))!!
+        val deadlineEntry = aavePoolBatchEntry().copy(
+            selector = "0x${MulticallShape.DEADLINE_BYTES_ARRAY.selector}",
+            signature = MulticallShape.DEADLINE_BYTES_ARRAY.signature,
+            params = listOf(WhitelistParam("deadline", "uint256"), WhitelistParam("data", "bytes[]")),
+        )
+        val registry = REGISTRY.withWhitelist(listOf(deadlineEntry, aaveBorrowEntry()))
+
+        val review = reviewOf(txParsed(Keys.toChecksumAddress(AAVE_POOL), batch), builder(registry))
+
+        assertEquals(listOf(AAVE_BORROW_PAYEE_WARNING), review.warnings.filter { it.code == "evm.steps" }.map { it.message })
+    }
+
+    @Test
     fun theUniswapRouterMulticallStillDelegatesSoItsStepsKeepTheSignerAsTheCaller() {
         val unwrap = Numeric.hexStringToByteArray("0x49616997") + word(BigInteger.ZERO)
         val call = InnerCall(target = null, allowFailure = null, value = null, calldata = unwrap, call = null, nested = null)
