@@ -303,6 +303,7 @@ class ReviewHistoryTest {
         dataHash = "cd".repeat(32),
         bitcoin = BitcoinRecordFacts(
             scriptType = "Native Segwit P2WPKH",
+            accountAddress = "tb1qaccount",
             outputs = listOf(
                 BitcoinRecordOutput(address = "tb1qpaid", amountSats = 30_000L, isOwnChange = false),
                 BitcoinRecordOutput(address = null, amountSats = 0L, isOwnChange = false),

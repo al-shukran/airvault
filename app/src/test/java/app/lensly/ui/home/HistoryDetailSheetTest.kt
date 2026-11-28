@@ -161,6 +161,7 @@ class HistoryDetailSheetTest {
     fun aTapOnABitcoinOutputOpensItsAddressOnBitcoin() {
         val facts = BitcoinRecordFacts(
             scriptType = "Native SegWit",
+            accountAddress = "tb1qaccount",
             outputs = listOf(
                 BitcoinRecordOutput(address = bitcoinPaid, amountSats = 30_000, isOwnChange = false),
                 BitcoinRecordOutput(address = bitcoinChange, amountSats = 60_000, isOwnChange = true),
@@ -221,6 +222,7 @@ class HistoryDetailSheetTest {
         )
         val facts = BitcoinRecordFacts(
             scriptType = "Native SegWit",
+            accountAddress = "tb1qaccount",
             outputs = listOf(BitcoinRecordOutput(address = bitcoinPaid, amountSats = 30_000, isOwnChange = false)),
             feeSats = 500,
             feeRateSatPerVb = 2.0,
@@ -232,5 +234,25 @@ class HistoryDetailSheetTest {
         compose.onNodeWithText("Your account · Trading 0").assertIsDisplayed()
         compose.onNodeWithText("Wallet").assertIsDisplayed()
         compose.onNodeWithText("Trading").assertIsDisplayed()
+    }
+
+    @Test
+    fun aBitcoinChangeOutputNamesTheAccountItWentTo() {
+        val accounts = mapOf(addressKeyOf("tb1qaccount") to InternalAccount(displayName = "Savings", autoName = "Seed 0", label = null))
+        val facts = BitcoinRecordFacts(
+            scriptType = "Native SegWit",
+            accountAddress = "tb1qaccount",
+            outputs = listOf(
+                BitcoinRecordOutput(address = bitcoinPaid, amountSats = 30_000, isOwnChange = false),
+                BitcoinRecordOutput(address = bitcoinChange, amountSats = 60_000, isOwnChange = true),
+            ),
+            feeSats = 500,
+            feeRateSatPerVb = 2.0,
+            notices = emptyList(),
+        )
+
+        setSheet(record(kind = ReviewKind.BITCOIN_TRANSACTION, networkName = "Bitcoin Testnet4", bitcoin = facts), accounts = accounts)
+
+        compose.onNodeWithText("Your change · Savings").assertIsDisplayed()
     }
 }
