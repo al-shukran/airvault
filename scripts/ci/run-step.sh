@@ -13,7 +13,7 @@ usage: scripts/ci/run-step.sh <step>
 
 steps:
   resolve        the one online step: ./gradlew resolveAll, retried only on network errors
-  static         no Gradle: bash -n on every script, the test-network, workflow, cleartext and mnemonic guards, the guard self-test
+  static         no Gradle: bash -n on every script, the test-network, workflow, cleartext, short-address and mnemonic guards, the guard self-test
   manifest       merged manifests: no INTERNET or ACCESS_NETWORK_STATE in :app, Lumio's allow-list, OkHttp off :app's release classpath
   compile        the main and unit-test code of :app, :lumio, :shared and of every pure JVM module with tests
   unit           every unit test except the Roborazzi pixel tests of :app and :lumio and the fuzz targets
@@ -89,6 +89,7 @@ run_static() {
     scripts/ci/check-test-network.sh
     scripts/ci/check-mnemonics.sh
     scripts/ci/check-cleartext-sources.sh
+    scripts/ci/check-address-short.sh
     scripts/ci/check-workflow-guards.sh
     scripts/ci/selftest-guards.sh
 }

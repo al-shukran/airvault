@@ -75,11 +75,6 @@ class ApprovedContractsFilterTest {
         assertEquals("", protocolOf(aaveEthereum.copy(meaning = "Deposit with no protocol named")))
     }
 
-    @Test
-    fun aShortAddressKeepsTheFirstSixAndTheLastFourCharacters() {
-        assertEquals("0x7f39…2ca0", shortAddress("0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"))
-    }
-
     private fun network(chainId: Long, name: String) = NetworkEntry(
         chainId = chainId,
         name = name,

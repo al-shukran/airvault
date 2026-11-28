@@ -1,0 +1,1 @@
+The approved contracts list in Settings now writes each contract address as its first and last two groups of four, such as 0x7f39 c581 … 935e 2ca0, the same way the review screens write it, instead of the first six and last four characters.
