@@ -144,9 +144,12 @@ class VaultDuressSetupTest {
 
             val promoted = unlocked(P2)
             awaitCleanup()
-            names.forEach { assertNull(promoted.getVaultRecord(it), "step $step: $it reads as no value") }
-            names.forEach { promoted.putVaultRecord(it, byteArrayOf(1)) }
-            names.forEach { assertContentEquals(byteArrayOf(1), promoted.getVaultRecord(it), "step $step: $it takes a write") }
+            // The unlock makes the photo key, so that record holds a value and must read; the others hold none.
+            assertNotNull(promoted.getVaultRecord(VaultRecordNames.PHOTO_KEY), "step $step: the photo key reads")
+            val others = names - VaultRecordNames.PHOTO_KEY
+            others.forEach { assertNull(promoted.getVaultRecord(it), "step $step: $it reads as no value") }
+            others.forEach { promoted.putVaultRecord(it, byteArrayOf(1)) }
+            others.forEach { assertContentEquals(byteArrayOf(1), promoted.getVaultRecord(it), "step $step: $it takes a write") }
             promoted.close()
             assertEquals(fresh, sizes(layout.vaultRecords), "step $step: the folder keeps its file sizes")
             decoyKey.fill(0)
