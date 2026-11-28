@@ -770,7 +770,8 @@ class Vault constructor(
     private fun purgeOldVault(session: VaultSession) {
         val side = session.side
         // A folder is checked and released under one hold of the lock, so a wallet that the session makes meanwhile is owned when it is checked.
-        // The promoted vault's own unused slots are left alone, since releasing one again would only churn its Keystore key.
+        // The promoted vault's own unused slots are left alone, since releasing one again would only churn its Keystore key. This relies on the
+        // lend-back in [installDecoy]: no slot is free in both the real and the decoy list, so a free slot here never holds an old wallet.
         layout.wallets.list().orEmpty().forEach { id ->
             session.withKeyLocked { key ->
                 if (layout.walletKeyFile(id).isFile && !ownsWallet(keys, layout, key, id)) withPadOf(key, side) { if (id !in it.freeSlots()) it.release(listOf(id)) }
@@ -1118,11 +1119,11 @@ class Vault constructor(
         try {
             populate(decoy)
             if (decoy.listWallets().isEmpty()) {
-                withPadOf(vaultKey, side) { discard(decoyKey, it) }
+                withPadOf(vaultKey, side) { discard(decoyKey, decoySide, it) }
                 return DuressResult.DecoyEmpty
             }
         } catch (e: Exception) {
-            withPadOf(vaultKey, side) { discard(decoyKey, it) }
+            withPadOf(vaultKey, side) { discard(decoyKey, decoySide, it) }
             return DuressResult.Failed
         } finally {
             decoy.close()
@@ -1143,7 +1144,7 @@ class Vault constructor(
             false
         }
         if (!committed) {
-            withPadOf(vaultKey, side) { discard(decoyKey, it) }
+            withPadOf(vaultKey, side) { discard(decoyKey, decoySide, it) }
             return DuressResult.Failed
         }
         // The decoy takes the spare record files over only now, so a try that fails touches no record file of the old decoy, and writing a
@@ -1502,11 +1503,13 @@ class Vault constructor(
     }
 
     /**
-     * Deletes the wallets and vault records that [key] owns. This drops a decoy that was being set up. Its pool files are overwritten, and its
-     * folders go to [pad] as unused slots, which keeps the folder count. The record files stay as spares, so that folder's file count never
+     * Deletes the wallets and vault records that [key] owns. This drops a decoy that was being set up on [decoySide]. Its pool files are
+     * overwritten, and its folders go to [pad] as unused slots, which keeps the folder count. The record files stay as spares, so that folder's file count never
      * changes (see [VaultRecordNames]).
      */
-    private fun discard(key: ByteArray, pad: WalletPad) {
+    private fun discard(key: ByteArray, decoySide: Int, pad: WalletPad) {
+        // The slots that were lent and not used go back too, or the real vault's next wallet would grow the store.
+        withPadOf(key, decoySide) { it.lend(pad, Int.MAX_VALUE) }
         val owned = layout.wallets.list()?.filter { ownsWallet(keys, layout, key, it) }.orEmpty()
         ReviewPool(layout.reviewPool, key).use { pool -> pool.ownedNames().forEach { overwriteInPlace(File(layout.reviewPool, it)) } }
         pad.release(owned)
@@ -1851,20 +1854,33 @@ private fun dropSidePhotos(layout: VaultLayout, side: Int) {
         twins.second.forEach(::shredPhotoFile)
         twins.first to photos.filter { !File(folder, it.name).exists() }
     }
-    kept.forEach { overwriteBestEffort(it) }
-    twinless.forEach { photo ->
-        val twin = File(folder, photo.name)
-        try {
-            RandomAccessFile(twin, "rw").use { it.setLength(photo.length()) }
-            overwriteInPlace(twin)
-        } catch (e: IOException) {
-            // A twin that cannot be written is left for the next change of the Duress Password.
-        }
+    // The cover clears the modification time of every photo it saves, so a file written here gets the same time.
+    kept.forEach {
+        overwriteBestEffort(it)
+        it.setLastModified(0L)
     }
+    twinless.forEach { photo -> writeRandomTwin(File(folder, photo.name), photo.length()) }
     try {
         writeAtomically(layout.photoKeyFile(side), placeholderPhotoKey())
     } catch (e: IOException) {
         // The next unlock of the decoy would replace it anyway; the drop itself must not fail half way.
+    }
+}
+
+/**
+ * Writes [size] random bytes to a temp file beside [target], clears its modification time and renames it to [target], so a kill leaves no
+ * half-written twin. A twin that cannot be written is left for the next change of the Duress Password.
+ */
+private fun writeRandomTwin(target: File, size: Long) {
+    var temp: File? = null
+    try {
+        temp = File.createTempFile("${target.name}.", ".tmp", target.parentFile)
+        RandomAccessFile(temp, "rw").use { it.setLength(size) }
+        overwriteInPlace(temp)
+        temp.setLastModified(0L)
+        commitTemp(temp, target)
+    } catch (e: IOException) {
+        temp?.delete()
     }
 }
 

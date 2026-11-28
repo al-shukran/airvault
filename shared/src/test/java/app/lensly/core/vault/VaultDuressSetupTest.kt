@@ -119,9 +119,9 @@ class VaultDuressSetupTest {
         setDuress(real)
 
         assertEquals(sizesBefore, photoSizes())
-        assertEquals(names(0), names(1))
+        assertFoldersAlike()
         savePhotos("b")
-        assertEquals(names(0), names(1))
+        assertFoldersAlike()
         real.close()
     }
 
@@ -136,7 +136,7 @@ class VaultDuressSetupTest {
         runBlocking { vault.removeDuress(real) }
 
         assertEquals(sizesBefore, photoSizes())
-        assertEquals(names(0), names(1))
+        assertFoldersAlike()
         real.close()
     }
 
@@ -144,22 +144,50 @@ class VaultDuressSetupTest {
     fun aDecoySidePhotoWithNoTwinGoesAndARealPhotoWithNoTwinGetsOne() {
         val real = unlocked(P1)
         real.createWallet()
-        File(layout.photoDir(0).apply { mkdirs() }, "real-only").writeBytes(ByteArray(300) { 1 })
-        File(layout.photoDir(1).apply { mkdirs() }, "decoy-only").writeBytes(ByteArray(50) { 2 })
+        File(layout.photoDir(0).apply { mkdirs() }, "real-only").apply { writeBytes(ByteArray(300) { 1 }) }.setLastModified(0L)
+        File(layout.photoDir(1).apply { mkdirs() }, "decoy-only").apply { writeBytes(ByteArray(50) { 2 }) }.setLastModified(0L)
 
         setDuress(real)
 
         assertEquals(listOf("real-only"), names(0))
-        assertEquals(names(0), names(1))
+        assertFoldersAlike()
         assertEquals(300L, File(layout.photoDir(1), "real-only").length())
         assertFalse(File(layout.photoDir(1), "real-only").readBytes().all { it == 1.toByte() || it == 0.toByte() })
         real.close()
     }
 
+    @Test
+    fun aDecoyThatWasNotSetUpGivesItsSlotsBackWhetherItIsEmptyOrFails() {
+        for (populate in listOf<(VaultSession) -> Unit>({}, { throw IllegalStateException("populate failed") })) {
+            val own = layoutAt("try${tmp.root.list().orEmpty().size}")
+            val ownVault = Vault(own, MemoryKeystore(), FakeClock(), KDF)
+            runBlocking { ownVault.create(P1.toCharArray()) }
+            val real = (runBlocking { ownVault.unlock(P1.toCharArray()) } as UnlockResult.Unlocked).session
+            real.createWallet()
+
+            val result = runBlocking { ownVault.setDuress(real, P2.toCharArray(), populate) }
+            real.createWallet()
+
+            assertTrue(result is DuressResult.DecoyEmpty || result is DuressResult.Failed, "got $result")
+            assertEquals(WALLET_SLOT_STEP, own.wallets.listFiles().orEmpty().size, "the store grew after a setup that did not complete")
+            real.close()
+        }
+    }
+
     private fun savePhotos(tag: String) {
         listOf("$tag-a" to 100, "$tag-b" to 200).forEach { (name, size) ->
-            listOf(0, 1).forEach { side -> File(layout.photoDir(side).apply { mkdirs() }, name).writeBytes(ByteArray(size)) }
+            // The cover clears the modification time of every photo it saves.
+            listOf(0, 1).forEach { side ->
+                File(layout.photoDir(side).apply { mkdirs() }, name).apply { writeBytes(ByteArray(size)) }.setLastModified(0L)
+            }
         }
+    }
+
+    /** Both folders list the same names, each with the same size and modification time, as the cover leaves them. */
+    private fun assertFoldersAlike() {
+        fun listing(side: Int) = layout.photoDir(side).listFiles().orEmpty().map { Triple(it.name, it.length(), it.lastModified()) }.sortedBy { it.first }
+        assertEquals(listing(0), listing(1))
+        assertTrue(listing(0).all { it.third == 0L }, "a photo file shows a modification time: ${listing(0)}")
     }
 
     private fun names(side: Int) = layout.photoDir(side).listFiles().orEmpty().map { it.name }.sorted()
