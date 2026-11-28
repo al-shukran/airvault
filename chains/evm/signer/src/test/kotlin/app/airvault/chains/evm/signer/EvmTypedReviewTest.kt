@@ -8,6 +8,7 @@ import app.airvault.core.model.FieldPath
 import app.airvault.core.model.NetworkLabel
 import app.airvault.core.model.Review
 import app.airvault.core.model.ReviewRow
+import app.airvault.core.model.SummaryPart
 import app.airvault.core.model.text
 import app.airvault.core.model.unaccounted
 import app.lensly.core.registry.DenylistEntry
@@ -269,6 +270,33 @@ class EvmTypedReviewTest {
         assertEquals("42", rowOf(review, "Message", "amount (uint256)").value.text())
         assertTrue(review.sections.none { it.heading == "Summary" }, "no summary is guessed for a message that is not a permit")
         assertTrue(review.warnings.isEmpty())
+    }
+
+    /**
+     * The review shows the primary type in its title and summary as it is. That is only true because every type name is an identifier
+     * (letters, digits, underscore, one colon): a name with an invisible or reordering character never reaches the review, it is refused.
+     */
+    @Test
+    fun aPrimaryTypeThatCouldBeHiddenOrReorderedIsRefusedNotShown() {
+        val names = listOf(
+            "Permit\u202Eevil", // right-to-left override
+            "Permit\u200Bx", // zero-width space
+            "Permit" + "\u0301".repeat(100), // stacked combining marks
+        )
+        for (name in names) {
+            val result = EvmReviewBuilder(TYPED_REGISTRY, { calldata, params -> AbiDecoder.decode(calldata, params) })
+                .review(typedRequest(permitJson().replace("\"Permit\"", "\"$name\"")), sender = OWNER)
+
+            assertTrue(assertIs<EvmReviewResult.Refused>(result).reason.endsWith("is not an identifier"), name)
+        }
+    }
+
+    @Test
+    fun aPrintablePrimaryTypeIsTheTitleAndNamedInTheSummary() {
+        val review = typedReview(mailJson())
+
+        assertEquals("Mail", review.title)
+        assertEquals("Signs typed data of type Mail.", review.summary.filterIsInstance<SummaryPart.Text>().single().text)
     }
 
     /** U+E0001 is a language tag. It draws nothing, so the string reads "Hello" while the signed bytes hold more: the string shows its bytes. */
