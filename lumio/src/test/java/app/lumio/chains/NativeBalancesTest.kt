@@ -68,6 +68,7 @@ class NativeBalancesTest {
                     fingerprint = 1L,
                     createdAtMs = 0L,
                     name = "Demo",
+                    autoNameBase = "Demo",
                     addresses = listOf(PairFixtures.address(PairFixtures.seed, 0)),
                     bitcoinNames = emptyList(),
                     solanaNames = List(solana) { null },
