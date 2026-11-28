@@ -617,6 +617,28 @@ class VaultFormatV4Test {
         assertTrue(pool.indexKey.all { it == 0.toByte() })
     }
 
+    // 1661: the check that a new slot holds the Vault Key compares in place and makes no copy of the key.
+
+    @Test
+    fun aSlotUnwrapsOnlyToTheVaultKeyAndRoleItHolds() {
+        val rig = Rig("a")
+        rig.create()
+        val session = rig.unlocked(APP)
+        val vaultKey = session.copyOfVaultKey()
+        session.close()
+        val softKey = softKeyOf(rig, APP)
+        val hardwareKey = rig.keys.hardwareKey()
+        val slot = slotWithRole(rig, APP, vaultKey, VaultRole.REAL_SIDE_0)
+        val before = vaultKey.copyOf()
+
+        assertTrue(rig.vault.unwrapsTo(softKey, hardwareKey, slot, vaultKey, VaultRole.REAL_SIDE_0))
+        assertFalse(rig.vault.unwrapsTo(softKey, hardwareKey, slot, vaultKey, VaultRole.DECOY_SIDE_1))
+        assertFalse(rig.vault.unwrapsTo(softKey, hardwareKey, slot, vaultKey.copyOf().also { it[31] = (it[31] + 1).toByte() }, VaultRole.REAL_SIDE_0))
+        assertFalse(rig.vault.unwrapsTo(softKey, hardwareKey, slot, vaultKey.copyOf(31), VaultRole.REAL_SIDE_0))
+        assertFalse(rig.vault.unwrapsTo(softKey, hardwareKey, slot, vaultKey + 0, VaultRole.REAL_SIDE_0))
+        assertContentEquals(before, vaultKey, "The check changed the key it was given.")
+    }
+
     private fun recording(keys: KeystoreBackend, inputs: MutableList<ByteArray>): KeystoreBackend = object : KeystoreBackend by keys {
         override fun slotMac(message: ByteArray): ByteArray {
             inputs += message.copyOf()
@@ -652,6 +674,12 @@ class VaultFormatV4Test {
 
     private fun recordFiles(rig: Rig): Int = rig.layout.vaultRecords.list().orEmpty().size
 
+    private fun softKeyOf(rig: Rig, password: String): ByteArray {
+        val header = rig.header()
+        val stretched = Argon2Kdf.derive(password.toCharArray(), header.salt, header.kdf)
+        return hkdfSha256(stretched + rig.keys.slotMac(stretched), salt = null, info = SLOT_INFO, length = VaultKeyFile.KEY_BYTES)
+    }
+
     /** The real vault's slot sealed under [password]'s key with [role] inside, as a damaged file would hold it. */
     private fun slotWithRole(
         rig: Rig,
@@ -660,9 +688,7 @@ class VaultFormatV4Test {
         role: Byte,
         hardwareKey: SecretKey = rig.keys.hardwareKey(),
     ): ByteArray {
-        val header = rig.header()
-        val stretched = Argon2Kdf.derive(password.toCharArray(), header.salt, header.kdf)
-        val softKey = hkdfSha256(stretched + rig.keys.slotMac(stretched), salt = null, info = SLOT_INFO, length = VaultKeyFile.KEY_BYTES)
+        val softKey = softKeyOf(rig, password)
         val hardwareWrapped = Aead.sealWithKeystore(hardwareKey, VaultKeyFile.HARDWARE_AAD, vaultKey + role)
         return VaultKeyFile.slotOf(vaultKey, Aead.seal(softKey, VaultKeyFile.SOFTWARE_AAD, hardwareWrapped), SecureRandom())
     }
