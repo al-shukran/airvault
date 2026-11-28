@@ -47,6 +47,7 @@ import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirGlyphDisc
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ROW_DESCRIPTION
+import app.lumio.ui.kit.inLineBox
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.ProviderStatus
 import app.lumio.ui.settings.providerName
@@ -126,6 +127,7 @@ fun ExploreScreen(
                     leading = { AssetDisc(chain.icon) },
                     onClick = onChains,
                     divider = index > 0,
+                    lineBox = true,
                 )
             }
         }
@@ -137,6 +139,7 @@ fun ExploreScreen(
                     leading = { ClearAirGlyphDisc(ClearAirGlyph.NODE, size = 19.dp) },
                     onClick = { onProvider(row.id) },
                     divider = index > 0,
+                    lineBox = true,
                 )
             }
         }
@@ -148,6 +151,7 @@ fun ExploreScreen(
                     leading = { ClearAirGlyphDisc(ClearAirGlyph.BOOK, size = 19.dp) },
                     onClick = { onArticle(article.id) },
                     divider = index > 0,
+                    lineBox = true,
                 )
             }
         }
@@ -171,12 +175,12 @@ private fun RowScope.ProviderLine(row: ProviderRow) {
     StatusMark(status, color)
     Text(
         text = providerStatusName(status),
-        style = ROW_DESCRIPTION.copy(fontFamily = ClearAirType.rowTitle.fontFamily, fontWeight = FontWeight.SemiBold),
+        style = ROW_DESCRIPTION.copy(fontFamily = ClearAirType.rowTitle.fontFamily, fontWeight = FontWeight.SemiBold).inLineBox(),
         color = color,
     )
     (providerStatusNote(status) ?: providerCoverage(row.id))?.let { note ->
         Spacer(Modifier.width(NOTE_GAP))
-        Text(text = "· $note", style = ROW_DESCRIPTION, color = palette.ink2)
+        Text(text = "· $note", style = ROW_DESCRIPTION.inLineBox(), color = palette.ink2)
     }
 }
 

@@ -53,7 +53,7 @@ class LumioControlsTest {
     }
 
     @Test
-    fun aSegmentIsThirtySixDpTallAndPressesInFortyEight() {
+    fun aSegmentIsThirtySevenDpTallAndPressesInFortyEight() {
         var chosen = NetworkMode.MAINNET
         compose.setContent {
             ClearAirTheme {
@@ -62,8 +62,8 @@ class LumioControlsTest {
         }
 
         val segment = compose.onNodeWithText("Testnet", ignoreCase = true)
-        segment.assertHeightIsEqualTo(36.dp)
-        // 5 dp above the 36 dp segment is inside the 48 dp touch target (6 dp on each side) and outside the segment.
+        segment.assertHeightIsEqualTo(37.dp)
+        // 5 dp above the 37 dp segment is inside the 48 dp touch target (5.5 dp on each side) and outside the segment.
         segment.performTouchInput { click(Offset(center.x, -5.dp.toPx())) }
         assertEquals(NetworkMode.TESTNET, chosen)
     }

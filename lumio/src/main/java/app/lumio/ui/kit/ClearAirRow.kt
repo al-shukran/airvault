@@ -58,7 +58,8 @@ private val INDEX = ClearAirType.address.copy(fontSize = 11.5.sp, lineHeight = 1
  * sits after the description's text on its line, such as a row of chain logos. A [descriptionLine] takes the place of the [description] when its parts are
  * separate elements, such as a status glyph, its word and a note. A [tag] and an [index] follow the title. A [divider] is a hairline on the
  * row's top edge, which starts at the text when the row has a [leading] mark and at the gutter when it has none, so a list sets it on every row but the
- * first. The row is full-bleed with the page gutter on each side, and it scales to 0.98 while pressed. A [destructive] row has its title in rose.
+ * first. A [lineBox] row sets its title and description in the line box of the mock's browser, centred as its flex row centres them, as the approved
+ * Explore frame has them. The row is full-bleed with the page gutter on each side, and it scales to 0.98 while pressed. A [destructive] row has its title in rose.
  */
 @Composable
 fun ClearAirRow(
@@ -76,8 +77,11 @@ fun ClearAirRow(
     divider: Boolean = false,
     compact: Boolean = false,
     chevron: Boolean = onClick != null,
+    lineBox: Boolean = false,
 ) {
     val palette = LocalClearAirPalette.current
+    val titleStyle = if (lineBox) ClearAirType.rowTitle.inLineBox() else ClearAirType.rowTitle
+    val descriptionStyle = if (lineBox) ROW_DESCRIPTION.inLineBox() else ROW_DESCRIPTION
     val inset = if (leading != null) ClearAirSpacing.gutter + DISC + ClearAirSpacing.sm else ClearAirSpacing.gutter
     Row(
         modifier = modifier
@@ -107,11 +111,11 @@ fun ClearAirRow(
             leading()
             Spacer(Modifier.width(ClearAirSpacing.sm))
         }
-        Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f).then(if (lineBox) Modifier.align(CssCentre) else Modifier)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = title,
-                    style = ClearAirType.rowTitle,
+                    style = titleStyle,
                     color = if (destructive) palette.rose else palette.ink,
                     modifier = Modifier.weight(1f, fill = false),
                 )
@@ -128,7 +132,7 @@ fun ClearAirRow(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = description,
-                        style = ROW_DESCRIPTION,
+                        style = descriptionStyle,
                         color = palette.ink2,
                         modifier = if (descriptionSuffix == null) Modifier else Modifier.weight(1f, fill = false),
                     )

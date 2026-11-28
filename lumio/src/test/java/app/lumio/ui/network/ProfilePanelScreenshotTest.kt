@@ -1,8 +1,10 @@
 package app.lumio.ui.network
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import app.lumio.network.NetworkMode
+import app.lumio.ui.kit.ClearAirTestnetHatch
 import app.lumio.ui.screenshot.LUMIO_LIGHT_QUALIFIERS
 import app.lumio.ui.screenshot.lumioSnapshot
 import org.junit.Rule
@@ -25,8 +27,10 @@ class ProfilePanelScreenshotTest {
         Panel()
     }
 
+    /** The panel opens over Home on the Testnet side, so the scrim covers the testnet band at the top. The panel covers the band's label, so the band has none here. */
     @Composable
-    private fun Panel() {
+    private fun Panel() = Box {
+        ClearAirTestnetHatch(text = "")
         ProfilePanel(
             visible = true,
             mode = NetworkMode.TESTNET,

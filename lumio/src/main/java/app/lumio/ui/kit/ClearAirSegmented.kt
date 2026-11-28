@@ -27,8 +27,11 @@ private val TRACK_CORNER = 14.dp
 /** The corner radius of a segment inside the track. */
 private val SEGMENT_CORNER = 11.dp
 
-/** The height of a segment: the mock's 8 dp of padding around a 20 dp line, so the track is 42 dp tall. Compose widens a press to 48 dp around it, so the touch target keeps its size. */
-private val SEGMENT_HEIGHT = 36.dp
+/** The height of a segment: the mock's 8 dp of padding around a 21 dp line, so the track is 43 dp tall. Compose widens a press to 48 dp around it, so the touch target keeps its size. */
+private val SEGMENT_HEIGHT = 37.dp
+
+/** The label's style, in the line box of the mock's browser. */
+private val SEGMENT_LABEL = ClearAirType.rowTitle.copy(fontSize = 14.sp, lineHeight = 21.sp).inLineBox()
 
 /**
  * Two or more [options] as one track: the [selected] option is filled with ink and its label is paper, the others sit on the sunk track. Choosing one calls [onSelect] at
@@ -58,7 +61,7 @@ fun <T> ClearAirSegmented(options: List<T>, selected: T, label: (T) -> String, o
             ) {
                 Text(
                     text = label(option),
-                    style = ClearAirType.rowTitle.copy(fontSize = 14.sp),
+                    style = SEGMENT_LABEL,
                     color = if (active) palette.onPrimary else palette.ink2,
                     maxLines = 1,
                 )
