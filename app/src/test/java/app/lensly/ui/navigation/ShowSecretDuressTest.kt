@@ -159,8 +159,8 @@ class ShowSecretDuressTest {
      */
     private fun assertTheLockedScreenGoesToTheGate() {
         compose.onNodeWithText("Show").performClick()
-        compose.waitForIdle()
-        assertEquals(HiddenRoute.GATE, nav.currentDestination?.route)
+        // The secret is read off the main thread, so the navigation follows the click by an unknown time.
+        compose.waitUntil(WAIT_MS) { nav.currentDestination?.route == HiddenRoute.GATE }
     }
 
     /** Types [password] at the password step and waits until the vault counted the try and the screen is asking again. */
