@@ -1,5 +1,6 @@
 package app.lumio.ui.firstrun
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,6 +27,7 @@ import app.lensly.ui.gate.MIN_PASSWORD_LENGTH
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
 import app.lensly.ui.theme.LocalClearAirPalette
+import app.lumio.R
 import app.lumio.ui.kit.ClearAirEyeToggle
 import app.lumio.ui.kit.ClearAirField
 import app.lumio.ui.kit.ClearAirGlyph
@@ -82,6 +85,7 @@ internal data class FirstRunPasswordCopy(
     val repeatLabel: String,
     val button: String,
     val note: String,
+    @StringRes val warning: Int? = null,
 ) {
     companion object {
         val Create = FirstRunPasswordCopy(
@@ -103,6 +107,7 @@ internal data class FirstRunPasswordCopy(
             repeatLabel = "Repeat Duress Password",
             button = "Create",
             note = "Lumio never says which password opened it. If you forget this one, set a new one in Settings → Security.",
+            warning = R.string.duress_password_warning,
         )
     }
 }
@@ -138,6 +143,10 @@ internal fun FirstRunPasswordScreen(
             style = PageBody,
             color = palette.ink2,
         )
+        copy.warning?.let {
+            Spacer(Modifier.height(ClearAirSpacing.sm))
+            Text(text = stringResource(it), style = PageBody, color = palette.ink2)
+        }
         // A field's label reaches 9 dp above its outline, so the mock's 22 dp above the first field and 20 dp above the second come out as these.
         Spacer(Modifier.height(11.3.dp))
         ClearAirField(

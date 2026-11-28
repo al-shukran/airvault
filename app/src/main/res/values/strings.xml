@@ -8,4 +8,5 @@
     <string name="pair_format_metamask_label">METAMASK (QR-BASED)</string>
     <string name="pair_format_metamask_instruction">Add account or hardware wallet → Hardware wallet → QR-based → Continue. Ethereum App only.</string>
     <string name="pair_format_recommended">Recommended</string>
+    <string name="duress_password_warning">Unlocking with the Duress Password erases this vault. You\'ll need your recovery phrase or private key, and your passphrase if you set one, to get these wallets back.</string>
 </resources>

@@ -48,6 +48,8 @@ data class ChangeCopy(
     val newHeadline: String,
     val newHint: String,
     val changedText: String,
+    /** A warning shown under the hint on every step, or null for none. */
+    val warning: String? = null,
 ) {
     companion object {
         val APP_PASSWORD = ChangeCopy(
@@ -121,6 +123,10 @@ fun ChangePasswordScreen(
                 ScreenHeadline(text = headline(state.step, copy))
             }
             PillChip(text = hint(state.step, copy))
+            copy.warning?.let {
+                Spacer(Modifier.height(LenslySpacing.sm))
+                InlineBanner(message = it, tone = BannerTone.Warning)
+            }
 
             Spacer(Modifier.weight(1f))
 

@@ -1,0 +1,1 @@
+Unlocking with the Duress Password now erases the real vault, and the decoy becomes the vault. The Duress Password screen says so, and the recovery phrase, plus your passphrase if you set one, restores the wallets.
