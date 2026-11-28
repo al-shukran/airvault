@@ -698,6 +698,9 @@ class Vault constructor(
         bestEffort { session.ensurePadded() }
         // Each vault's photo key is made on its first unlock, so a vault from before photos were sealed gets one.
         bestEffort { session.ensurePhotoKey() }
+        // A kill leaves temp files or a photo without its twin, either of which would show that a Duress Password was set. Queued, never awaited:
+        // the sealer may be busy with a video, and an unlock must not wait for it.
+        PhotoStore.sealer.execute { bestEffort { repairPhotoFolders(layout) } }
         if (finishPromotion) startPromotionCleanup(session)
         return session
     }
@@ -1914,18 +1917,20 @@ private fun dropSidePhotos(layout: VaultLayout, side: Int, keyFile: ByteArray = 
     // The cover clears the modification time of every photo it saves, so a file written here gets the same time.
     fun resealed(name: String) =
         keyWritten && realPhotoKey != null && resealTwin(File(source, name), realPhotoKey, keyFile, File(folder, name))
+    fun randomTwin(photo: File) = writeRandomTwin(photo, File(folder, photo.name))
     kept.forEach { name ->
         if (!resealed(name)) File(folder, name).let {
             overwriteBestEffort(it)
             it.setLastModified(0L)
         }
     }
-    twinless.forEach { photo -> if (!resealed(photo.name)) writeRandomTwin(File(folder, photo.name), photo.length()) }
+    twinless.forEach { photo -> if (!resealed(photo.name)) randomTwin(photo) }
 }
 
 /**
  * Seals the photo [source], opened with [realPhotoKey], to [publicKey] as a temp file beside [target], clears its modification time and
- * renames it to [target]. A file that cannot be opened or written leaves [target] as it was. Returns whether [target] was replaced.
+ * renames it to [target] (see [commitIfSourceStays]). A file that cannot be opened or written leaves [target] as it was. Returns whether
+ * [target] was replaced.
  */
 private fun resealTwin(source: File, realPhotoKey: ByteArray, publicKey: ByteArray, target: File): Boolean {
     var temp: File? = null
@@ -1937,9 +1942,8 @@ private fun resealTwin(source: File, realPhotoKey: ByteArray, publicKey: ByteArr
                 out.fd.sync()
             }
             file.setLastModified(0L)
-            commitTemp(file, target)
+            commitIfSourceStays(file, source, target)
         }
-        true
     } catch (e: IOException) {
         temp?.delete()
         false
@@ -1966,17 +1970,40 @@ private fun MediaEnvelope.SealedReader.asInputStream(): InputStream = object : I
 }
 
 /**
- * Writes [size] random bytes to a temp file beside [target], clears its modification time and renames it to [target], so a kill leaves no
- * half-written twin. A twin that cannot be written is left for the next change of the Duress Password.
+ * Renames [temp] to [target] on the thread that seals the cover's photos, which is also where the gallery's delete runs (see
+ * [PhotoStore.delete]), so the check and the rename never overlap a delete. A photo that was deleted meanwhile leaves no twin: [temp] is
+ * deleted. True when [target] was replaced.
  */
-private fun writeRandomTwin(target: File, size: Long) {
+private fun commitIfSourceStays(temp: File, source: File, target: File): Boolean {
+    resealCommitHookForTesting?.invoke(source)
+    return PhotoStore.whileNoSaveRuns {
+        if (source.exists()) {
+            commitTemp(temp, target)
+            true
+        } else {
+            temp.delete()
+            false
+        }
+    }
+}
+
+/** Test hook: called with the photo, after its twin is written to a temp file and before the rename that puts it in place. */
+@Volatile
+internal var resealCommitHookForTesting: ((File) -> Unit)? = null
+
+/**
+ * Writes as many random bytes as the photo [source] has to a temp file beside [target], clears its modification time and renames it to
+ * [target] (see [commitIfSourceStays]), so a kill leaves no half-written twin. A twin that cannot be written is left for the next change of
+ * the Duress Password.
+ */
+private fun writeRandomTwin(source: File, target: File) {
     var temp: File? = null
     try {
         temp = File.createTempFile("${target.name}.", ".tmp", target.parentFile)
-        RandomAccessFile(temp, "rw").use { it.setLength(size) }
+        RandomAccessFile(temp, "rw").use { it.setLength(source.length()) }
         overwriteInPlace(temp)
         temp.setLastModified(0L)
-        commitTemp(temp, target)
+        commitIfSourceStays(temp, source, target)
     } catch (e: IOException) {
         temp?.delete()
     }
@@ -1996,6 +2023,19 @@ internal fun shredTwinlessPhotos(layout: VaultLayout, side: Int, shred: (File) -
     }
     // Outside the sealer: a new photo has a new name, so none of these files gains a twin, and the vault's lock is not held while a video seals.
     twinless.forEach(shred)
+}
+
+/**
+ * Shreds the temp files that a kill left in the two photo folders, and every photo file that has no file of the same name in the other
+ * folder: the cover saves each photo twice and the gallery deletes both, so a file alone is what a kill between the two steps left, and
+ * it must not show that a Duress Password was set or keep a deleted photo readable. Runs on the sealer, so no save is half way.
+ */
+private fun repairPhotoFolders(layout: VaultLayout) {
+    val folders = (0..1).map { layout.photoDir(it).listFiles().orEmpty().filter { file -> file.isFile } }
+    folders.forEachIndexed { side, files ->
+        val others = folders[1 - side].map { it.name }.toSet()
+        files.filter { it.name.endsWith(".tmp") || it.name !in others }.forEach(::shredPhotoFile)
+    }
 }
 
 private fun shredPhotoFile(file: File) {

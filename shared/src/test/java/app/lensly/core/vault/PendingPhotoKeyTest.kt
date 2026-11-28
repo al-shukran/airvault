@@ -161,7 +161,7 @@ class PendingPhotoKeyTest {
     /** What a shot does before the first setup: make the pair if there is none, then seal the photo to it. */
     private fun shoot(photo: ByteArray) {
         PendingPhotoKey.ensure(layout, keys)
-        assertTrue(PhotoStore.of(layout, side = 0).savePhoto(photo.copyOf(), nowMs = 1_000L))
+        assertTrue(PhotoStore.forCover(layout).savePhoto(photo.copyOf(), nowMs = 1_000L))
     }
 
     /** Opens the photo folder with [privateKey] and checks that [photo] is the only photo in it. */

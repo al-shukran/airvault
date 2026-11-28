@@ -1,0 +1,1 @@
+Setting a Duress Password no longer leaves a stray temp file in a photo folder after an interruption, and a photo deleted while it is being set up no longer leaves a copy behind on the Duress Password side.
