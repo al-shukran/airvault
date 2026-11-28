@@ -163,7 +163,7 @@ fun ClearAirRow(
         minHeight = minHeight,
         addressInset = inset - ClearAirSpacing.gutter,
         footerAddress = address.takeIf { footer },
-        modifier = modifier.then(divided),
+        modifier = modifier.designedHeight(minHeight).then(divided),
         press = pressed,
         content = content,
     )

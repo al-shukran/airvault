@@ -3,7 +3,6 @@ package app.lumio.ui.explore
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -48,6 +47,9 @@ import app.lumio.ui.kit.ClearAirGlyph
 import app.lumio.ui.kit.ClearAirGlyphDisc
 import app.lumio.ui.kit.ClearAirRow
 import app.lumio.ui.kit.ROW_DESCRIPTION
+import app.lumio.ui.kit.Gap
+import app.lumio.ui.kit.RowStack
+import app.lumio.ui.kit.designedHeight
 import app.lumio.ui.kit.inLineBox
 import app.lumio.ui.settings.ProviderRow
 import app.lumio.ui.settings.ProviderStatus
@@ -119,7 +121,7 @@ fun ExploreScreen(
     onProvider: (String) -> Unit,
     onArticle: (String) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+    RowStack(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
         ExploreGroup(title = "Chains and L2s", top = FIRST_GROUP_TOP, action = "All $networks", onAction = onChains) {
             chains.forEachIndexed { index, chain ->
                 ClearAirRow(
@@ -222,28 +224,27 @@ private fun StatusMark(status: ProviderStatus, color: Color) {
  * not move the page.
  */
 @Composable
-private fun ExploreGroup(title: String, top: Dp, action: String?, onAction: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().padding(top = top)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().height(HEADER_HEIGHT).padding(horizontal = ClearAirSpacing.gutter),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ClearAirEyebrow(text = title, modifier = Modifier.weight(1f).offset(y = if (action != null) EYEBROW_DROP else 0.dp), top = 0.dp, bottom = 0.dp)
-            if (action != null) {
-                Box(
-                    modifier = Modifier
-                        .requiredHeight(ClearAirSpacing.touchTarget)
-                        .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onAction)
-                        .padding(start = ClearAirSpacing.gutter),
-                    contentAlignment = Alignment.CenterEnd,
-                ) {
-                    Text(text = action, style = ClearAirType.rowTitle.copy(fontSize = 13.sp), color = LocalClearAirPalette.current.ink, maxLines = 1)
-                }
+private fun ExploreGroup(title: String, top: Dp, action: String?, onAction: () -> Unit, content: @Composable () -> Unit) {
+    Gap(top)
+    Row(
+        modifier = Modifier.fillMaxWidth().designedHeight(HEADER_HEIGHT, exact = true).padding(horizontal = ClearAirSpacing.gutter),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ClearAirEyebrow(text = title, modifier = Modifier.weight(1f).offset(y = if (action != null) EYEBROW_DROP else 0.dp), top = 0.dp, bottom = 0.dp)
+        if (action != null) {
+            Box(
+                modifier = Modifier
+                    .requiredHeight(ClearAirSpacing.touchTarget)
+                    .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onAction)
+                    .padding(start = ClearAirSpacing.gutter),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Text(text = action, style = ClearAirType.rowTitle.copy(fontSize = 13.sp), color = LocalClearAirPalette.current.ink, maxLines = 1)
             }
         }
-        Spacer(Modifier.height(if (action != null) HEADER_GAP else HEADER_GAP_BARE))
-        content()
     }
+    Gap(if (action != null) HEADER_GAP else HEADER_GAP_BARE)
+    content()
 }
 
 /** The mock's spacing of the landing, from the top of the page and between groups. */
