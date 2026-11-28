@@ -107,7 +107,7 @@ private fun receiveAccountOf(account: WalletAccount, wallets: List<PairedWallet>
     val key = addressKeyOf(account.address)
     val named = ownAccountsOf(wallets)[key]
     return ReceiveAccount(
-        name = named?.plainName() ?: autoAccountName(wallet?.name.orEmpty(), account.index),
+        name = named?.plainName() ?: autoAccountName(wallet?.autoNameBase.orEmpty(), account.index),
         label = named?.label,
         group = wallet?.evmAccounts?.firstOrNull { addressKeyOf(it.address) == key }?.group,
         address = account.address,
