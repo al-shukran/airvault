@@ -16,30 +16,37 @@ import app.lensly.shared.R
 // The three faces the owner kept: Archivo at width 114 for headings, Archivo at width 92 for body text, and JetBrains Mono for numbers. The numbers
 // use the same variable file as the Lumen theme, at weight 300 for the big figures.
 
-@OptIn(ExperimentalTextApi::class)
-private fun archivo(width: Float) = FontFamily(
-    Font(R.font.archivo_variable, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400), FontVariation.width(width))),
-    Font(R.font.archivo_variable, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500), FontVariation.width(width))),
-    Font(R.font.archivo_variable, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600), FontVariation.width(width))),
-    Font(R.font.archivo_variable, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700), FontVariation.width(width))),
-)
+/**
+ * The font families of the scale. They live in an object of their own, so [ClearAirType] and [ClearAirTypography] never wait on each other when
+ * the JVM initialises them: while [ClearAirType] reached back into the file's own statics, touching it first left [ClearAirTypography] built
+ * from null styles (#1762). Nothing in [ClearAirType] may use a top-level member of this file, such as a private function.
+ */
+private object ClearAirFonts {
+    @OptIn(ExperimentalTextApi::class)
+    private fun archivo(width: Float) = FontFamily(
+        Font(R.font.archivo_variable, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400), FontVariation.width(width))),
+        Font(R.font.archivo_variable, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500), FontVariation.width(width))),
+        Font(R.font.archivo_variable, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600), FontVariation.width(width))),
+        Font(R.font.archivo_variable, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700), FontVariation.width(width))),
+    )
 
-private val HeadingFamily = archivo(width = 114f)
-private val BodyFamily = archivo(width = 92f)
+    val HeadingFamily = archivo(width = 114f)
+    val BodyFamily = archivo(width = 92f)
 
-// Every figure of JetBrains Mono has the same width, so an amount never moves the text around it.
-@OptIn(ExperimentalTextApi::class)
-private val NumberFamily = FontFamily(
-    Font(R.font.jetbrains_mono_variable, FontWeight.Light, variationSettings = FontVariation.Settings(FontVariation.weight(300))),
-    Font(R.font.jetbrains_mono_variable, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
-    Font(R.font.jetbrains_mono_variable, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
-)
+    // Every figure of JetBrains Mono has the same width, so an amount never moves the text around it.
+    @OptIn(ExperimentalTextApi::class)
+    val NumberFamily = FontFamily(
+        Font(R.font.jetbrains_mono_variable, FontWeight.Light, variationSettings = FontVariation.Settings(FontVariation.weight(300))),
+        Font(R.font.jetbrains_mono_variable, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
+        Font(R.font.jetbrains_mono_variable, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
+    )
 
-// The one true Bold face of the mono type, for the Asset page's chosen range. It is a family of its own, so no other mono text changes its weight.
-@OptIn(ExperimentalTextApi::class)
-private val NumberBoldFamily = FontFamily(
-    Font(R.font.jetbrains_mono_variable, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
-)
+    // The one true Bold face of the mono type, for the Asset page's chosen range. It is a family of its own, so no other mono text changes its weight.
+    @OptIn(ExperimentalTextApi::class)
+    val NumberBoldFamily = FontFamily(
+        Font(R.font.jetbrains_mono_variable, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
+    )
+}
 
 /** A size and a line height, in sp, and the letter spacing of the mock's CSS, in em. */
 private class ClearAirStep(val size: Float, val line: Float, val tracking: Float = 0f)
@@ -101,70 +108,70 @@ private object ClearAirScale {
     const val CURRENCY_SIGN_SHARE = 0.46f
 }
 
-private fun clearAirStyle(family: FontFamily, weight: FontWeight, step: ClearAirStep) = TextStyle(
-    fontFamily = family,
-    fontWeight = weight,
-    fontSize = step.size.sp,
-    lineHeight = step.line.sp,
-    letterSpacing = step.tracking.em,
-)
-
 /** The Clear Air type scale: one style for each role of the proposal. The sizes come from [ClearAirScale]. */
 object ClearAirType {
+    private fun clearAirStyle(family: FontFamily, weight: FontWeight, step: ClearAirStep) = TextStyle(
+        fontFamily = family,
+        fontWeight = weight,
+        fontSize = step.size.sp,
+        lineHeight = step.line.sp,
+        letterSpacing = step.tracking.em,
+    )
+
     /** The hero numeral of an overview: JetBrains Mono Light. */
-    val hero = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.hero)
+    val hero = clearAirStyle(ClearAirFonts.NumberFamily, FontWeight.Light, ClearAirScale.hero)
 
     /** A page total, left-aligned: JetBrains Mono Light. */
-    val total = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.total)
+    val total = clearAirStyle(ClearAirFonts.NumberFamily, FontWeight.Light, ClearAirScale.total)
 
     /** An amount in a flow: JetBrains Mono Light. */
-    val amountLarge = clearAirStyle(NumberFamily, FontWeight.Light, ClearAirScale.amountLarge)
+    val amountLarge = clearAirStyle(ClearAirFonts.NumberFamily, FontWeight.Light, ClearAirScale.amountLarge)
 
     /** The question of a screen: Archivo 114 Bold. */
-    val titleXL = clearAirStyle(HeadingFamily, FontWeight.Bold, ClearAirScale.titleXL)
+    val titleXL = clearAirStyle(ClearAirFonts.HeadingFamily, FontWeight.Bold, ClearAirScale.titleXL)
 
     /** The title of a sheet or a pushed screen: Archivo 114 Bold. */
-    val titleL = clearAirStyle(HeadingFamily, FontWeight.Bold, ClearAirScale.titleL)
+    val titleL = clearAirStyle(ClearAirFonts.HeadingFamily, FontWeight.Bold, ClearAirScale.titleL)
 
     /** The title of a top bar: Archivo 114 Bold. */
-    val topBar = clearAirStyle(HeadingFamily, FontWeight.Bold, ClearAirScale.topBar)
+    val topBar = clearAirStyle(ClearAirFonts.HeadingFamily, FontWeight.Bold, ClearAirScale.topBar)
 
     /** A row's title, and the label of a small button: Archivo 114 SemiBold. */
-    val rowTitle = clearAirStyle(HeadingFamily, FontWeight.SemiBold, ClearAirScale.rowTitle)
+    val rowTitle = clearAirStyle(ClearAirFonts.HeadingFamily, FontWeight.SemiBold, ClearAirScale.rowTitle)
 
     /** The label of the primary capsule: Archivo 114 SemiBold. */
-    val button = clearAirStyle(HeadingFamily, FontWeight.SemiBold, ClearAirScale.button)
+    val button = clearAirStyle(ClearAirFonts.HeadingFamily, FontWeight.SemiBold, ClearAirScale.button)
 
     /** Running text: Archivo 92 Regular. */
-    val body = clearAirStyle(BodyFamily, FontWeight.Normal, ClearAirScale.body)
+    val body = clearAirStyle(ClearAirFonts.BodyFamily, FontWeight.Normal, ClearAirScale.body)
 
     /** Secondary text of a screen: Archivo 92 Regular. */
-    val small = clearAirStyle(BodyFamily, FontWeight.Normal, ClearAirScale.small)
+    val small = clearAirStyle(ClearAirFonts.BodyFamily, FontWeight.Normal, ClearAirScale.small)
 
     /** The line under a row's title: Archivo 92 Regular. */
-    val caption = clearAirStyle(BodyFamily, FontWeight.Normal, ClearAirScale.caption)
+    val caption = clearAirStyle(ClearAirFonts.BodyFamily, FontWeight.Normal, ClearAirScale.caption)
 
     /** A row's value: JetBrains Mono Medium. */
-    val rowValue = clearAirStyle(NumberFamily, FontWeight.Medium, ClearAirScale.rowValue)
+    val rowValue = clearAirStyle(ClearAirFonts.NumberFamily, FontWeight.Medium, ClearAirScale.rowValue)
 
     /** An address, set in groups of four: JetBrains Mono Regular. */
-    val address = clearAirStyle(NumberFamily, FontWeight.Normal, ClearAirScale.address)
+    val address = clearAirStyle(ClearAirFonts.NumberFamily, FontWeight.Normal, ClearAirScale.address)
 
     /** The address style in JetBrains Mono Bold, which only the Asset page's chosen range uses. */
-    val addressBold = clearAirStyle(NumberBoldFamily, FontWeight.Bold, ClearAirScale.address)
+    val addressBold = clearAirStyle(ClearAirFonts.NumberBoldFamily, FontWeight.Bold, ClearAirScale.address)
 
     /** A status in words, and the testnet band: Archivo 92 SemiBold. */
-    val label = clearAirStyle(BodyFamily, FontWeight.SemiBold, ClearAirScale.label)
+    val label = clearAirStyle(ClearAirFonts.BodyFamily, FontWeight.SemiBold, ClearAirScale.label)
 
     /** The clock time of a timeline step: JetBrains Mono Medium. */
-    val time = clearAirStyle(NumberFamily, FontWeight.Medium, ClearAirScale.time)
+    val time = clearAirStyle(ClearAirFonts.NumberFamily, FontWeight.Medium, ClearAirScale.time)
 
     /** An eyebrow, which is the one ALL CAPS style: Archivo 92 SemiBold. */
-    val eyebrow = clearAirStyle(BodyFamily, FontWeight.SemiBold, ClearAirScale.eyebrow)
+    val eyebrow = clearAirStyle(ClearAirFonts.BodyFamily, FontWeight.SemiBold, ClearAirScale.eyebrow)
 
     /** The currency sign of an amount, raised like a superscript, so a mono sign never takes a whole column. */
     val currencySign = SpanStyle(
-        fontFamily = BodyFamily,
+        fontFamily = ClearAirFonts.BodyFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = ClearAirScale.CURRENCY_SIGN_SHARE.em,
         baselineShift = BaselineShift.Superscript,

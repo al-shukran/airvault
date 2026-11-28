@@ -9,6 +9,9 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.lensly.app.AddressBookEntry
+import app.lensly.core.btc.BtcAccount
+import app.lensly.core.btc.BtcNetwork
+import app.lensly.core.btc.ScriptType
 import app.lensly.ui.theme.ClearAirTheme
 import app.lumio.data.net.NetworkId
 import app.lumio.data.net.Networks
@@ -16,6 +19,7 @@ import app.lumio.data.tx.LumioTx
 import app.lumio.data.tx.TxAsset
 import app.lumio.data.tx.TxDirection
 import app.lumio.data.tx.TxStatus
+import app.lumio.pair.PairFixtures
 import app.lumio.pair.PairedAccount
 import app.lumio.pair.PairedWallet
 import app.lumio.transactions.TxDetail
@@ -204,5 +208,19 @@ class TransactionDetailAddressTest {
         assertEquals(AccountFace(title = "Account 2", monogram = "E2"), unnamedFaceOf(wallet, account))
         assertEquals(AccountFace.UNKNOWN, unnamedFaceOf(wallet, friend))
         assertEquals(AccountFace.UNKNOWN, unnamedFaceOf(null, account))
+    }
+
+    @Test
+    fun aBitcoinTransactionUnderALaterReceiveOrAChangeAddressIsStillItsAccount() {
+        val first = PairFixtures.account(PairFixtures.seed, BtcNetwork.TESTNET4, ScriptType.NATIVE_SEGWIT)
+        val second = PairFixtures.account(PairFixtures.seed, BtcNetwork.TESTNET4, ScriptType.TAPROOT)
+        val wallet = walletOf().copy(bitcoin = listOf(first, second))
+        val face = AccountFace(title = "Account 2", monogram = "B2")
+
+        assertEquals(face, unnamedFaceOf(wallet, second.receiveAddress(0)))
+        assertEquals(face, unnamedFaceOf(wallet, second.receiveAddress(3)))
+        assertEquals(face, unnamedFaceOf(wallet, second.changeAddress(0)))
+        assertEquals(AccountFace(title = "Account 1", monogram = "B1"), unnamedFaceOf(wallet, first.changeAddress(2)))
+        assertEquals(AccountFace.UNKNOWN, unnamedFaceOf(wallet, second.receiveAddress(BtcAccount.GAP_LIMIT)))
     }
 }
