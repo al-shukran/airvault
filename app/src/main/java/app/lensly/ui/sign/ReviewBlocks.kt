@@ -311,13 +311,18 @@ internal fun ReviewStep(number: Int, text: String, modifier: Modifier = Modifier
         Text(text = "$number.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(LenslySpacing.sm))
         Text(
-            text = text,
+            text = keepAddressesWhole(text),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
         )
     }
 }
+
+private val GROUPED_ADDRESS = Regex("0x[0-9A-Fa-f]{4}( [0-9A-Fa-f]{4}| …)+")
+
+/** [text] with the groups of each address in it joined by no-break spaces, so a line breaks before an address and never inside it. */
+internal fun keepAddressesWhole(text: String): String = GROUPED_ADDRESS.replace(text) { it.value.replace(' ', '\u00A0') }
 
 /**
  * The one banner for every warning a review holds. Its colour is the highest severity among its rows, and its title counts them. A
@@ -362,7 +367,7 @@ internal fun RiskBanner(items: List<RiskItem>, modifier: Modifier = Modifier) {
         }
         items.forEach { item ->
             Column(verticalArrangement = Arrangement.spacedBy(LenslySpacing.xxs)) {
-                Text(text = item.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                Text(text = keepAddressesWhole(item.text), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                 item.check?.let { check ->
                     AckCheckbox(label = check.label, checked = check.checked, onCheckedChange = check.onCheckedChange)
                 }
