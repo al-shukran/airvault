@@ -30,7 +30,7 @@ class VaultRecordPaddingTest {
         Vault(layout, keys, FakeClock(), KDF, readBootCount = { null }, onErased = {})
     }
 
-    private fun awaitCleanup() = runBlocking { vault.awaitCleanupForTesting() }
+    private fun awaitCleanup() = runBlocking { vault.awaitCleanup() }
 
     private fun create() {
         assertEquals(CreateResult.Created, runBlocking { vault.create(APP.toCharArray()) })

@@ -151,7 +151,7 @@ class BiometricUnlockTest {
         real.close()
 
         val promoted = assertIs<UnlockResult.Unlocked>(runBlocking { vault.unlock(DURESS.toCharArray()) }).session
-        runBlocking { vault.awaitCleanupForTesting() }
+        runBlocking { vault.awaitCleanup() }
 
         assertEquals(1, promoted.side)
         assertFalse(unlock.isOn(), "the sealed key of the old vault is removed with its files")
@@ -185,7 +185,7 @@ class BiometricUnlockTest {
         assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(real, DURESS.toCharArray()) { decoy -> decoy.createWallet() } })
         real.close()
         val promoted = assertIs<UnlockResult.Unlocked>(runBlocking { vault.unlock(DURESS.toCharArray()) }).session
-        runBlocking { vault.awaitCleanupForTesting() }
+        runBlocking { vault.awaitCleanup() }
         assertTrue(runBlocking { unlock.enable(promoted) })
         promoted.close()
 

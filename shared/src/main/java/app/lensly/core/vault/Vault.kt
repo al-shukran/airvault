@@ -238,8 +238,11 @@ class Vault constructor(
     /** Syncs the folder of the vault before a promotion overwrites the old `unlock.bin`. Tests swap it to fail, or to see the order. */
     internal var syncPromotionFolder: (File) -> Unit = ::syncDirectory
 
-    /** Waits for the cleanup that the last unlock started. For tests only. */
-    internal suspend fun awaitCleanupForTesting() {
+    /**
+     * Waits for the cleanup that the last unlock started. A caller that opens a session only to read from it keeps the session open until
+     * this returns, since the cleanup needs that session (see [startPromotionCleanup]).
+     */
+    suspend fun awaitCleanup() {
         cleanup?.join()
     }
 
@@ -299,7 +302,7 @@ class Vault constructor(
     /**
      * Checks [password] as [unlock] does, with the same Failure Delay, the same count and the same work, but never promotes: the Duress
      * Password is a wrong password here, so it is refused and counted as a wrong try, and it erases nothing but at the owner's last allowed
-     * try. For every caller that only needs to know whether a password is the App Password, such as a confirmation or the gallery. The
+     * try. For every caller that only needs to know whether a password is the App Password, such as a confirmation. The
      * result holds the vault's session when the password is right, and the caller closes it.
      */
     suspend fun verify(password: CharArray): UnlockResult =
