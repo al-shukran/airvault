@@ -53,6 +53,7 @@ import app.lumio.nameWithEnds
 import app.lumio.onVault
 import app.lumio.pair.PairedWallet
 import app.lumio.pair.PairedWallets
+import app.lumio.pair.ownAccountsOf
 import app.lumio.rememberTransactions
 import app.lumio.send.ArrivalWatch
 import app.lumio.send.Landing
@@ -180,10 +181,12 @@ internal fun SolanaSendRoute(
         }
     }
     // The paired wallet, whose accounts and Address Book the recipient page offers and whose Address Book the send names its recipients from.
-    val paired by produceState<PairedWallet?>(initialValue = null, session, walletId) {
-        value = onVault(null) { PairedWallets.list(session).firstOrNull { it.id == walletId } }
+    val wallets by produceState<List<PairedWallet>>(initialValue = emptyList(), session) {
+        value = onVault(emptyList()) { PairedWallets.list(session) }
     }
+    val paired = wallets.firstOrNull { it.id == walletId }
     val addressBook = paired?.addressBook.orEmpty()
+    val own = remember(wallets) { ownAccountsOf(wallets) }
 
     var step by remember { mutableStateOf<SolanaSendStep>(SolanaSendStep.Recipient) }
     var recipient by rememberSaveable { mutableStateOf("") }
@@ -494,7 +497,7 @@ internal fun SolanaSendRoute(
             onCancel = { step = SolanaSendStep.Recipient },
         )
         SolanaSendStep.Amount -> {
-            val notes = remember(recipient, addressBook) { addressNotesOf(recipient, SOLANA_FAMILY, emptyMap(), addressBook) }
+            val notes = remember(recipient, own, addressBook) { addressNotesOf(recipient, SOLANA_FAMILY, own, addressBook) }
             val toName = nameOrAddress(notes, recipient)
             val amountError = SolanaAssets.amountError(amount, selected, if (token == null) balance else token.amount)
             val leaves = if (token == null && balance != null && amountError == null && amount.isNotBlank()) {
@@ -564,8 +567,8 @@ internal fun SolanaSendRoute(
             }
         }
         is SolanaSendStep.Review -> {
-            val notes = remember(current.plan.recipientAddress, addressBook) {
-                addressNotesOf(current.plan.recipientAddress, SOLANA_FAMILY, emptyMap(), addressBook)
+            val notes = remember(current.plan.recipientAddress, own, addressBook) {
+                addressNotesOf(current.plan.recipientAddress, SOLANA_FAMILY, own, addressBook)
             }
             val toName = nameOrAddress(notes, current.plan.recipientAddress)
             SendReviewPage(
