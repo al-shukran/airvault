@@ -58,6 +58,7 @@ class RecordAddressesTest {
     fun aBitcoinRecordListsEachOutputAddressAndMarksItsChange() {
         val facts = BitcoinRecordFacts(
             scriptType = "Native SegWit",
+            accountAddress = "tb1qaccount",
             outputs = listOf(
                 BitcoinRecordOutput(address = bitcoinPaid, amountSats = 30_000, isOwnChange = false),
                 BitcoinRecordOutput(address = null, amountSats = 0, isOwnChange = false),

@@ -28,6 +28,9 @@ data class PairedAccount(val index: Int, val address: String, val name: String?,
  * [addressBook] is the Address Book that Lensly sent with the pairing, in the order it was sent. It is empty when there is none.
  * [solana] holds the public key of each Solana account, 32 bytes, in account order. Lumio shows each one's base58 address.
  * [algorand] holds the public key of each Algorand account, 32 bytes, in account order. Lumio shows each one's address.
+ * [bitcoinNames], [solanaNames] and [algorandNames] are the names Lensly's owner gave those accounts, one per account in account order, and null
+ * for an account that has its Auto-Name, which [bitcoinNameAt], [solanaNameAt] and [algorandNameAt] build from [name] and the account index. They are empty only for a
+ * wallet built without them. Ethereum accounts carry their names in [evmAccounts].
  * [bookRank] is how recently the wallet's Address Book was paired: the higher, the later. A wallet with no book has -1.
  */
 data class PairedWallet(
@@ -40,6 +43,9 @@ data class PairedWallet(
     val addressBook: List<AddressBookEntry> = emptyList(),
     val solana: List<ByteArray> = emptyList(),
     val algorand: List<ByteArray> = emptyList(),
+    val bitcoinNames: List<String?> = emptyList(),
+    val solanaNames: List<String?> = emptyList(),
+    val algorandNames: List<String?> = emptyList(),
     val bookRank: Int = -1,
 ) {
     /** The address of each Ethereum account, in account order. Empty when the wallet holds no Ethereum account. */
@@ -53,6 +59,21 @@ data class PairedWallet(
             if (solana.isNotEmpty()) add(PairChain.SOLANA)
             if (algorand.isNotEmpty()) add(PairChain.ALGORAND)
         }
+
+    /** The name that the Bitcoin account at [index] shows: its custom name or its Auto-Name. Null for a wallet built without names. */
+    fun bitcoinNameAt(index: Int): String? =
+        bitcoinNames.getOrElse(index) { return null } ?: autoAccountName(name, (bitcoin[index].path.path[ACCOUNT_STEP] and INDEX_MASK).toInt())
+
+    /** The name that the Solana account at [index] shows: its custom name or its Auto-Name. Null for a wallet built without names. */
+    fun solanaNameAt(index: Int): String? = solanaNames.getOrElse(index) { return null } ?: autoAccountName(name, index)
+
+    /** The name that the Algorand account at [index] shows: its custom name or its Auto-Name. Null for a wallet built without names. */
+    fun algorandNameAt(index: Int): String? = algorandNames.getOrElse(index) { return null } ?: autoAccountName(name, index)
+
+    private companion object {
+        const val ACCOUNT_STEP = 2
+        const val INDEX_MASK = 0x7FFF_FFFFL
+    }
 }
 
 /**
@@ -63,9 +84,9 @@ fun sharedAddressBook(wallets: List<PairedWallet>): List<AddressBookEntry> =
     wallets.sortedBy { it.bookRank }.flatMap { it.addressBook }.associateBy { it.id }.values.toList()
 
 /**
- * The Ethereum accounts of [wallets], each keyed by [addressKeyOf] its address, with the name and label the pairing sent for it. A pairing
- * names only its Ethereum accounts, so the Solana, Algorand and Bitcoin accounts of a wallet are not named here. An account with no name
- * keeps its Auto-Name, as Lensly names it.
+ * The Ethereum accounts of [wallets], each keyed by [addressKeyOf] its address, with the name and label the pairing sent for it. The Solana,
+ * Algorand and Bitcoin accounts of a wallet are not listed here: their names reach the account list through [PairedWallet.solanaNames] and the
+ * like. An account with no name keeps its Auto-Name, as Lensly names it.
  */
 fun ownAccountsOf(wallets: List<PairedWallet>): Map<String, InternalAccount> = buildMap {
     wallets.forEach { wallet ->
@@ -84,8 +105,8 @@ data class PairSaved(val id: String, val created: Boolean)
 
 /**
  * The paired wallets of an open Lumio vault. Each is one wallet folder of the vault, so its records are sealed with the wallet's own key:
- * META holds the fingerprint, the creation time, the name and the address of each Ethereum account, each account's record holds its name,
- * label and group, and the BITCOIN record holds the watch-only Accounts. A pairing whose fingerprint is already paired replaces that wallet's
+ * META holds the fingerprint, the creation time, the name, the address of each Ethereum account and the name of each other account, each Ethereum
+ * account's record holds its name, label and group, and the BITCOIN record holds the watch-only Accounts. A pairing whose fingerprint is already paired replaces that wallet's
  * records, and never adds a second one.
  */
 object PairedWallets {
@@ -171,6 +192,9 @@ object PairedWallets {
             createdAtMs = createdAtMs,
             name = pairing.name,
             addresses = PairImport.ethereumAddressesOf(pairing),
+            bitcoinNames = PairImport.customNamesOf(pairing, Networks.BIP122),
+            solanaNames = PairImport.customNamesOf(pairing, Networks.SOLANA),
+            algorandNames = PairImport.customNamesOf(pairing, Networks.ALGORAND),
         )
         val records = mutableMapOf(WalletRecordNames.META to PairRecords.encodeMeta(meta))
         for ((index, account) in PairImport.accountsOf(pairing, Networks.EIP155).withIndex()) {
@@ -242,6 +266,9 @@ object PairedWallets {
             .orEmpty()
         val solana = records[WalletRecordNames.SOLANA]?.let { PairRecords.decodeSolana(it) }.orEmpty()
         val algorand = records[WalletRecordNames.ALGORAND]?.let { PairRecords.decodeAlgorand(it) }.orEmpty()
+        require(meta.bitcoinNames.size == bitcoin.size && meta.solanaNames.size == solana.size && meta.algorandNames.size == algorand.size) {
+            "A name is missing from the wallet record."
+        }
         return PairedWallet(
             id = id,
             name = meta.name,
@@ -251,6 +278,9 @@ object PairedWallets {
             evmAccounts = accounts,
             solana = solana,
             algorand = algorand,
+            bitcoinNames = meta.bitcoinNames,
+            solanaNames = meta.solanaNames,
+            algorandNames = meta.algorandNames,
         )
     }
 }

@@ -42,7 +42,9 @@ import app.lensly.app.AddressBookEntry
 import app.lensly.app.BITCOIN_FAMILY
 import app.lensly.app.InternalAccount
 import app.lensly.app.VisualIdentity
+import app.lensly.app.addressKeyOf
 import app.lensly.app.addressNotesOf
+import app.lensly.app.plainName
 import app.lensly.app.canonicalAddressOn
 import app.lensly.app.sign.BitcoinRecordFacts
 import app.lensly.app.sign.NoticeLevel
@@ -412,7 +414,11 @@ private fun BitcoinFacts(
                 MutedText("No address. The script is not paid to an address.")
             }
             MonoText(btcText(output.amountSats))
-            if (output.isOwnChange) MutedText("Your change")
+            if (output.isOwnChange) {
+                // The change goes to the account that signed, named the way every other own account is: "Your change · <name>".
+                val name = accounts[addressKeyOf(facts.accountAddress)]?.plainName()
+                MutedText(listOfNotNull("Your change", name).joinToString(" · "))
+            }
         }
     }
     if (facts.outputsNotKept > 0) FactRow("More") { FactText("${facts.outputsNotKept} outputs not kept") }

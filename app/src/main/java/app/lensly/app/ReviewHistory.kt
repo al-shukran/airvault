@@ -70,7 +70,7 @@ class ReviewHistory(private val session: VaultSession) {
  * warnings shown.
  */
 internal object ReviewRecordCodec {
-    private const val VERSION = 6
+    private const val VERSION = 7
     private const val MAX_TEXT_BYTES = 1 shl 20
     private const val MAX_ROWS = 256
     private const val MAX_OUTPUTS = 4096
@@ -165,6 +165,7 @@ internal object ReviewRecordCodec {
 
     private fun DataOutputStream.writeBitcoin(facts: BitcoinRecordFacts) {
         writeText(facts.scriptType)
+        writeText(facts.accountAddress)
         writeInt(facts.outputs.size)
         facts.outputs.forEach { output ->
             writeOptional(output.address) { writeText(it) }
@@ -183,6 +184,7 @@ internal object ReviewRecordCodec {
 
     private fun DataInputStream.readBitcoin(): BitcoinRecordFacts {
         val scriptType = readText()
+        val accountAddress = readText()
         val outputCount = readInt()
         require(outputCount in 0..MAX_OUTPUTS) { "Too many outputs." }
         val outputs = List(outputCount) {
@@ -197,7 +199,7 @@ internal object ReviewRecordCodec {
         val notices = List(noticeCount) {
             BitcoinRecordNotice(level = NoticeLevel.fromWire(readUnsignedByte()), text = readText())
         }
-        return BitcoinRecordFacts(scriptType, outputs, feeSats, feeRateSatPerVb, notices, outputsNotKept)
+        return BitcoinRecordFacts(scriptType, accountAddress, outputs, feeSats, feeRateSatPerVb, notices, outputsNotKept)
     }
 
     private fun DataOutputStream.writeRows(rows: List<Pair<String, String>>) {

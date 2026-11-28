@@ -79,4 +79,11 @@ class BitcoinReviewRecordTest {
 
         assertEquals(emptyList(), bitcoinReviewRecordOf(entry, atMs = 1L).acknowledged)
     }
+
+    @Test
+    fun aRecordKeepsTheFirstReceiveAddressOfTheAccountSoActivityCanNameTheChange() {
+        val entry = AppReviewEntry("wallet", ReviewOutcome.REFUSED, request, reviewed(), acknowledged = emptyList(), refusal = "No")
+
+        assertEquals(account.receiveAddress(0), bitcoinReviewRecordOf(entry, atMs = 1L).bitcoin?.accountAddress)
+    }
 }
