@@ -145,7 +145,7 @@ class VaultPromotionTest {
         vault.skipCleanupForTesting = true
         unlocked(P2).close()
         // The commit is in place and the cleanup never ran: the marker names the key file, and the old wallet's folder is still there.
-        assertEquals(VaultKeyFile.digestOf(layout.vaultKey.readBytes()), String(layout.promotionMarker.readBytes(), Charsets.US_ASCII))
+        assertEquals(VaultKeyFile.digestOf(layout.vaultKey.readBytes()), markerDigest())
         assertTrue(layout.walletKeyFile(realWallet).isFile)
         assertRejected(attempt(P1))
 
@@ -625,6 +625,32 @@ class VaultPromotionTest {
         assertPromotedAfterReopen(oldBytes, decoy)
     }
 
+    /** The reset of a damaged record belongs to the first unlock after the commit: a marker that never clears gives no later unlock the reset. */
+    @Test
+    fun aRecordDamagedAfterTheFirstPromotedUnlockIsNotResetWhileTheMarkerStays() {
+        create(P1)
+        val real = unlocked(P1)
+        val decoy = setDuress(real, P2)
+        real.close()
+        // The cleanup never runs, so the marker stays for every unlock below.
+        vault.skipCleanupForTesting = true
+        val first = unlocked(P2)
+        first.putVaultRecord("settings", byteArrayOf(7))
+        val file = File(layout.vaultRecords, VaultRecordNames.fileName(first.copyOfVaultKey(), "settings"))
+        first.close()
+        assertTrue(layout.promotionMarker.exists())
+        val damaged = file.readBytes().also { it[it.size - 1] = (it[it.size - 1].toInt() xor 1).toByte() }
+        file.writeBytes(damaged)
+
+        val again = unlocked(P2)
+
+        assertTrue(layout.promotionMarker.exists())
+        assertContentEquals(damaged, file.readBytes(), "a later unlock leaves a damaged record alone")
+        assertTrue(runCatching { again.getVaultRecord("settings") }.exceptionOrNull() is VaultException)
+        again.close()
+        decoy.key.fill(0)
+    }
+
     @Test
     fun anOverwriteThatFailsWithAnyExceptionStillCommitsThePromotionAndNothingAfterItIsSkipped() {
         val (_, decoy) = setUpForPromotion()
@@ -635,7 +661,7 @@ class VaultPromotionTest {
         val session = unlocked(P2)
 
         // The commit stands and every step after it ran: the new file is in place, the sealed key is gone, the count is clear.
-        assertEquals(VaultKeyFile.digestOf(layout.vaultKey.readBytes()), String(layout.promotionMarker.readBytes(), Charsets.US_ASCII))
+        assertEquals(VaultKeyFile.digestOf(layout.vaultKey.readBytes()), markerDigest())
         assertEquals(emptyList(), keyFileTemps())
         assertFalse(sealedKey.exists())
         assertEquals(0, vault.failureCountForTesting())
@@ -963,6 +989,9 @@ class VaultPromotionTest {
     }
 
     private fun awaitCleanup() = runBlocking { vault.awaitCleanup() }
+
+    /** The digest that the promotion marker names, whether or not the records are marked claimed. */
+    private fun markerDigest() = String(layout.promotionMarker.readBytes(), Charsets.US_ASCII).removeSuffix("+claimed")
 
     /** The decoy that [setDuress] made: its key and wallet ids, as populate saw them. The caller zeroes the key. */
     private class Decoy(val key: ByteArray, val wallets: List<String>)
