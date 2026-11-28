@@ -55,8 +55,8 @@ interface KeystoreBackend {
 
     /**
      * Deletes every registry floor key except the one for [keepSeq], lowest first, and stops at the first failure. A failure part-way
-     * therefore leaves the highest key, which still verifies the seal of that floor, or only [keepSeq]'s key. A null [keepSeq]
-     * deletes them all.
+     * therefore leaves the highest key, which still verifies the seal of that floor, or only [keepSeq]'s key, which is never
+     * deleted. A null [keepSeq] deletes them all.
      */
     fun deleteRegistryMacKeysExcept(keepSeq: Long?)
 
