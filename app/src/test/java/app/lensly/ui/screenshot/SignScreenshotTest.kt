@@ -357,7 +357,7 @@ private const val OTHER_ACCOUNT = "0x1593d3987a6c4d8b0e2f5a9c7b3e1d4f3ea25343"
 private val UR_BATCH_PAYING_OTHER =
     UR_BATCH_CALLDATA.dropLast(128) + OTHER_ACCOUNT.removePrefix("0x").padStart(64, '0') + UR_BATCH_CALLDATA.takeLast(64)
 
-private const val AAVE_POOL = "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2"
+private const val AAVE_POOL = "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2"
 private const val USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
 
 /** `supply(address,uint256,address,uint16)` of 2,500 USDC to Aave V3 on behalf of [OTHER_ACCOUNT]. */
