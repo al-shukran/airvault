@@ -12,9 +12,6 @@ internal fun protocolOf(entry: WhitelistEntry): String = protocolOfMeaning(entry
 /** The protocol an approved [meaning] names, or empty when the meaning has no colon. */
 internal fun protocolOfMeaning(meaning: String): String = meaning.substringBefore(':', "").trim()
 
-/** The contract address in short form: its first six and last four characters, such as 0x7f39…2ca0. */
-internal fun shortAddress(address: String): String = address.take(6) + "…" + address.takeLast(4)
-
 /**
  * The approved calls that [query] finds. Every word of the query must appear, ignoring case, in the entry's protocol, function
  * signature, selector, meaning, contract address, chain ID or chain name. A blank query finds every entry, in the order given.

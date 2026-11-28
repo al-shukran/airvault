@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.airvault.core.model.AddressGroups
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
 import app.lensly.ui.theme.ClearAirSpacing
@@ -45,7 +46,6 @@ import app.lumio.receive.ReceiveFlow
 import app.lumio.receive.ReceiveNetwork
 import app.lumio.receive.ReceiveStep
 import app.lumio.receive.monogramOf
-import app.lumio.receive.shortAddress
 import app.lumio.ui.home.AssetIcon
 import app.lumio.ui.kit.ClearAirEyebrow
 import app.lumio.ui.kit.ClearAirGlyph
@@ -344,9 +344,12 @@ private fun Monogram(initials: String) {
  */
 private fun networkDetail(network: ReceiveNetwork): String? = network.name.removePrefix(network.label).trim().ifEmpty { null }
 
-/** The line under an account's name: its label, its group, and its short address, as in "Trading · Group DeFi · 0x1020…122b". */
-private fun accountLine(account: ReceiveAccount): String =
-    listOfNotNull(account.label, account.group?.let { "Group $it" }, shortAddress(account.address)).joinToString(" · ")
+/** The lines under an account's name: its label and its group on one, and its short address on the next, so the address never breaks across lines. */
+internal fun accountLine(account: ReceiveAccount): String =
+    listOfNotNull(
+        listOfNotNull(account.label, account.group?.let { "Group $it" }).joinToString(" · ").ifEmpty { null },
+        AddressGroups.short(account.address),
+    ).joinToString("\n")
 
 private fun ReceiveCoin.matches(query: String): Boolean {
     val needle = query.trim()

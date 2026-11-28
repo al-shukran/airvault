@@ -61,7 +61,7 @@ class AssetHoldingsTest {
         assertEquals(listOf("Arbitrum", "Ethereum"), chains.map { it.chain })
         assertEquals(listOf(BigDecimal("13.23"), BigDecimal("1")), chains.map { it.total })
         assertEquals(listOf("PulsarNova", "FelixStone"), chains.first().accounts.map { it.name })
-        assertEquals("Air 1 #5 · 0x1020…122b", chains.first().accounts.first().detail)
+        assertEquals("Air 1 #5 · 0x1020 3040 … 1122 b", chains.first().accounts.first().detail)
     }
 
     @Test
@@ -137,9 +137,8 @@ class AssetHoldingsTest {
     }
 
     @Test
-    fun anAddressKeepsItsFirstSixAndLastFourCharacters() {
-        assertEquals("0x1020…122b", shortAddress("0x102030405060708090a0b0c0d0e0f0101122b"))
-        assertEquals("0x1020", shortAddress("0x1020"))
+    fun anEvmAccountLineShowsTheEndsOfItsAddressInGroupsOfFour() {
+        assertEquals("Lumio #0 · 0x1020 3040 … 1122 b", accountDetail("Lumio", account(ethereum, "Ethereum", null, null)))
     }
 
     @Test

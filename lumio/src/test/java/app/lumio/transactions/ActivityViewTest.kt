@@ -76,7 +76,7 @@ class ActivityViewTest {
         )
 
         assertEquals("Contract Call", line.title)
-        assertEquals("Confirming · To 0x1234…5678 · Monad Testnet", line.detail)
+        assertEquals("Confirming · To 0x1234 5678 … 1234 5678 · Monad Testnet", line.detail)
         assertEquals("−0.25 ETH", line.amount)
         assertEquals(null, line.usd)
         assertTrue(line.pending)
@@ -91,9 +91,12 @@ class ActivityViewTest {
     }
 
     @Test
-    fun anAddressShortensOnlyWhenItIsLong() {
-        assertEquals("0xabc", ActivityText.shortAddress("0xabc"))
-        assertEquals("0x1020…122b", ActivityText.shortAddress("0x1020" + "0".repeat(32) + "122b"))
+    fun anUnnamedEvmCounterpartyIsItsFirstAndLastTwoGroupsOfFourAndOtherAddressesKeepTheirOwnForm() {
+        val evm = ActivityText.line(tx(TxDirection.OUT, "1000000000000000000"), chain = "Base", usd = null, party = null, zone = zone)
+        assertEquals("To 0x1234 5678 … 1234 5678 · Base · 15:00", evm.detail)
+
+        val bitcoin = tx(TxDirection.IN, "1000000000000000000").copy(counterparty = "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq")
+        assertEquals("From bc1qar…5mdq · Bitcoin · 15:00", ActivityText.line(bitcoin, chain = "Bitcoin", usd = null, party = null, zone = zone).detail)
     }
 
     @Test

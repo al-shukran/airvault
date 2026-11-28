@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.airvault.core.model.AddressGroups
 import app.lensly.app.familyLabel
 import app.lensly.ui.theme.ClearAirSpacing
 import app.lensly.ui.theme.ClearAirType
@@ -87,9 +88,6 @@ internal fun updatedAgo(ageMs: Long): String {
     }
 }
 
-/** An address as a list shows it: its first eight and last six characters. */
-internal fun shortAddress(address: String): String = "${address.take(8)}…${address.takeLast(6)}"
-
 /** The title of an account: the name the owner gave it in Lensly, or "Account" and its place in the wallet. */
 internal fun accountTitle(account: WalletAccount): String = account.name ?: "Account ${account.index + 1}"
 
@@ -117,7 +115,7 @@ internal fun monogramOf(account: WalletAccount): String {
  * the native coin, so an account no read has reached shows its address alone.
  */
 internal fun accountLine(account: WalletAccount, tokens: Int): String {
-    val address = shortAddress(account.address)
+    val address = AddressGroups.short(account.address)
     val detail = account.script ?: account.balance?.let { plural(1 + tokens, "asset") }
     return if (detail == null) address else "$address · $detail"
 }
