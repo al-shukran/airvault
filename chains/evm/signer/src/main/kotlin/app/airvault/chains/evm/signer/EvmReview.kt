@@ -111,10 +111,17 @@ class EvmReviewBuilder(
             DataType.TYPED_DATA -> (parsed.typed as? TypedDataParser.Result.Ok)?.data?.domainChainId == null
             else -> false
         }
+        // A Hyperliquid action runs on the network its own message names. Its domain chain only carries the signature, so it sets neither the header's name nor its badge.
+        private val hyperliquidNetwork = (parsed.typed as? TypedDataParser.Result.Ok)?.data
+            ?.let { offChainLabelOf(it.domain, it.primaryType)?.hyperliquidNetwork(it.message) }
         private val headerNetwork = if (bindsNoChain) {
             NetworkLabel(name = ANY_CHAIN_NAME, testnet = false, detail = null)
         } else {
-            NetworkLabel(name = networkName, testnet = network?.testnet == true, detail = network?.let { "Chain ID $chainId" })
+            NetworkLabel(
+                name = hyperliquidNetwork?.label ?: networkName,
+                testnet = hyperliquidNetwork?.let { it == HyperliquidNetwork.TESTNET } ?: (network?.testnet == true),
+                detail = network?.let { "Chain ID $chainId" },
+            )
         }
         private val chain = ChainId("eip155:$chainId")
         private val header = ArrayList<ReviewRow>()
