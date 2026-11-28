@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,8 +27,8 @@ private val TRACK_CORNER = 14.dp
 /** The corner radius of a segment inside the track. */
 private val SEGMENT_CORNER = 11.dp
 
-/** The height of a segment: the mock's 8 dp of padding around a 21 dp line, so the track is 43 dp tall. Compose widens a press to 48 dp around it, so the touch target keeps its size. */
-private val SEGMENT_HEIGHT = 37.dp
+/** The least height of a segment: the mock's 8 dp of padding around a 21 dp line, so the track is 43 dp tall. Compose widens a press to 48 dp around it, so the touch target keeps its size. */
+private val SEGMENT_MIN_HEIGHT = 37.dp
 
 /** The label's style, in the line box of the mock's browser. */
 private val SEGMENT_LABEL = ClearAirType.rowTitle.copy(fontSize = 14.sp, lineHeight = 21.sp).inLineBox()
@@ -53,7 +53,7 @@ fun <T> ClearAirSegmented(options: List<T>, selected: T, label: (T) -> String, o
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(SEGMENT_HEIGHT)
+                    .heightIn(min = SEGMENT_MIN_HEIGHT)
                     .clip(RoundedCornerShape(SEGMENT_CORNER))
                     .background(if (active) palette.primary else Color.Transparent)
                     .selectable(selected = active, role = Role.RadioButton, onClick = { onSelect(option) }),

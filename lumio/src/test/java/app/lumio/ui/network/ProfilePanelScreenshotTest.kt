@@ -3,8 +3,11 @@ package app.lumio.ui.network
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import app.lumio.network.NetworkMode
 import app.lumio.ui.kit.ClearAirTestnetHatch
+import app.lumio.ui.screenshot.LUMIO_DARK_QUALIFIERS
 import app.lumio.ui.screenshot.LUMIO_LIGHT_QUALIFIERS
 import app.lumio.ui.screenshot.lumioSnapshot
 import org.junit.Rule
@@ -23,7 +26,13 @@ class ProfilePanelScreenshotTest {
     val compose = createComposeRule()
 
     @Test
-    fun panelOpen() = compose.lumioSnapshot("profile_panel") {
+    fun panelOpen() = compose.lumioSnapshot("profile_panel", frame = FRAME) {
+        Panel()
+    }
+
+    @Test
+    @Config(qualifiers = LUMIO_DARK_QUALIFIERS)
+    fun panelOpenDark() = compose.lumioSnapshot("profile_panel_dark", frame = FRAME) {
         Panel()
     }
 
@@ -45,5 +54,10 @@ class ProfilePanelScreenshotTest {
             onPair = {},
             onDismiss = {},
         )
+    }
+
+    private companion object {
+        /** The approved frames' size, 360 x 740 dp, so a golden compares with its frame one to one (scripts/design/measure-bands.py). */
+        val FRAME = DpSize(360.dp, 740.dp)
     }
 }
