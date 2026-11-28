@@ -684,6 +684,14 @@ class Vault constructor(
         syncDirectory(layout.root)
     }
 
+    /** Records in the marker that the promoted vault's records are claimed, durably, so no later unlock resets one. */
+    private fun markClaimed() {
+        val marker = layout.promotionMarker
+        val committedAt = marker.lastModified()
+        writeAtomically(marker, (markerText() + CLAIMED_MARK).toByteArray(Charsets.US_ASCII))
+        marker.setLastModified(committedAt)
+    }
+
     /** Removes the marker of a commit that did not happen. Nothing is overwritten: the `unlock.bin` in place is still the vault's. */
     private fun dropPromotionMarker() {
         layout.promotionMarker.delete()
@@ -710,7 +718,12 @@ class Vault constructor(
         if (finishPromotion) bestEffort {
             if (isPromotedBy(session)) {
                 session.promotionPending = true
-                session.withKeyLocked { claimMissingRecords(it) }
+                // Only the first unlock after the commit claims and resets. A marker that outlives it is not a reason to patch a record
+                // that has been damaged since: that record is unverifiable, as in any other vault.
+                if (!markerText().endsWith(CLAIMED_MARK)) {
+                    session.withKeyLocked { claimMissingRecords(it) }
+                    markClaimed()
+                }
             }
         }
         // The Review Record pool gets its first batch back when it is missing.
@@ -831,6 +844,11 @@ class Vault constructor(
         if (!marker.delete() && marker.exists()) throw VaultException("The promotion marker could not be removed.")
     }
 
+    /** The digest that the promotion marker names, without the mark that the records are claimed. */
+    private fun markedDigest(): String = markerText().removeSuffix(CLAIMED_MARK)
+
+    private fun markerText(): String = String(readVaultFile(layout.promotionMarker), Charsets.US_ASCII)
+
     /**
      * True when a promotion left its marker and the vault of [session] is the one it made. A marker that names another `unlock.bin` is
      * dropped. Only the vault that the promotion made opens the file, so no other key's files are ever taken for the old vault's.
@@ -839,7 +857,7 @@ class Vault constructor(
         val marker = layout.promotionMarker
         if (!marker.isFile) return false
         val keyFile = readVaultFile(layout.vaultKey)
-        if (VaultKeyFile.digestOf(keyFile) != String(marker.readBytes(), Charsets.US_ASCII)) {
+        if (VaultKeyFile.digestOf(keyFile) != markedDigest()) {
             dropPromotionMarker()
             return false
         }
@@ -1558,7 +1576,7 @@ class Vault constructor(
     private fun recoverPromotionLocked(stateDigest: String) {
         val marker = layout.promotionMarker
         if (!marker.isFile) return
-        val named = String(readVaultFile(marker), Charsets.US_ASCII)
+        val named = markedDigest()
         val inPlace = VaultKeyFile.digestOf(readVaultFile(layout.vaultKey))
         if (inPlace == named) return
         val prefix = "${layout.vaultKey.name}."
@@ -1867,6 +1885,7 @@ class Vault constructor(
         const val UNKNOWN_SECURITY_LEVEL = -1
         const val HARDWARE_FAILURE = "The vault's hardware key cannot unwrap the vault key."
         const val HEADER_UNVERIFIED = "The vault header does not verify."
+        const val CLAIMED_MARK = "+claimed"
         const val CALIBRATION_PASSWORD = "lensly calibration"
         val SLOT_INFO = "lensly-vault-slot-v$VAULT_FORMAT_VERSION".toByteArray(Charsets.US_ASCII)
 
