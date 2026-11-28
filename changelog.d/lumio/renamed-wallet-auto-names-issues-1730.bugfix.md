@@ -1,0 +1,1 @@
+A wallet that was renamed in Lensly no longer has its Auto-Named Bitcoin, Solana and Algorand accounts counted as custom names, so a valid pairing is no longer refused for names that are too long, and the accounts keep the names Lensly shows. Wallets paired with Lumio 1.1.0 stay paired after the update.

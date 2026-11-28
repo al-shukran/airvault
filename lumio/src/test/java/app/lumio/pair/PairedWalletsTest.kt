@@ -227,7 +227,7 @@ class PairedWalletsTest {
     fun aRecordOfAnotherVersionIsKeptAndReadsAsUnpaired() {
         val saved = PairedWallets.save(session, payload(accounts = listOf(account(0, "A"))), nowMs = 1L)
         val meta = session.getRecord(saved.id, WalletRecordNames.META)!!
-        meta[0] = (meta[0] - 1).toByte()
+        meta[0] = 9
         session.putRecords(saved.id, mapOf(WalletRecordNames.META to meta), emptyList())
 
         assertTrue(PairedWallets.list(session).isEmpty())

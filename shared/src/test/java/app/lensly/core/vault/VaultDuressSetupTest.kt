@@ -2,6 +2,7 @@ package app.lensly.core.vault
 
 import app.lensly.ui.camera.PhotoStore
 import java.io.File
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -107,6 +108,74 @@ class VaultDuressSetupTest {
         promoted.close()
 
         assertEquals(fresh, sizes(layout.vaultRecords))
+        decoyKey.fill(0)
+    }
+
+    /**
+     * A kill can stop the claim and the reset of [Vault.installDecoy] after any single write: the claim renames one spare per record, the
+     * reset rewrites one file per record. Every such state is built on disk (step 0 is the commit with no file claimed, step 2n the whole
+     * setup), the Duress Password unlocks, and each record reads as "no value" and takes a write. Before the fix, a file that holds the
+     * spare's random bytes under the decoy's name failed authentication on every read.
+     */
+    @Test
+    fun aKillAtAnyStepOfTheClaimAndResetLeavesADecoyWhoseRecordsReadAndWrite() {
+        val fresh = recordSizesOfAVaultWithoutDecoy()
+        val names = VaultRecordNames.KNOWN.sortedByDescending { VaultRecordNames.fileBytesOf(it) }
+        for (step in 0..2 * names.size) {
+            val root = "step$step"
+            layout = layoutAt(root)
+            vault = Vault(layout, keys, clock, KDF)
+            assertEquals(CreateResult.Created, runBlocking { vault.create(P1.toCharArray()) })
+            val real = unlocked(P1)
+            val decoyKey = setDuress(real)
+            real.close()
+            names.forEachIndexed { i, name ->
+                val file = File(layout.vaultRecords, VaultRecordNames.fileName(decoyKey, name))
+                val size = file.length().toInt()
+                val random = ByteArray(size).also { java.security.SecureRandom().nextBytes(it); it[0] = BLOB_VERSION }
+                when {
+                    // Not renamed yet: the spare is still under a random name.
+                    i >= step -> assertTrue(file.renameTo(File(layout.vaultRecords, VaultRecordNames.randomFileName(java.security.SecureRandom()))))
+                    // Renamed and not reset yet: random bytes under the decoy's name.
+                    i >= step - names.size -> file.writeBytes(random)
+                    else -> file.writeBytes(VaultRecordNames.sealedUnset(decoyKey, name, size))
+                }
+            }
+
+            val promoted = unlocked(P2)
+            awaitCleanup()
+            // The unlock makes the photo key, so that record holds a value and must read; the others hold none.
+            assertNotNull(promoted.getVaultRecord(VaultRecordNames.PHOTO_KEY), "step $step: the photo key reads")
+            val others = names - VaultRecordNames.PHOTO_KEY
+            others.forEach { assertNull(promoted.getVaultRecord(it), "step $step: $it reads as no value") }
+            others.forEach { promoted.putVaultRecord(it, byteArrayOf(1)) }
+            others.forEach { assertContentEquals(byteArrayOf(1), promoted.getVaultRecord(it), "step $step: $it takes a write") }
+            promoted.close()
+            assertEquals(fresh, sizes(layout.vaultRecords), "step $step: the folder keeps its file sizes")
+            decoyKey.fill(0)
+        }
+    }
+
+    /**
+     * The reset of a record that fails authentication belongs to the unlock that finishes a promotion. The main password's unlock, with or
+     * without a Decoy Vault, never rewrites a record file: a tampered one stays as it is and refuses to read.
+     */
+    @Test
+    fun aTamperedRecordOfTheRealVaultIsNotResetByAnUnlock() {
+        val real = unlocked(P1)
+        real.putVaultRecord("settings", byteArrayOf(7))
+        val decoyKey = setDuress(real)
+        val file = File(layout.vaultRecords, VaultRecordNames.fileName(real.copyOfVaultKey(), "settings"))
+        real.close()
+        val tampered = file.readBytes().also { it[it.size - 1] = (it[it.size - 1].toInt() xor 1).toByte() }
+        file.writeBytes(tampered)
+
+        val again = unlocked(P1)
+        awaitCleanup()
+
+        assertContentEquals(tampered, file.readBytes(), "an unlock of the real vault leaves a record that fails authentication alone")
+        assertTrue(runCatching { again.getVaultRecord("settings") }.exceptionOrNull() is VaultException)
+        again.close()
         decoyKey.fill(0)
     }
 
