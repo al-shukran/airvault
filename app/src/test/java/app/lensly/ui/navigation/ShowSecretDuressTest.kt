@@ -26,6 +26,7 @@ import app.lensly.core.vault.VaultSession
 import app.lensly.ui.theme.LumenTheme
 import java.io.File
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -178,11 +179,15 @@ class ShowSecretDuressTest {
         clock.advance(FailureDelay.MAX_CAP_MS + 1)
         val before = vault.failureCountForTesting()
         val hold = clock.holdNextReading()
-        type(password)
-        pressDone()
-        compose.waitUntil(WAIT_MS) { hold.reached.count == 0L }
-        compose.waitUntil(WAIT_MS) { compose.onAllNodesWithText("Checking").fetchSemanticsNodes().isNotEmpty() }
-        hold.release.countDown()
+        try {
+            type(password)
+            pressDone()
+            compose.waitUntil(WAIT_MS) { hold.reached.count == 0L }
+            compose.waitUntil(WAIT_MS) { compose.onAllNodesWithText("Checking").fetchSemanticsNodes().isNotEmpty() }
+        } finally {
+            // Released on every exit, so a wait that times out cannot leave the check blocked on the clock.
+            hold.release.countDown()
+        }
         compose.waitUntil(WAIT_MS) { compose.onAllNodesWithText("Checking").fetchSemanticsNodes().isEmpty() }
         assertEquals(before + 1, vault.failureCountForTesting())
         compose.onNodeWithText(PROMPT).assertExists()
@@ -235,7 +240,7 @@ class ShowSecretDuressTest {
         private fun pass() {
             val hold = pending.getAndSet(null) ?: return
             hold.reached.countDown()
-            hold.release.await()
+            hold.release.await(WAIT_MS, TimeUnit.MILLISECONDS)
         }
     }
 
