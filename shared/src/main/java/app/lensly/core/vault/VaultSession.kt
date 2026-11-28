@@ -425,6 +425,12 @@ class VaultSession constructor(
 ) {
     private var vaultKey: ByteArray? = vaultKey
 
+    /**
+     * True while this session is the promoted vault of a Duress unlock whose cleanup has not finished (see [Vault.unlock]). The old
+     * vault's folders are still unreleased then, so a wallet takes one of them over before the store grows (see [createWallet]).
+     */
+    @Volatile internal var promotionPending = false
+
     /** The wallet ids this session owns, sorted, once a scan has checked every folder. Null until then, and after a wallet is created or deleted. */
     private var owned: List<String>? = null
 
@@ -451,6 +457,9 @@ class VaultSession constructor(
         val key = requireOpen()
         writes++
         owned = null
+        // The old vault's folders reach the free list only when the promotion cleanup releases them. A wallet made before that takes one over
+        // instead of adding folders, which would show twice the usual count for the rest of the vault's life.
+        if (pad != null && promotionPending && layout.promotionMarker.exists() && pad.freeSlots().isEmpty()) releaseOneOldFolder(key, pad)
         val unused = pad?.take()
         val id = unused ?: UUID.randomUUID().toString()
         val dir = layout.walletDir(id)
@@ -462,6 +471,12 @@ class VaultSession constructor(
             Arrays.fill(walletKey, 0)
         }
         id
+    }
+
+    /** Releases the first wallet folder that this vault does not own into its own free list, as the promotion cleanup would. */
+    private fun releaseOneOldFolder(key: ByteArray, pad: WalletPad) {
+        val id = layout.wallets.list().orEmpty().sorted().firstOrNull { layout.walletKeyFile(it).isFile && !ownsWallet(keys, layout, key, it) } ?: return
+        pad.release(listOf(id))
     }
 
     /**

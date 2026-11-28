@@ -691,7 +691,12 @@ class Vault constructor(
     private fun openSessionLocked(vaultKey: ByteArray, side: Int, finishPromotion: Boolean): VaultSession {
         val session = VaultSession(layout, keys, vaultKey.copyOf(), side = side, pad = WalletPad(layout, keys, vaultKey, side))
         // A promoted decoy that a kill left without record files takes spares over before anything writes a record, so none is added.
-        if (finishPromotion) bestEffort { if (isPromotedBy(session)) session.withKeyLocked { claimMissingRecords(it) } }
+        if (finishPromotion) bestEffort {
+            if (isPromotedBy(session)) {
+                session.promotionPending = true
+                session.withKeyLocked { claimMissingRecords(it) }
+            }
+        }
         // The Review Record pool gets its first batch back when it is missing.
         bestEffort { session.ensureReviewPool() }
         // The wallet folders and the free-slot list are brought to the layout on every unlock.
