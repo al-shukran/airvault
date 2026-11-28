@@ -1206,7 +1206,7 @@ internal const val ACK_ALL_NFTS = "I understand this grants control of all NFTs 
 internal const val ACK_STEP_PAYEE = "I understand this call pays an account other than mine."
 
 /** The DANGER on a router call whose steps leave tokens in the router, where the next caller can take them. */
-internal const val ROUTER_LEFTOVER_WARNING = "This leaves the swap output in the router, where anyone can take it"
+internal const val ROUTER_LEFTOVER_WARNING = "This leaves tokens in the router, where anyone can take them"
 
 /** The check the owner ticks for a router call that leaves tokens in the router, by name. */
 internal const val ACK_ROUTER_LEFTOVER = "I understand this call leaves tokens in the router, where anyone can take them."
