@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -56,6 +57,7 @@ class ShowSecretDuressTest {
     private lateinit var layout: VaultLayout
     private lateinit var vault: Vault
     private lateinit var holder: VaultHolder
+    private lateinit var nav: NavHostController
 
     private fun setUp() {
         layout = VaultLayout(File(tmp.root, "vault"))
@@ -91,6 +93,7 @@ class ShowSecretDuressTest {
         compose.waitUntil(WAIT_MS) { compose.onAllNodesWithText(WARNING).fetchSemanticsNodes().isNotEmpty() }
         assertContentEquals(keyFile, layout.vaultKey.readBytes())
         holder.lock()
+        assertTheLockedScreenGoesToTheGate()
         val reopened = unlock(APP)
         assertEquals(0, reopened.side)
         assertEquals(listOf(realWallet), reopened.listWallets())
@@ -130,6 +133,7 @@ class ShowSecretDuressTest {
         pressDone()
         compose.waitUntil(WAIT_MS) { compose.onAllNodesWithText(WARNING).fetchSemanticsNodes().isNotEmpty() }
         holder.lock()
+        assertTheLockedScreenGoesToTheGate()
         val reopened = unlock(DURESS)
         assertEquals(listOf(decoyWallet), reopened.listWallets())
         reopened.close()
@@ -138,13 +142,25 @@ class ShowSecretDuressTest {
     private fun showSecret(walletId: String) {
         compose.setContent {
             LumenTheme {
-                val nav = rememberNavController()
+                nav = rememberNavController()
                 NavHost(navController = nav, startDestination = "show") {
                     composable("show") { ShowSecretRoute(nav, holder, walletId) }
+                    // The route a closed session goes to. Without it, a screen that recomposes after the lock throws.
+                    composable(HiddenRoute.GATE) {}
                 }
             }
         }
         compose.onNodeWithText(PROMPT).assertExists()
+    }
+
+    /**
+     * A screen that recomposes once the session is closed goes to the gate, and the NavHost must have one. Pressing Show makes that
+     * happen now, not whenever a later recomposition does, so the outcome does not depend on how fast the machine is.
+     */
+    private fun assertTheLockedScreenGoesToTheGate() {
+        compose.onNodeWithText("Show").performClick()
+        compose.waitForIdle()
+        assertEquals(HiddenRoute.GATE, nav.currentDestination?.route)
     }
 
     /** Types [password] at the password step and waits until the vault counted the try and the screen is asking again. */
