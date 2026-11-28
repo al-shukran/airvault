@@ -224,7 +224,7 @@ class VaultDuressSetupTest {
     }
 
     /** Waits for the promotion cleanup. It runs before the promoted session is closed, as a closed session skips it. */
-    private fun awaitCleanup() = runBlocking { vault.awaitCleanupForTesting() }
+    private fun awaitCleanup() = runBlocking { vault.awaitCleanup() }
 
     private fun layoutAt(name: String) = VaultLayout(File(tmp.root, name), File(tmp.root, "$name-photos"))
 
