@@ -83,7 +83,7 @@ internal fun typedPart(
     )
 }
 
-private val STRING_ADDRESS = Regex("0x[0-9a-fA-F]{40}")
+internal val STRING_ADDRESS = Regex("0x[0-9a-fA-F]{40}")
 
 /** Adds the rows of one value: a header row for a struct or an array, then its members one level deeper, or one value row. */
 private fun addRows(
