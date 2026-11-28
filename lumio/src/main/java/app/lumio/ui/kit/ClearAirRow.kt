@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,7 +49,7 @@ internal val ROW_DESCRIPTION = ClearAirType.body.copy(fontSize = 12.5.sp, lineHe
 /** The gap between a description and its suffix: the 6 dp the suffix is set off by, less the 4 dp its first logo is pulled back by. */
 private val SUFFIX_GAP = 2.dp
 
-/** A [lineBox] row's description sits 1 dp lower than its line box puts it, as the approved Explore frame has it. */
+/** A [lineBox] row's description sits 1 dp lower than its line box puts it, as the approved Explore frame has it, in whole pixels rounded down so a fractional density does not add its rounding to the row's. */
 private val LINE_BOX_DESCRIPTION_NUDGE = 1.dp
 
 /** The index after a title, such as the "#5" of an account, in the mono face. */
@@ -124,7 +125,7 @@ fun ClearAirRow(
                     ClearAirTag(text = tag, modifier = Modifier.padding(start = 6.dp))
                 }
             }
-            val descriptionModifier = if (lineBox) Modifier.offset(y = LINE_BOX_DESCRIPTION_NUDGE) else Modifier
+            val descriptionModifier = if (lineBox) Modifier.offset { IntOffset(0, LINE_BOX_DESCRIPTION_NUDGE.toPx().toInt()) } else Modifier
             if (descriptionLine != null) {
                 Row(modifier = descriptionModifier, verticalAlignment = Alignment.CenterVertically, content = descriptionLine)
             } else if (description != null) {
@@ -163,7 +164,7 @@ fun ClearAirRow(
         minHeight = minHeight,
         addressInset = inset - ClearAirSpacing.gutter,
         footerAddress = address.takeIf { footer },
-        modifier = modifier.then(divided),
+        modifier = modifier.designedHeight(minHeight).then(divided),
         press = pressed,
         content = content,
     )
