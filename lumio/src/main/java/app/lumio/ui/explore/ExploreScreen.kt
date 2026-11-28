@@ -227,13 +227,13 @@ private fun ExploreGroup(title: String, top: Dp, action: String?, onAction: () -
             modifier = Modifier.fillMaxWidth().height(HEADER_HEIGHT).padding(horizontal = ClearAirSpacing.gutter),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ClearAirEyebrow(text = title, modifier = Modifier.weight(1f).padding(top = if (action != null) ACTION_HEADER_SKEW else 0.dp), top = 0.dp, bottom = 0.dp)
+            ClearAirEyebrow(text = title, modifier = Modifier.weight(1f), top = 0.dp, bottom = 0.dp)
             if (action != null) {
                 Box(
                     modifier = Modifier
                         .requiredHeight(ClearAirSpacing.touchTarget)
                         .lumioPress(scale = ClearAirMotion.PRESS_SCALE, releaseSpring = ClearAirMotion.press, onClick = onAction)
-                        .padding(start = ClearAirSpacing.gutter, bottom = ACTION_HEADER_SKEW),
+                        .padding(start = ClearAirSpacing.gutter),
                     contentAlignment = Alignment.CenterEnd,
                 ) {
                     Text(text = action, style = ClearAirType.rowTitle.copy(fontSize = 13.sp), color = LocalClearAirPalette.current.ink, maxLines = 1)
@@ -247,14 +247,11 @@ private fun ExploreGroup(title: String, top: Dp, action: String?, onAction: () -
 
 /** The mock's spacing of the landing, from the top of the page and between groups. */
 private val FIRST_GROUP_TOP = 12.5.dp
-private val GROUP_TOP = 20.5.dp
-private val LEARN_GROUP_TOP = 17.5.dp
+private val GROUP_TOP = 21.dp
+private val LEARN_GROUP_TOP = 18.dp
 private val HEADER_HEIGHT = 14.dp
 private val HEADER_GAP = 8.dp
 private val HEADER_GAP_BARE = 4.dp
-
-/** The mock sets a header's eyebrow 1 dp lower and its action 1 dp higher than their shared centre, so the two sit 2 dp further apart than centred texts do. */
-private val ACTION_HEADER_SKEW = 2.dp
 
 /** The size of the status mark's box, which sets where the word begins, and the gap before the note. */
 private val CHECK_BOX_WIDTH = 14.5.dp
