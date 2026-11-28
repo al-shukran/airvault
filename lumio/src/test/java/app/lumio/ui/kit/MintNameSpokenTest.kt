@@ -8,6 +8,10 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.VerbatimTtsAnnotation
 import app.lensly.ui.theme.ClearAirTheme
 import app.lumio.chains.ChainHoldings
+import app.lumio.coinNames
+import app.lumio.data.net.NetworkId
+import app.lumio.data.net.Networks
+import app.lumio.watchlist.WatchedAsset
 import app.lumio.ui.home.AssetIconSpec
 import app.lumio.ui.send.SendAmountPage
 import app.lumio.ui.send.SendOption
@@ -54,10 +58,10 @@ class MintNameSpokenTest {
     private val name = ChainHoldings.mintName(mint)
     private val said = "EPjF, Wdd5, to ZwyT, Dt1v"
 
-    /** Every text a screen reader can reach on the screen, as it is read. */
+    /** Every text a screen reader can reach on the screen, as it is read: the first text of each node, which is the one TalkBack reads. */
     private fun read(): List<String> = compose
         .onAllNodes(SemanticsMatcher("has text") { SemanticsProperties.Text in it.config }, useUnmergedTree = true)
-        .fetchSemanticsNodes().flatMap { node -> node.config[SemanticsProperties.Text].map { it.text.trim() } }
+        .fetchSemanticsNodes().map { node -> node.config[SemanticsProperties.Text].first().text.trim() }
 
     private fun assertRead(vararg expected: String) {
         val heard = read()
@@ -178,5 +182,21 @@ class MintNameSpokenTest {
         }
 
         assertRead(said, "Balance 1.5 $said")
+    }
+
+    @Test
+    fun aWatchedUnlistedTokenNamedByItsWholeContractIsReadInGroupsToo() {
+        val watched = WatchedAsset(NetworkId(Networks.SOL_MAINNET, testnet = false), contract = mint)
+        val whole = coinNames(watched).first
+        val groups = whole.split(' ')
+        assertEquals(11, groups.size)
+
+        val spoken = spokenMintName("1.5 $whole available")!!
+
+        assertEquals("1.5 ${groups.joinToString(", ")} available", spoken.text)
+        assertEquals(groups, spoken.getTtsAnnotations(0, spoken.length).map { (it.item as VerbatimTtsAnnotation).verbatim })
+        compose.setContent { ClearAirTheme { ClearAirRow(title = whole, description = "Solana") } }
+        assertTrue(groups.joinToString(", ") in read(), "the contract is not read in groups; the row reads ${read()}")
+        assertNull(spokenMintName("one two tree four five six seven eight nine ten eleven twelve"))
     }
 }

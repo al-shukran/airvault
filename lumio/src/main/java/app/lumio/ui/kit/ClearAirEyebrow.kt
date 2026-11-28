@@ -17,9 +17,10 @@ import app.lensly.ui.theme.LocalClearAirPalette
  */
 @Composable
 fun ClearAirEyebrow(text: String, modifier: Modifier = Modifier, top: Dp = 18.dp, bottom: Dp = ClearAirSpacing.xxs, textAlign: TextAlign? = null) {
+    val shown = uppercaseKeepingMints(text)
     Text(
-        text = uppercaseKeepingMints(text),
-        modifier = modifier.padding(top = top, bottom = bottom).spokenMint(text),
+        text = shown,
+        modifier = modifier.padding(top = top, bottom = bottom).spokenMint(shown),
         style = ClearAirType.eyebrow,
         color = LocalClearAirPalette.current.ink2,
         textAlign = textAlign,

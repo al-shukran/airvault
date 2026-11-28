@@ -15,7 +15,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -74,10 +76,15 @@ internal fun spokenAddress(address: String, lead: String? = "address "): Annotat
 internal fun spokenHash(hash: String): AnnotatedString = spoken(AddressGroups.ends(hash), lead = null)
 
 private const val GROUP = "[A-Za-z0-9]{1,4}"
-private val MINT_NAME = Regex("(?<![A-Za-z0-9])$GROUP(?:$NO_BREAK$GROUP)*$NO_BREAK$ELLIPSIS $GROUP(?:$NO_BREAK$GROUP)*")
+private const val FOUR = "[A-Za-z0-9]{4}"
+private val SHORT_MINT = "$GROUP(?:$NO_BREAK$GROUP)*$NO_BREAK$ELLIPSIS $GROUP(?:$NO_BREAK$GROUP)*"
+
+/** A whole contract in groups of four with ordinary spaces, as [app.airvault.core.model.AddressGroups.group] writes it: at least eight groups, all four characters but the last. */
+private val FULL_MINT = "(?:0x)?$FOUR(?: $FOUR){6,} $GROUP(?![A-Za-z0-9])"
+private val MINT_NAME = Regex("(?<![A-Za-z0-9])(?:$SHORT_MINT|$FULL_MINT)")
 
 /**
- * What a screen reader says of [text] when it holds an unlisted mint written by [addressLineText], on its own as a row title or within a line such as
+ * What a screen reader says of [text] when it holds an unlisted mint written by [addressLineText] or in full by groupAddress, on its own as a row title or within a line such as
  * "1.5 EPjF … Dt1v": each mint's groups verbatim, as [spokenAddress] says an address, with no lead, and the rest of the text as it is written. Null
  * for text with no mint, which is read as it is written. The one place a mint is read, so a screen that shows one has only to apply [spokenMint].
  */
@@ -108,9 +115,12 @@ internal fun uppercaseKeepingMints(text: String): String {
     }
 }
 
-/** A screen reader reads the [text] this modifier sits on as [spokenMintName] says it, and as it is written when it holds no mint. */
+/**
+ * A screen reader reads the [text] this modifier sits on as [spokenMintName] says it, and as it is written when it holds no mint. The written text stays
+ * on the node after the spoken one: a screen reader reads a node's first text, and what is on screen stays findable by its text.
+ */
 internal fun Modifier.spokenMint(text: String): Modifier =
-    spokenMintName(text)?.let { spoken -> clearAndSetSemantics { this.text = spoken } } ?: this
+    spokenMintName(text)?.let { spoken -> semantics { this[SemanticsProperties.Text] = listOf(spoken, AnnotatedString(text)) } } ?: this
 
 private fun spoken(ends: String, lead: String?): AnnotatedString = buildAnnotatedString {
     lead?.let(::append)
