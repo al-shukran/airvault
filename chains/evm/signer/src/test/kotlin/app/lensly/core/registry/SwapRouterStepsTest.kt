@@ -708,4 +708,54 @@ class SwapRouterStepsTest {
         assertTrue(alone(oneEth).leavesInRouter)
         assertFalse(alone(fourTenthsEth).leavesInRouter)
     }
+
+    /** An exactInput of [tokens] through 0.05% pools, paid to the signer: (path, recipient, amountIn, amountOutMinimum). */
+    private fun exactInputItem(amount: BigInteger, vararg tokens: String): ByteArray {
+        val fee = byteArrayOf(0, 1, 0xf4.toByte())
+        val path = tokens.map { Numeric.hexStringToByteArray(it) }.reduce { a, b -> a + fee + b }
+        val padded = path + ByteArray((ABI_WORD - path.size % ABI_WORD) % ABI_WORD)
+        return item(
+            EXACT_INPUT,
+            abiWord(BigInteger.valueOf(32)),
+            abiWord(BigInteger.valueOf(128)),
+            abiAddressWord(FLAG_SIGNER),
+            abiWord(amount),
+            abiWord(BigInteger.ZERO),
+            abiWord(BigInteger.valueOf(path.size.toLong())),
+            padded,
+        )
+    }
+
+    @Test
+    fun aWethHopPaidWithTheRoutersEthLeavesTheWethInTheRouterEvenWithARefund() {
+        val dai = "0x6b175474e89094c44da98b954eedeac495271d0f"
+        val viaWeth = exactInputItem(BigInteger.valueOf(93_600_000), USDC, WETH, dai)
+
+        // pay() wraps the router's ETH for the second pool, so the WETH from the first pool stays: refundETH does not take it out.
+        assertTrue(multicallWith(oneEth, viaWeth, refundEth).leavesInRouter)
+        // With no ETH sent the router pays the second pool with that WETH, and nothing stays.
+        assertFalse(multicallWith(BigInteger.ZERO, viaWeth).leavesInRouter)
+        // A route that starts in WETH has no WETH hop: an ordinary ETH swap with a refund stays clean.
+        assertFalse(multicallWith(oneEth, exactInputItem(fourTenthsEth, WETH, USDC, dai), refundEth).leavesInRouter)
+    }
+
+    @Test
+    fun anExactInputOfZeroOnWethWithEthSentLeavesTheRoutersWethInTheRouterEvenWithARefund() {
+        val allWeth = wethSwapItem(EXACT_INPUT_SINGLE, BigInteger.ZERO)
+        val wethToRouter = item(
+            EXACT_INPUT_SINGLE,
+            abiAddressWord(USDC),
+            abiAddressWord(WETH),
+            abiWord(BigInteger.valueOf(500)),
+            abiAddressWord(FLAG_ROUTER),
+            abiWord(BigInteger.valueOf(93_600_000)),
+            abiWord(BigInteger.ZERO),
+            abiWord(BigInteger.ZERO),
+        )
+
+        // The earlier swap leaves WETH in the router, and the zero-amount swap wraps the ETH sent instead of spending it.
+        assertTrue(multicallWith(oneEth, wethToRouter, allWeth, refundEth).leavesInRouter)
+        // With no ETH sent the zero-amount swap spends the WETH, and nothing stays.
+        assertFalse(multicallWith(BigInteger.ZERO, wethToRouter, allWeth).leavesInRouter)
+    }
 }

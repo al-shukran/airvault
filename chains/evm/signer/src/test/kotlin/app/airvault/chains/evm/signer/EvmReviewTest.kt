@@ -1096,7 +1096,7 @@ class EvmReviewTest {
         listOf(direct(byteArrayOf(0x00), listOf(swap)), batched(byteArrayOf(0x00), listOf(swap))).forEach { review ->
             val danger = review.warnings.single { it.code == "evm.router-leftover" }
             assertEquals(Danger.DANGER, danger.level)
-            assertEquals("This leaves tokens in the router, where anyone can take them", danger.message)
+            assertEquals("This leaves ETH or tokens in the router, where anyone can take them", danger.message)
             assertEquals(ACK_ROUTER_LEFTOVER, danger.acknowledge)
         }
         // A sweep to the signer after the swap takes the output out, so the review has no such warning.
@@ -1116,7 +1116,7 @@ class EvmReviewTest {
         // The router's own address as the recipient does what the flag does, so it earns the same DANGER.
         leftover(review(swap, listOf(urSwapInput(UR_V2)))).single().let {
             assertEquals(Danger.DANGER, it.level)
-            assertEquals("This leaves tokens in the router, where anyone can take them", it.message)
+            assertEquals("This leaves ETH or tokens in the router, where anyone can take them", it.message)
             assertEquals(ACK_ROUTER_LEFTOVER, it.acknowledge)
         }
         // A wrap into the router that nothing spends is a DANGER too, and the usual swap of the wrapped ETH is not.
@@ -1392,7 +1392,7 @@ private const val UR_MSG_SENDER = "0x0000000000000000000000000000000000000001"
 private const val UR_ADDRESS_THIS = "0x0000000000000000000000000000000000000002"
 private const val WETH_ADDRESS = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
 private const val ACK_STEP_PAYEE = "I understand this call pays an account other than mine."
-private const val ACK_ROUTER_LEFTOVER = "I understand this call leaves tokens in the router, where anyone can take them."
+private const val ACK_ROUTER_LEFTOVER = "I understand this call leaves ETH or tokens in the router, where anyone can take them."
 
 /** The approved Universal Router V2 `execute(bytes,bytes[],uint256)` on Ethereum. */
 private fun urEntry(): WhitelistEntry {

@@ -1,0 +1,1 @@
+A SwapRouter02 call sent with ETH that swaps through WETH between two pools, or swaps all of the router's WETH, can spend the ETH and leave the WETH in the router. The review now warns of it even when a refund of ETH follows, and the warning now says "ETH or tokens".
