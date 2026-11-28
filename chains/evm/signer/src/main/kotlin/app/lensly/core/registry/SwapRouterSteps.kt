@@ -9,11 +9,12 @@ import app.lensly.core.wallet.toHex
 import java.math.BigInteger
 
 /**
- * Steps for the calls on the Uniswap SwapRouter02 deployment on Ethereum mainnet: the Uniswap v3 swaps, unwrapWETH9 and sweepToken to a recipient,
- * refundETH, and multicall, which runs its calls in order. The layouts and semantics are those of
- * contracts/interfaces/IV3SwapRouter.sol, contracts/base/MulticallExtended.sol and contracts/base/PeripheryPaymentsExtended.sol at
- * Uniswap/swap-router-contracts 70bc2e40, and of contracts/base/Multicall.sol and contracts/base/PeripheryPayments.sol at
- * Uniswap/v3-periphery 24ccf014. An exact input of zero spends the whole balance the router holds, as CONTRACT_BALANCE does in
+ * Steps for the calls on the Uniswap SwapRouter02 deployment on Ethereum mainnet: the Uniswap v3 swaps, unwrapWETH9 and sweepToken to a
+ * recipient or the message sender, with or without a fee, refundETH, and multicall, which runs its calls in order. The layouts and
+ * semantics are those of contracts/interfaces/IV3SwapRouter.sol, contracts/base/MulticallExtended.sol,
+ * contracts/base/PeripheryPaymentsExtended.sol and contracts/base/PeripheryPaymentsWithFeeExtended.sol at Uniswap/swap-router-contracts
+ * 70bc2e40, and of contracts/base/Multicall.sol, contracts/base/PeripheryPayments.sol and contracts/base/PeripheryPaymentsWithFee.sol at
+ * Uniswap/v3-periphery 24ccf014. A fee is feeBips of the balance, from 1 to 100 bips, sent to the fee recipient before the rest goes on. An exact input of zero spends the whole balance the router holds, as CONTRACT_BALANCE does in
  * V3SwapRouter.sol. A single-pool swap with a price limit is not read, because the limit can stop the swap short of its amount.
  *
  * A multicall reverts the whole batch when one of its calls fails. A multicall inside a multicall is not read, since no real transaction has
@@ -34,6 +35,14 @@ internal object SwapRouterSteps {
     private const val PATH = "(bytes,address,uint256,uint256)"
     private const val V3 = "Uniswap v3"
     private const val SWEEPS_TO = "sweeps the router's tokens to"
+    private const val FEE_TO = "pays the fee to"
+    private val MAX_FEE_BIPS: BigInteger = BigInteger.valueOf(100)
+
+    /** The cut a fee call takes: [bips] of the balance, in basis points, paid to [recipient] first. */
+    private class Fee(val bips: BigInteger, val recipient: String)
+
+    /** The fee of a call that has one, or null when its bips are outside 1 to 100, which the router reverts. */
+    private fun fee(bips: BigInteger, recipient: String): Fee? = Fee(bips, recipient).takeIf { bips.signum() > 0 && bips <= MAX_FEE_BIPS }
 
     /** A call the router runs: its signature, the layout of its arguments, and the steps it reads from them. */
     private class Call(val signature: String, val layout: List<WhitelistParam>, val describe: (StepCall) -> CallSteps?)
@@ -54,6 +63,25 @@ internal object SwapRouterSteps {
         "0xe90a182f" to Call("sweepToken(address,uint256)", params("token" to "address", "amountMinimum" to "uint256")) {
             sweepToken(it, it.address(0), it.uint(1), recipient = null)
         },
+        "0x49616997" to Call("unwrapWETH9(uint256)", params("amountMinimum" to "uint256")) {
+            unwrapWeth(it, it.uint(0), recipient = null)
+        },
+        "0x9b2c0a37" to Call(
+            "unwrapWETH9WithFee(uint256,address,uint256,address)",
+            params("amountMinimum" to "uint256", "recipient" to "address", "feeBips" to "uint256", "feeRecipient" to "address"),
+        ) { c -> fee(c.uint(2), c.address(3))?.let { unwrapWeth(c, c.uint(0), c.address(1), it) } },
+        "0xd4ef38de" to Call(
+            "unwrapWETH9WithFee(uint256,uint256,address)",
+            params("amountMinimum" to "uint256", "feeBips" to "uint256", "feeRecipient" to "address"),
+        ) { c -> fee(c.uint(1), c.address(2))?.let { unwrapWeth(c, c.uint(0), recipient = null, fee = it) } },
+        "0xe0e189a0" to Call(
+            "sweepTokenWithFee(address,uint256,address,uint256,address)",
+            params("token" to "address", "amountMinimum" to "uint256", "recipient" to "address", "feeBips" to "uint256", "feeRecipient" to "address"),
+        ) { c -> fee(c.uint(3), c.address(4))?.let { sweepToken(c, c.address(0), c.uint(1), c.address(2), it) } },
+        "0x3068c554" to Call(
+            "sweepTokenWithFee(address,uint256,uint256,address)",
+            params("token" to "address", "amountMinimum" to "uint256", "feeBips" to "uint256", "feeRecipient" to "address"),
+        ) { c -> fee(c.uint(2), c.address(3))?.let { sweepToken(c, c.address(0), c.uint(1), recipient = null, fee = it) } },
     )
 
     /** The steps of [call] when it is an approved SwapRouter02 call on mainnet, and null for any other call. */
@@ -146,23 +174,31 @@ internal object SwapRouterSteps {
         return c.paying("$sentence ${via(c, V3, route)}$to", "pays the swap output to", recipient)
     }
 
-    /** Unwraps all the WETH the router holds, if at least the minimum, and sends the ETH to [recipient]. */
-    private fun unwrapWeth(c: StepCall, minimum: BigInteger, recipient: String): CallSteps {
+    /** Unwraps all the WETH the router holds, if at least the minimum, and sends the ETH to [recipient] less any [fee]. A null [recipient] is the message sender. */
+    private fun unwrapWeth(c: StepCall, minimum: BigInteger, recipient: String?, fee: Fee? = null): CallSteps {
         val least = if (minimum.signum() == 0) "" else " (at least ${c.wrappedAmount(minimum)})"
-        // The router takes this recipient as it is: no flag is mapped.
-        val line = "Unwrap all ${c.wrappedSymbol} the router holds → ${c.network.nativeSymbol} for ${c.who(recipient)}$least"
         c.emptyRouterOf(WETH_MAINNET)
-        return c.payingAddress(line, "sends the unwrapped ${c.network.nativeSymbol} to", recipient)
+        val to = recipient?.let(c::who) ?: c.callerName
+        val line = "Unwrap all ${c.wrappedSymbol} the router holds → ${c.network.nativeSymbol} for $to${feeText(c, fee)}$least"
+        return payout(c, line, "sends the unwrapped ${c.network.nativeSymbol} to", recipient, fee)
     }
 
-    /** Sends all [token] the router holds to [recipient], if at least the minimum. A null [recipient] is the message sender. */
-    private fun sweepToken(c: StepCall, token: String, minimum: BigInteger, recipient: String?): CallSteps {
+    /** Sends all [token] the router holds to [recipient] less any [fee], if at least the minimum. A null [recipient] is the message sender. */
+    private fun sweepToken(c: StepCall, token: String, minimum: BigInteger, recipient: String?, fee: Fee? = null): CallSteps {
         val least = if (minimum.signum() == 0) "" else " (at least ${c.amount(minimum, token)})"
         c.emptyRouterOf(token)
         val to = recipient?.let(c::who) ?: c.callerName
-        val line = "Sweep all ${c.symbolOf(token)} held by the router to $to$least"
-        // The router takes a given recipient as it is: no flag is mapped.
-        return if (recipient == null) c.paying(line, SWEEPS_TO, MSG_SENDER) else c.payingAddress(line, SWEEPS_TO, recipient)
+        val line = "Sweep all ${c.symbolOf(token)} held by the router to $to${feeText(c, fee)}$least"
+        return payout(c, line, SWEEPS_TO, recipient, fee)
+    }
+
+    private fun feeText(c: StepCall, fee: Fee?): String = fee?.let { ", less a ${percentOf(it.bips)} fee for ${c.who(it.recipient)}" }.orEmpty()
+
+    /** The steps of a call that pays [recipient] and any [fee] recipient. The router takes a given address as it is: no flag is mapped. */
+    private fun payout(c: StepCall, line: String, what: String, recipient: String?, fee: Fee?): CallSteps {
+        val main = if (recipient == null) c.paying(line, what, MSG_SENDER) else c.payingAddress(line, what, recipient)
+        val fees = fee?.let { c.payingAddress(line, FEE_TO, it.recipient) } ?: return main
+        return CallSteps(main.lines, main.warnings + fees.warnings, (main.addresses + fees.addresses).distinct())
     }
 
     /** Sends all the native coin the router holds to the message sender. */
