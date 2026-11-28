@@ -77,11 +77,25 @@ class PairedNamesInListTest {
     }
 
     @Test
-    fun namesThatTakeMoreRoomThanTheWalletRecordHoldsRefuseTheCodeAtPairing() {
+    fun theMostCustomNamesLenslyCanSendArePairedAndTheOnesThatDoNotFitShowTheirAutoNames() {
         val long = "N".repeat(PairingCodec.MAX_NAME_BYTES)
-        val sent = PairFixtures.payloadOf((0 until 60).map { PairFixtures.solanaAccount(it, long) } + (0 until 60).map { PairFixtures.algorandAccount(it, long) })
+        val accounts = (0 until PairImport.MAX_BITCOIN_KEYS).map { index ->
+            PairFixtures.bitcoinAccount(BtcAccount.fromSeed(PairFixtures.seed, BtcNetwork.MAINNET, ScriptType.NATIVE_SEGWIT, index).watchOnly(), long)
+        } + (0 until PairImport.MAX_SOLANA_ACCOUNTS).map { PairFixtures.solanaAccount(it, long) } +
+            (0 until PairImport.MAX_ALGORAND_ACCOUNTS).map { PairFixtures.algorandAccount(it, long) }
+        val sent = PairFixtures.payloadOf(accounts)
 
-        assertTrue(scanToEnd(PairingCodec.urParts(sent, brotli = null)) is ScanStep.Refused)
+        PairedWallets.save(session, pairingOf(PairingCodec.urParts(sent, brotli = null)), nowMs = 1L)
+        val wallet = PairedWallets.list(session).single()
+
+        // The record keeps the custom names that fit its room, in account order: Bitcoin first, then Solana, then Algorand.
+        val kept = (PairRecords.MAX_NAME_ROOM - PairImport.MAX_BITCOIN_KEYS - PairImport.MAX_SOLANA_ACCOUNTS - PairImport.MAX_ALGORAND_ACCOUNTS) /
+            PairingCodec.MAX_NAME_BYTES
+        val stored = wallet.bitcoinNames + wallet.solanaNames + wallet.algorandNames
+        assertEquals(List(kept) { long }, stored.take(kept))
+        assertTrue(stored.drop(kept).all { it == null })
+        assertEquals(autoAccountName("Demo", PairImport.MAX_SOLANA_ACCOUNTS - 1), wallet.solanaNameAt(PairImport.MAX_SOLANA_ACCOUNTS - 1))
+        assertEquals(PairImport.MAX_BITCOIN_KEYS + PairImport.MAX_SOLANA_ACCOUNTS + PairImport.MAX_ALGORAND_ACCOUNTS, stored.size)
     }
 
     @Test
