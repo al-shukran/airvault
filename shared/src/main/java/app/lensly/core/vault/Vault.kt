@@ -698,8 +698,9 @@ class Vault constructor(
         bestEffort { session.ensurePadded() }
         // Each vault's photo key is made on its first unlock, so a vault from before photos were sealed gets one.
         bestEffort { session.ensurePhotoKey() }
-        // A kill leaves temp files in a photo folder, and one in only one of them would show that a Duress Password was set.
-        bestEffort { sweepPhotoTemps(layout) }
+        // A kill leaves temp files or a photo without its twin, either of which would show that a Duress Password was set. Queued, never awaited:
+        // the sealer may be busy with a video, and an unlock must not wait for it.
+        PhotoStore.sealer.execute { bestEffort { repairPhotoFolders(layout) } }
         if (finishPromotion) startPromotionCleanup(session)
         return session
     }
@@ -1969,19 +1970,17 @@ private fun MediaEnvelope.SealedReader.asInputStream(): InputStream = object : I
 }
 
 /**
- * Renames [temp] to [target] on the thread that seals the cover's photos, so a save and this rename never overlap, and only while the
- * photo [source] is still there. A photo that the gallery deleted meanwhile leaves no twin: [temp] is deleted, and so is [target] when the
- * delete came after the check. The gallery's delete does not run on that thread. It shreds the photo first and its twin second, so a rename
- * that it overtook is seen by the second check, and one that it did not is shredded by the delete. True when [target] was replaced.
+ * Renames [temp] to [target] on the thread that seals the cover's photos, which is also where the gallery's delete runs (see
+ * [PhotoStore.delete]), so the check and the rename never overlap a delete. A photo that was deleted meanwhile leaves no twin: [temp] is
+ * deleted. True when [target] was replaced.
  */
 private fun commitIfSourceStays(temp: File, source: File, target: File): Boolean {
     resealCommitHookForTesting?.invoke(source)
     return PhotoStore.whileNoSaveRuns {
-        if (source.exists()) commitTemp(temp, target)
         if (source.exists()) {
+            commitTemp(temp, target)
             true
         } else {
-            shredPhotoFile(target)
             temp.delete()
             false
         }
@@ -2026,12 +2025,16 @@ internal fun shredTwinlessPhotos(layout: VaultLayout, side: Int, shred: (File) -
     twinless.forEach(shred)
 }
 
-/** Shreds the temp files that a kill left in the two photo folders. A cover save is never half way, since this runs where saves run. */
-internal fun sweepPhotoTemps(layout: VaultLayout) {
-    PhotoStore.whileNoSaveRuns {
-        (0..1).flatMap { layout.photoDir(it).listFiles().orEmpty().asList() }
-            .filter { it.isFile && it.name.endsWith(".tmp") }
-            .forEach(::shredPhotoFile)
+/**
+ * Shreds the temp files that a kill left in the two photo folders, and every photo file that has no file of the same name in the other
+ * folder: the cover saves each photo twice and the gallery deletes both, so a file alone is what a kill between the two steps left, and
+ * it must not show that a Duress Password was set or keep a deleted photo readable. Runs on the sealer, so no save is half way.
+ */
+private fun repairPhotoFolders(layout: VaultLayout) {
+    val folders = (0..1).map { layout.photoDir(it).listFiles().orEmpty().filter { file -> file.isFile } }
+    folders.forEachIndexed { side, files ->
+        val others = folders[1 - side].map { it.name }.toSet()
+        files.filter { it.name.endsWith(".tmp") || it.name !in others }.forEach(::shredPhotoFile)
     }
 }
 

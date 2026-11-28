@@ -33,6 +33,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -60,6 +61,7 @@ import app.lensly.ui.theme.labelCase
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 
@@ -82,6 +84,7 @@ fun GalleryScreen(
     var showDeleted by remember { mutableStateOf(false) }
     var deletedNotice by remember { mutableStateOf("") }
     val opened = photos.firstOrNull { it.file.name == openedName }
+    val scope = rememberCoroutineScope()
 
     // Each deletion restarts the notice, so a second delete shows it for the full time.
     LaunchedEffect(deletions) {
@@ -150,10 +153,15 @@ fun GalleryScreen(
             onClose = { openedName = null },
             onDelete = {
                 deletedNotice = if (opened.isVideo) "Video deleted." else "Photo deleted."
-                store.delete(opened.file)
-                photos = store.list()
+                val gone = opened.file
                 openedName = null
                 deletions++
+                // The delete waits for the sealer, which may be sealing a video, so it runs off the main thread. The photo leaves the grid at once.
+                photos = photos.filter { it.file != gone }
+                scope.launch {
+                    withContext(Dispatchers.IO) { store.delete(gone) }
+                    photos = store.list()
+                }
             },
         )
     }

@@ -114,7 +114,7 @@ class GalleryGateTest {
 
     /** Saves a photo the way the cover does, with no password: the vault's public key alone seals it. */
     private fun saveRealPhoto(): File {
-        assertTrue(PhotoStore.of(layout, side = 0).savePhoto(PHOTO.copyOf(), nowMs = 1_000L))
+        assertTrue(PhotoStore.forCover(layout).savePhoto(PHOTO.copyOf(), nowMs = 1_000L))
         return PhotoStore.of(layout, side = 0).directory.listFiles().orEmpty().single()
     }
 

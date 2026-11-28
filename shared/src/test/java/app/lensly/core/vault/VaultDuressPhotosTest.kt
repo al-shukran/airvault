@@ -3,6 +3,9 @@ package app.lensly.core.vault
 import app.lensly.ui.camera.PhotoStore
 import java.io.File
 import java.math.BigInteger
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.FutureTask
+import java.util.concurrent.TimeUnit
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -89,10 +92,64 @@ class VaultDuressPhotosTest {
         File(layout.photoDir(0), "other.456.tmp").writeBytes(PHOTO)
 
         unlocked(APP).close()
+        awaitSealer()
 
         assertEquals(setOf(photo.name), layout.photoDir(0).list().orEmpty().toSet())
         assertEquals(setOf(photo.name), layout.photoDir(1).list().orEmpty().toSet())
     }
+
+    @Test
+    fun aPhotoLeftWithoutItsTwinByAKilledCoverSaveIsShreddedAtTheNextUnlock() {
+        val photo = shoot()
+        File(layout.photoDir(0), "half-saved").writeBytes(PHOTO)
+        File(layout.photoDir(1), "orphan").writeBytes(PHOTO)
+
+        unlocked(APP).close()
+        awaitSealer()
+
+        assertEquals(setOf(photo.name), layout.photoDir(0).list().orEmpty().toSet())
+        assertEquals(setOf(photo.name), layout.photoDir(1).list().orEmpty().toSet())
+    }
+
+    @Test
+    fun aDeleteKilledBetweenItsTwoShredsLeavesNoPhotoReadableAfterTheNextUnlock() {
+        val photo = shoot()
+        val gallery = PhotoStore.of(layout, side = 0)
+        PhotoStore.betweenDeleteStepsForTesting = { throw IllegalStateException("killed") }
+        try {
+            runCatching { gallery.delete(photo) }
+        } finally {
+            PhotoStore.betweenDeleteStepsForTesting = null
+        }
+        assertTrue(photo.exists(), "the photo goes after its twin, so the gallery still lists it")
+        assertTrue(!File(layout.photoDir(1), photo.name).exists(), "the twin goes first")
+
+        unlocked(APP).close()
+        awaitSealer()
+
+        assertEquals(emptySet(), layout.photoDir(0).list().orEmpty().toSet())
+        assertEquals(emptySet(), layout.photoDir(1).list().orEmpty().toSet())
+    }
+
+    @Test
+    fun anUnlockDoesNotWaitForASaveThatIsStillRunning() {
+        val photo = shoot()
+        File(layout.photoDir(1), "${photo.name}.123.tmp").writeBytes(PHOTO)
+        val release = CountDownLatch(1)
+        PhotoStore.sealer.execute { release.await(30, TimeUnit.SECONDS) }
+        try {
+            val unlock = FutureTask { unlocked(APP).close() }
+            Thread(unlock).start()
+            unlock.get(10, TimeUnit.SECONDS)
+            assertTrue(File(layout.photoDir(1), "${photo.name}.123.tmp").exists(), "the repair is queued behind the save")
+        } finally {
+            release.countDown()
+        }
+        awaitSealer()
+        assertEquals(setOf(photo.name), layout.photoDir(1).list().orEmpty().toSet())
+    }
+
+    private fun awaitSealer() = PhotoStore.whileNoSaveRuns {}
 
     @Test
     fun aPhotoDeletedBetweenItsResealAndItsRenameLeavesNoCopyOnTheDecoySide() {

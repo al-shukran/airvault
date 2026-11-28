@@ -99,12 +99,14 @@ class PhotoStore(
 
     /**
      * Overwrites a saved photo or video, then deletes it. This also shreds the twin copy of the same name in the other side's folder, so a
-     * deleted cover photo is not left readable under the Duress Password. The file goes before its twin: a twin that is written meanwhile
-     * (see `commitIfSourceStays` in the vault) finds the file gone.
+     * deleted cover photo is not left readable under the Duress Password. The twin goes first, so a kill between the two leaves a photo
+     * that the gallery still lists and can delete again, never a twin alone. It runs on the sealer, where the cover saves and the vault
+     * re-seals its twins, so none of them sees it half done. It waits for that thread: call it off the main thread.
      */
-    fun delete(file: File): Boolean {
-        val shredded = shredFile(file)
-        return (twinDirectory?.let { shredFile(File(it, file.name)) } ?: true) && shredded
+    fun delete(file: File): Boolean = whileNoSaveRuns {
+        val twinGone = twinDirectory?.let { shredFile(File(it, file.name)) } ?: true
+        betweenDeleteStepsForTesting?.invoke()
+        twinGone && shredFile(file)
     }
 
     /** Zeroes the private key, so that no key outlives the gallery that held it. */
@@ -172,6 +174,10 @@ class PhotoStore(
         internal val sealer: Executor = Executors.newSingleThreadExecutor { task ->
             Thread(task, "lensly-seal").apply { isDaemon = true }
         }
+
+        /** Test hook: called by [delete] after the twin is shredded and before the photo is, where a kill would leave one without the other. */
+        @Volatile
+        internal var betweenDeleteStepsForTesting: (() -> Unit)? = null
 
         /**
          * Runs [block] on [sealer] and waits for it. Every save and every shred of the cover runs there, one after another, so a block that
