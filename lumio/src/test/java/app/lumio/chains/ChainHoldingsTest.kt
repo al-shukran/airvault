@@ -31,7 +31,7 @@ class ChainHoldingsTest {
         assertEquals(
             listOf(
                 ChainHolding("USDC", "Solana Devnet", BigInteger("1500000"), 6, AssetId.Spl(SOL_DEVNET, USDC_MINT)),
-                ChainHolding("5UHr...2XJ6", "Solana Devnet", BigInteger("42"), 9, AssetId.Spl(SOL_DEVNET, UNKNOWN_MINT)),
+                ChainHolding("5UHrBS…2XJ6", "Solana Devnet", BigInteger("42"), 9, AssetId.Spl(SOL_DEVNET, UNKNOWN_MINT)),
             ),
             rows,
         )

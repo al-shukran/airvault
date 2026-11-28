@@ -44,7 +44,7 @@ class SolanaAssetsTest {
 
         val symbol = SolanaAssets.choices(listOf(unnamedHeld), names)[1].symbol
 
-        assertEquals("${unnamedMint.take(4)}...${unnamedMint.takeLast(4)}", symbol)
+        assertEquals("${unnamedMint.take(6)}…${unnamedMint.takeLast(4)}", symbol)
     }
 
     @Test
