@@ -133,6 +133,7 @@ class GalleryGateTest {
         val session = (runBlocking { vault.unlock(APP.toCharArray()) } as UnlockResult.Unlocked).session
         realWallet = session.createWallet()
         assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { decoy -> decoy.createWallet().also { decoyWallet = it } } })
+        runBlocking { vault.awaitPhotoCopies() }
         session.close()
     }
 

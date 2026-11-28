@@ -1210,11 +1210,11 @@ internal const val ACK_ALL_NFTS = "I understand this grants control of all NFTs 
 /** The check the owner ticks for a batch call whose router step pays an account other than the signer, by name. */
 internal const val ACK_STEP_PAYEE = "I understand this call pays an account other than mine."
 
-/** The DANGER on a router call whose steps leave tokens in the router, where the next caller can take them. */
-internal const val ROUTER_LEFTOVER_WARNING = "This leaves tokens in the router, where anyone can take them"
+/** The DANGER on a router call whose steps leave ETH or tokens in the router, where the next caller can take them. */
+internal const val ROUTER_LEFTOVER_WARNING = "This leaves ETH or tokens in the router, where anyone can take them"
 
-/** The check the owner ticks for a router call that leaves tokens in the router, by name. */
-internal const val ACK_ROUTER_LEFTOVER = "I understand this call leaves tokens in the router, where anyone can take them."
+/** The check the owner ticks for a router call that leaves ETH or tokens in the router, by name. */
+internal const val ACK_ROUTER_LEFTOVER = "I understand this call leaves ETH or tokens in the router, where anyone can take them."
 
 /** The check the owner ticks for a transfer that moves tokens out of an account other than the signer, by name. */
 internal const val ACK_FOREIGN_FROM = "I understand these tokens move out of another account."

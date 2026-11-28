@@ -10,7 +10,7 @@ internal const val UNREADABLE_CALL = "Lensly cannot read this call. Its raw argu
  * The human-readable steps of an approved call that Lensly describes, and the warnings its steps raise. [lines] are the steps in the
  * order the contract or router runs them, one plain sentence each. [warnings] go to the review's warning list, so a step Lensly cannot
  * read is never shown without a warning. [addresses] are the other accounts the steps pay, which the review shows as address rows.
- * [leavesInRouter] is set when a router step leaves tokens in the router that no later step takes out, so the review warns of it as a DANGER.
+ * [leavesInRouter] is set when a router step leaves ETH or tokens in the router that no later step takes out, so the review warns of it as a DANGER.
  */
 data class CallSteps(
     val lines: List<String>,

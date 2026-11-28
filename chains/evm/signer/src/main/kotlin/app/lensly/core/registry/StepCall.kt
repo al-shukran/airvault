@@ -218,6 +218,18 @@ internal class StepCall(
         if (held.containsKey(token)) held[token] = null
     }
 
+    /**
+     * A swap pays WETH from the router: when the router holds ETH, pay() wraps some of that ETH instead, how much is not known, and leaves
+     * the WETH where it is. [strands] says the router holds WETH from an earlier hop, which is not known to be held otherwise. Returns
+     * whether the router holds ETH, so the swap is read this way.
+     */
+    fun wrapEthInstead(token: String, strands: Boolean): Boolean {
+        if (!held.containsKey(NATIVE_COIN)) return false
+        held[NATIVE_COIN] = null
+        if (strands || held.containsKey(token)) held[token] = null
+        return true
+    }
+
     /** The same call with its steps' leftover check made: [CallSteps.leavesInRouter] says what the router still holds at the end. */
     fun checked(steps: CallSteps): CallSteps = steps.copy(leavesInRouter = leavesInRouter)
 
