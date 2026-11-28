@@ -182,6 +182,7 @@ internal object V4SwapSteps {
             v[2].word() == BigInteger.ONE -> " from ${c.callerName}"
             else -> " from the router"
         }
+        if (amount == CONTRACT_BALANCE && v[2].word() != BigInteger.ONE) c.emptyRouterOf(currency)
         return CallSteps(listOf("Pay $what$payer to $V4"), emptyList())
     }
 
@@ -203,6 +204,7 @@ internal object V4SwapSteps {
         val recipient = v[1].address()
         val amount = v[2].word()
         val what = if (amount.signum() == 0) "all ${c.symbolOf(currency)} owed to the router" else c.amount(amount, currency)
+        c.keepInRouter(currency, recipient)
         return c.paying("Take $what from $V4 to ${c.recipientName(recipient)}", TAKES, recipient)
     }
 
@@ -223,6 +225,7 @@ internal object V4SwapSteps {
         if (bips > BPS_DENOMINATOR) return null
         val share = percentOf(bips)
         val line = "Take $share of all ${c.symbolOf(currency)} owed to the router from $V4 to ${c.recipientName(recipient)}"
+        c.keepInRouter(currency, recipient)
         return c.paying(line, "sends part of the swap output to", recipient)
     }
 

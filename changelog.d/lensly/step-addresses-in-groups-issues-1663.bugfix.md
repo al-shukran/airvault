@@ -1,0 +1,1 @@
+The step lines and step warnings of an approved contract call now show another address as "0x" and groups of 4, its first two and last two groups, the same as the summary sentence, instead of a cut of 8 characters that a lookalike address could match.

@@ -1011,7 +1011,7 @@ class EvmReviewTest {
 
         val danger = viaBatch.warnings.single { it.code == "evm.steps" }
         assertEquals(Danger.DANGER, danger.level)
-        assertEquals("This pays the swap output to 0xcA11…CA11, not you", danger.message)
+        assertEquals("This pays the swap output to 0xcA11 bde0 … 3976 CA11, not you", danger.message)
         assertEquals(ACK_STEP_PAYEE, danger.acknowledge)
         assertEquals(MULTICALL3, viaBatch.sections.flatMap { it.rows }.single { it.label == "Recipient" }.value.text())
         val steps = viaBatch.sections.flatMap { it.rows }.map { it.label }.filter { it.startsWith("Swap exactly") }
@@ -1019,6 +1019,30 @@ class EvmReviewTest {
         // Straight to the router the same call pays the signer: only the whitelist caution, no recipient row.
         assertEquals(listOf("evm.whitelisted-call"), direct.warnings.map { it.code })
         assertTrue(direct.sections.flatMap { it.rows }.none { it.label == "Recipient" })
+    }
+
+    @Test
+    fun aRouterSwapThatLeavesItsOutputInTheRouterIsADangerTheOwnerTicksDirectAndInABatch() {
+        val registry = REGISTRY.withWhitelist(listOf(urEntry()))
+        val swap = urSwapInput(UR_ADDRESS_THIS)
+        val sweep = word(BigInteger(USDC_LOWER.removePrefix("0x"), 16)) + word(BigInteger(SENDER.removePrefix("0x"), 16)) + word(BigInteger.ZERO)
+        fun direct(commands: ByteArray, inputs: List<ByteArray>) = reviewOf(txParsed(UR_V2_TX, urExecute(commands, inputs)), builder(registry))
+        fun batched(commands: ByteArray, inputs: List<ByteArray>): Review {
+            val call = InnerCall(UR_V2_TX, allowFailure = false, value = BigInteger.ZERO, calldata = urExecute(commands, inputs), call = null, nested = null)
+            val batch = encodeMulticall(MulticallShape.AGGREGATE3_VALUE, deadline = null, calls = listOf(call))!!
+            return reviewOf(txParsed(MULTICALL3, batch), builder(registry))
+        }
+
+        listOf(direct(byteArrayOf(0x00), listOf(swap)), batched(byteArrayOf(0x00), listOf(swap))).forEach { review ->
+            val danger = review.warnings.single { it.code == "evm.router-leftover" }
+            assertEquals(Danger.DANGER, danger.level)
+            assertEquals("This leaves the swap output in the router, where anyone can take it", danger.message)
+            assertEquals(ACK_ROUTER_LEFTOVER, danger.acknowledge)
+        }
+        // A sweep to the signer after the swap takes the output out, so the review has no such warning.
+        listOf(direct(byteArrayOf(0x00, 0x04), listOf(swap, sweep)), batched(byteArrayOf(0x00, 0x04), listOf(swap, sweep))).forEach { review ->
+            assertTrue(review.warnings.none { it.code == "evm.router-leftover" }, "${review.warnings}")
+        }
     }
 
     @Test
@@ -1034,7 +1058,7 @@ class EvmReviewTest {
 
         val warnings = review.warnings.filter { it.code == "evm.steps" }
         assertEquals(2, warnings.size)
-        assertTrue(warnings.all { it.level == Danger.CAUTION && it.message.endsWith("0x3333…3333, not you") }, "$warnings")
+        assertTrue(warnings.all { it.level == Danger.CAUTION && it.message.endsWith("0x3333 0000 … 0000 3333, not you") }, "$warnings")
         val recipients = review.sections.flatMap { it.rows }.filter { it.label == "Recipient" }
         assertEquals(listOf(Keys.toChecksumAddress(lookalike)), recipients.map { it.value.text() })
         assertIs<DisplayValue.Address>(recipients.single().value)
@@ -1287,6 +1311,7 @@ private const val UR_MSG_SENDER = "0x0000000000000000000000000000000000000001"
 private const val UR_ADDRESS_THIS = "0x0000000000000000000000000000000000000002"
 private const val WETH_ADDRESS = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
 private const val ACK_STEP_PAYEE = "I understand this call pays an account other than mine."
+private const val ACK_ROUTER_LEFTOVER = "I understand this call leaves tokens in the router, where anyone can take them."
 
 /** The approved Universal Router V2 `execute(bytes,bytes[],uint256)` on Ethereum. */
 private fun urEntry(): WhitelistEntry {
