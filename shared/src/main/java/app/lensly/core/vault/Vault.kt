@@ -2107,6 +2107,7 @@ private fun resealTwin(source: File, realPhotoKey: ByteArray, publicKey: ByteArr
     return try {
         MediaEnvelope.SealedReader.open(source, realPhotoKey).use { reader ->
             val file = File.createTempFile("${target.name}.", ".tmp", target.parentFile).also { temp = it }
+            copyTempHookForTesting?.invoke(file)
             FileOutputStream(file).use { out ->
                 MediaEnvelope.seal(publicKey, reader.asInputStream(), out)
                 out.fd.sync()
@@ -2116,11 +2117,12 @@ private fun resealTwin(source: File, realPhotoKey: ByteArray, publicKey: ByteArr
             true
         }
     } catch (e: IOException) {
-        temp?.delete()
         false
     } catch (e: GeneralSecurityException) {
-        temp?.delete()
         false
+    } finally {
+        // Nothing is left after the rename; a copy that threw anything else must not leave its temp file, which shows a Duress Password.
+        temp?.delete()
     }
 }
 
@@ -2140,6 +2142,10 @@ private fun MediaEnvelope.SealedReader.asInputStream(): InputStream = object : I
     }
 }
 
+/** Test hook: called with the temp file of a copy, right after it is created and before it is written. */
+@Volatile
+internal var copyTempHookForTesting: ((File) -> Unit)? = null
+
 /** Test hook: called on the sealer with the photo of each copy that [dropSidePhotos] makes, before the copy is. */
 @Volatile
 internal var resealHookForTesting: ((File) -> Unit)? = null
@@ -2153,11 +2159,14 @@ private fun writeRandomTwin(source: File, target: File) {
     var temp: File? = null
     try {
         temp = File.createTempFile("${target.name}.", ".tmp", target.parentFile)
+        copyTempHookForTesting?.invoke(temp)
         RandomAccessFile(temp, "rw").use { it.setLength(source.length()) }
         overwriteInPlace(temp)
         temp.setLastModified(0L)
         commitTemp(temp, target)
     } catch (e: IOException) {
+        // The twin is left as it was.
+    } finally {
         temp?.delete()
     }
 }

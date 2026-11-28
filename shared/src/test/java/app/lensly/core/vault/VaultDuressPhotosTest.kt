@@ -367,6 +367,110 @@ class VaultDuressPhotosTest {
         promoted.close()
     }
 
+    @Test
+    fun aCopyThatThrowsLeavesNoTempFileAndTheOtherCopiesAreMade() {
+        val session = unlocked(APP)
+        session.createWallet()
+        val photos = (1..3).map { shoot(nowMs = it * 1_000L) }
+        // The first copy dies with a RuntimeException after its temp file exists; the others are made.
+        val failed = AtomicInteger()
+        copyTempHookForTesting = { if (failed.getAndIncrement() == 0) throw IllegalStateException("boom") }
+        try {
+            assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+            awaitSealer()
+        } finally {
+            copyTempHookForTesting = null
+        }
+        session.close()
+
+        assertTrue(failed.get() >= 3, "every photo was tried")
+        assertEquals(photos.map { it.name }.toSet(), layout.photoDir(1).list().orEmpty().toSet(), "no temp file is left")
+        assertEquals(photos.map { it.name }.toSet(), layout.photoDir(0).list().orEmpty().toSet())
+    }
+
+    @Test
+    fun aRandomTwinThatThrowsLeavesNoTempFile() {
+        val session = unlocked(APP)
+        session.createWallet()
+        val photo = shoot()
+        // No twin: the copy is a random one, written to a temp file first.
+        assertTrue(File(layout.photoDir(1), photo.name).delete())
+        copyTempHookForTesting = { throw IllegalStateException("boom") }
+        try {
+            assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+            awaitSealer()
+        } finally {
+            copyTempHookForTesting = null
+        }
+        session.close()
+
+        assertEquals(emptySet(), layout.photoDir(1).list().orEmpty().toSet(), "no temp file is left")
+    }
+
+    @Test
+    fun aWipeWhileCopiesAreQueuedLeavesNothingBehind() {
+        val session = unlocked(APP)
+        session.createWallet()
+        (1..3).forEach { shoot(nowMs = it * 1_000L) }
+        val atFirstCopy = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        resealHookForTesting = { atFirstCopy.countDown(); release.await(30, TimeUnit.SECONDS) }
+        try {
+            assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+            assertTrue(atFirstCopy.await(30, TimeUnit.SECONDS))
+            session.close()
+            vault.wipe()
+        } finally {
+            release.countDown()
+            resealHookForTesting = null
+        }
+        awaitSealer()
+
+        assertTrue(!layout.exists(), "the vault is gone")
+        assertEquals(emptyList(), layout.root.walkTopDown().filter { it.isFile }.toList(), "no copy brought a file back")
+        assertEquals(emptyList(), layout.photos.walkTopDown().filter { it.isFile }.toList(), "no copy brought a photo back")
+    }
+
+    @Test
+    fun aPromotionWhileCopiesAreQueuedLosesNoPhotoAndLeavesNoTell() {
+        val session = unlocked(APP)
+        session.createWallet()
+        val photos = (1..4).map { shoot(nowMs = it * 1_000L) }
+        val names = photos.map { it.name }.toSet()
+        val atFirstCopy = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        resealHookForTesting = { atFirstCopy.countDown(); release.await(30, TimeUnit.SECONDS) }
+        val promoted: VaultSession
+        try {
+            assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+            assertTrue(atFirstCopy.await(30, TimeUnit.SECONDS))
+            session.close()
+            // The decoy is unlocked, and so promoted, while no copy but the held one is made.
+            promoted = unlocked(DURESS)
+        } finally {
+            release.countDown()
+            resealHookForTesting = null
+        }
+        awaitSealer()
+        runBlocking { vault.awaitCleanup() }
+        awaitSealer()
+
+        val gallery = PhotoStore.of(layout, side = promoted.side, privateKey = promoted.photoPrivateKey())
+        assertEquals(names, gallery.list().map { it.file.name }.toSet(), "every photo is in the promoted gallery, none twice")
+        gallery.list().forEach { assertContentEquals(PHOTO, gallery.photoBytes(it.file), "${it.file.name} has its own bytes") }
+        gallery.close()
+        promoted.close()
+        for (side in 0..1) {
+            assertEquals(names, layout.photoDir(side).list().orEmpty().toSet(), "side $side holds the photos' names and no temp file")
+            layout.photoDir(side).listFiles().orEmpty().forEach { assertEquals(0L, it.lastModified(), "${it.name} has modification time zero") }
+        }
+        assertEquals(
+            layout.photoDir(0).listFiles().orEmpty().map { it.length() }.sorted(),
+            layout.photoDir(1).listFiles().orEmpty().map { it.length() }.sorted(),
+            "the two folders hold files of equal sizes",
+        )
+    }
+
     /** The name and size of every file of the folder of vault records, which a mark must not change. */
     private fun recordFileShapes() = layout.vaultRecords.listFiles().orEmpty().map { it.name to it.length() }.sortedBy { it.first }
 
