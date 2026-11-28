@@ -71,6 +71,7 @@ class VaultDuressPhotosTest {
 
         assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
         session.close()
+        awaitSealer()
 
         assertEquals(sizeBefore, sealedTwin.length(), "the twin keeps its size")
         assertEquals(0L, sealedTwin.lastModified(), "the twin keeps modification time zero")
@@ -152,12 +153,45 @@ class VaultDuressPhotosTest {
     private fun awaitSealer() = PhotoStore.whileNoSaveRuns {}
 
     @Test
-    fun aPhotoDeletedBetweenItsResealAndItsRenameLeavesNoCopyOnTheDecoySide() {
+    fun setupReturnsBeforeTheCopiesAreMadeAndEveryPhotoOpensAfterThePromotion() {
+        val session = unlocked(APP)
+        session.createWallet()
+        val photos = (1..3).map { shoot(nowMs = it * 1_000L) }
+        val before = photos.associate { it.name to File(layout.photoDir(1), it.name).readBytes() }
+        // The sealer is held at the first copy, so no copy can be made until the test lets it go.
+        val atFirstCopy = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        resealHookForTesting = { atFirstCopy.countDown(); release.await(30, TimeUnit.SECONDS) }
+        try {
+            val setup = FutureTask { runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } } }
+            Thread(setup).start()
+            assertEquals(DuressResult.Enabled, setup.get(30, TimeUnit.SECONDS), "setup returns while the copies are still queued")
+            assertTrue(atFirstCopy.await(30, TimeUnit.SECONDS))
+            assertEquals(before.keys, layout.photoDir(1).list().orEmpty().toSet(), "the twins are there, with their names")
+            photos.forEach { assertContentEquals(before[it.name], File(layout.photoDir(1), it.name).readBytes(), "no copy is made yet") }
+        } finally {
+            release.countDown()
+            resealHookForTesting = null
+        }
+        session.close()
+        awaitSealer()
+
+        val promoted = unlocked(DURESS)
+        runBlocking { vault.awaitCleanup() }
+        val gallery = PhotoStore.of(layout, side = promoted.side, privateKey = promoted.getVaultRecord(VaultRecordNames.PHOTO_KEY)!!)
+        assertEquals(photos.map { it.name }.toSet(), gallery.list().map { it.file.name }.toSet())
+        gallery.list().forEach { assertContentEquals(PHOTO, gallery.photoBytes(it.file)) }
+        gallery.close()
+        promoted.close()
+    }
+
+    @Test
+    fun aPhotoDeletedBeforeItsCopyIsMadeLeavesNoCopyOnTheDecoySide() {
         assertDeletedDuringSetupLeavesNoTwin(twinFirst = false)
     }
 
     @Test
-    fun aPhotoDeletedBetweenItsRandomTwinAndItsRenameLeavesNoCopyOnTheDecoySide() {
+    fun aPhotoWithoutATwinThatIsDeletedBeforeItsRandomTwinIsMadeLeavesNoCopyOnTheDecoySide() {
         assertDeletedDuringSetupLeavesNoTwin(twinFirst = true)
     }
 
@@ -167,12 +201,16 @@ class VaultDuressPhotosTest {
         val photo = shoot()
         // A photo with no side-1 twin is given a random one; otherwise its twin is sealed again.
         if (twinFirst) assertTrue(File(layout.photoDir(1), photo.name).delete())
-        val gallery = PhotoStore.of(layout, side = 0)
-        resealCommitHookForTesting = { source -> assertTrue(gallery.delete(source)) }
+        // The gallery's delete runs on the sealer, between two tasks; here it is the files going, as it leaves them.
+        resealHookForTesting = { source ->
+            File(layout.photoDir(1), source.name).delete()
+            assertTrue(source.delete())
+        }
         try {
             assertEquals(DuressResult.Enabled, runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } })
+            awaitSealer()
         } finally {
-            resealCommitHookForTesting = null
+            resealHookForTesting = null
         }
         session.close()
 
@@ -180,9 +218,10 @@ class VaultDuressPhotosTest {
         assertEquals(emptySet(), layout.photoDir(1).list().orEmpty().toSet())
     }
 
-    private fun shoot(): File {
-        assertTrue(PhotoStore.forCover(layout).savePhoto(PHOTO.copyOf(), nowMs = 1_000L))
-        return layout.photoDir(0).listFiles().orEmpty().single()
+    private fun shoot(nowMs: Long = 1_000L): File {
+        val known = layout.photoDir(0).list().orEmpty().toSet()
+        assertTrue(PhotoStore.forCover(layout).savePhoto(PHOTO.copyOf(), nowMs = nowMs))
+        return layout.photoDir(0).listFiles().orEmpty().single { it.name !in known }
     }
 
     private fun unlocked(password: String): VaultSession {

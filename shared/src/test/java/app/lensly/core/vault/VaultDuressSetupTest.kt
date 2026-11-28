@@ -1,5 +1,6 @@
 package app.lensly.core.vault
 
+import app.lensly.ui.camera.PhotoStore
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -134,6 +135,7 @@ class VaultDuressSetupTest {
         val sizesBefore = photoSizes()
 
         runBlocking { vault.removeDuress(real) }
+        PhotoStore.whileNoSaveRuns {}
 
         assertEquals(sizesBefore, photoSizes())
         assertFoldersAlike()
@@ -220,6 +222,8 @@ class VaultDuressSetupTest {
             }
         }
         assertEquals(DuressResult.Enabled, result)
+        // The photo copies are made after the setup returns.
+        PhotoStore.whileNoSaveRuns {}
         return key
     }
 

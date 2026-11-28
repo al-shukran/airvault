@@ -15,8 +15,8 @@ import org.junit.runner.RunWith
 
 /**
  * Benchmark: how long setting a Duress Password takes with a large cover media set on the device's real files and Keystore: 50 photos of
- * 3 MB and 3 videos of 40 MB (about one minute at HD). The time is logged under the tag `DuressResealTiming`; the test only checks that
- * the set succeeds and that every photo has its twin afterwards.
+ * 3 MB and 3 videos of 40 MB (about one minute at HD). Both times are logged under the tag `DuressResealTiming`: when the set returns, and
+ * when the last copy is made. The test checks that the set returns within [SETUP_LIMIT_MS] and that every photo has its twin afterwards.
  */
 @RunWith(AndroidJUnit4::class)
 class DuressResealTimingTest {
@@ -52,9 +52,12 @@ class DuressResealTimingTest {
 
         val started = System.nanoTime()
         val result = runBlocking { vault.setDuress(session, DURESS.toCharArray()) { it.createWallet() } }
-        val ms = (System.nanoTime() - started) / 1_000_000
-        Log.i(TAG, "setDuress with $PHOTOS photos of $PHOTO_MB MB and $VIDEOS videos of $VIDEO_MB MB: $ms ms")
+        val setupMs = (System.nanoTime() - started) / 1_000_000
+        PhotoStore.whileNoSaveRuns {}
+        val copiesMs = (System.nanoTime() - started) / 1_000_000
+        Log.i(TAG, "setDuress with $PHOTOS photos of $PHOTO_MB MB and $VIDEOS videos of $VIDEO_MB MB: returned after $setupMs ms, copies done after $copiesMs ms")
         assertEquals(DuressResult.Enabled, result)
+        assertTrue("setup must return well before the copies end", setupMs < SETUP_LIMIT_MS)
         session.close()
         assertEquals(PHOTOS + VIDEOS, layout.photoDir(1).list().orEmpty().size)
     }
@@ -68,5 +71,6 @@ class DuressResealTimingTest {
         const val PHOTO_MB = 3
         const val VIDEOS = 3
         const val VIDEO_MB = 40
+        const val SETUP_LIMIT_MS = 5_000L
     }
 }
