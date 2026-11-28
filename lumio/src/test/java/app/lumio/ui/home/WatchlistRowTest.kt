@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasAnySibling
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.SemanticsActions
@@ -21,6 +24,7 @@ import app.lensly.ui.theme.ClearAirPalette
 import app.lensly.ui.theme.ClearAirTheme
 import app.lensly.ui.theme.LocalClearAirPalette
 import app.lumio.data.net.NetworkId
+import app.lumio.ui.kit.TEXT_ACTION_ICON_TAG
 import app.lumio.watchlist.WatchedAsset
 import app.lumio.watchlist.WatchlistSort
 import org.junit.Assert.assertEquals
@@ -183,5 +187,26 @@ class WatchlistRowTest {
         val body = compose.onNodeWithText("Add any coin, token or fund", substring = true).getUnclippedBoundsInRoot()
         val add = compose.onNodeWithText("Add to Watchlist").getUnclippedBoundsInRoot()
         assertEquals("the space between the body and the first action", 19f, (add.top - body.bottom).value, 0.5f)
+    }
+
+    @Test
+    fun theChartIsCentredOnTheRowsTwoLines() {
+        home(listOf(row("Bitcoin", "BTC")))
+        val name = compose.onNodeWithText("Bitcoin", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val ticker = compose.onNodeWithText("BTC", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val chart = compose.onNodeWithTag(CHART_TAG, useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val lines = (name.top + ticker.bottom) / 2
+        val centre = (chart.top + chart.bottom) / 2
+        assertEquals("the chart's centre is the row's centre, as the mock's is, not above it", lines.value, centre.value, 0.6f)
+    }
+
+    @Test
+    fun theEmptyStatePlusSitsOneDpLowerThanTheKitCentresIt() {
+        home(emptyList())
+        val label = compose.onNodeWithText("Add to Watchlist").getUnclippedBoundsInRoot()
+        val plus = compose.onNode(hasTestTag(TEXT_ACTION_ICON_TAG) and hasAnySibling(hasText("Add to Watchlist")), useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val drop = (plus.top + plus.bottom) / 2 - (label.top + label.bottom) / 2
+        // At this density the kit centres the 18 dp plus 0.5 dp below the label's centre; the mock's empty frame sets it 1 dp lower still.
+        assertEquals("the plus sits 1 dp lower than the kit centres it, as the mock's empty frame has it", 1.5f, drop.value, 0.4f)
     }
 }

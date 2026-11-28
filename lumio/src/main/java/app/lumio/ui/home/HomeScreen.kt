@@ -68,6 +68,9 @@ private val EMPTY_BODY_TOP = 8.dp
 private val EMPTY_ACTIONS_TOP = 19.dp
 private val EMPTY_ACTION = 45.dp
 
+/** The empty state's plus sits this far below its label's centre, as the mock sets it. */
+private val EMPTY_PLUS_DROP = 1.dp
+
 /** A header action's words: Archivo 114 SemiBold at 13 sp. */
 private val headerActionStyle
     get() = ClearAirType.rowTitle.copy(fontSize = 13.sp, lineHeight = 18.sp)
@@ -203,7 +206,7 @@ private fun EmptyWatchlist(onAdd: () -> Unit, onRestore: () -> Unit) {
             modifier = Modifier.padding(top = EMPTY_BODY_TOP, start = ClearAirSpacing.gutter, end = ClearAirSpacing.gutter),
         )
         Spacer(Modifier.height(EMPTY_ACTIONS_TOP))
-        ClearAirTextAction(text = "Add to Watchlist", onClick = onAdd, icon = ClearAirGlyph.PLUS, modifier = Modifier.height(EMPTY_ACTION))
+        ClearAirTextAction(text = "Add to Watchlist", onClick = onAdd, icon = ClearAirGlyph.PLUS, iconDrop = EMPTY_PLUS_DROP, modifier = Modifier.height(EMPTY_ACTION))
         ClearAirTextAction(text = "Restore Top Coins", onClick = onRestore, modifier = Modifier.height(EMPTY_ACTION))
     }
 }
