@@ -1164,8 +1164,22 @@ class Vault constructor(
             // The slots that the decoy did not use go back to the real vault, so none is free in both lists and the real vault keeps its spares.
             withPadOf(decoyKey, decoySide) { spare -> withPadOf(vaultKey, side) { spare.lend(it, Int.MAX_VALUE) } }
             purgeUnowned(listOf(vaultKey, decoyKey), side)
-            // The old decoy's photos go too, and the new decoy side holds a twin of each photo.
-            dropSidePhotos(layout, decoySide)
+            // The old decoy's photos go too, and the new decoy side holds a twin of each photo. The decoy's own photo key is made now, not
+            // at its first unlock, which is the promotion: a cover photo saved from here on is then readable by the decoy after it.
+            // Without that key the file holds a placeholder, as it does when no decoy exists.
+            val decoySession = VaultSession(layout, keys, decoyKey.copyOf(), side = decoySide)
+            val photoKey = try {
+                decoySession.ensurePhotoKeyRecord()
+            } catch (e: IOException) {
+                placeholderPhotoKey()
+            } catch (e: GeneralSecurityException) {
+                placeholderPhotoKey()
+            } catch (e: VaultException) {
+                placeholderPhotoKey()
+            } finally {
+                decoySession.close()
+            }
+            dropSidePhotos(layout, decoySide, photoKey)
         }
         return DuressResult.Enabled
     }
@@ -1851,10 +1865,11 @@ private fun overwriteFiles(dir: File) {
  * Makes the photo folder of [side], the dropped Decoy Vault's, hold a file for each photo of the other side's folder, and nothing else, so a
  * Duress Password that is set or removed changes nothing that a listing of the two folders shows. The cover saves each photo twice under
  * one name, so each file of [side] is overwritten in place with random bytes of its size, which reads as a twin sealed to an unknown key.
- * A file with no photo of the same name beside it is shredded, and a photo with no twin gets one of random bytes. The key file becomes a
- * placeholder. A key file that cannot be written keeps its old bytes, which reveal nothing without the decoy's password.
+ * A file with no photo of the same name beside it is shredded, and a photo with no twin gets one of random bytes. The key file becomes
+ * [keyFile]: the public half of the new decoy's photo key, or a placeholder when no decoy remains. A key file that cannot be written keeps
+ * its old bytes, which reveal nothing without the decoy's password.
  */
-private fun dropSidePhotos(layout: VaultLayout, side: Int) {
+private fun dropSidePhotos(layout: VaultLayout, side: Int, keyFile: ByteArray = placeholderPhotoKey()) {
     val folder = layout.photoDir(side)
     val (kept, twinless) = PhotoStore.whileNoSaveRuns {
         val photos = layout.photoDir(1 - side).listFiles().orEmpty().filter { it.isFile }
@@ -1870,7 +1885,7 @@ private fun dropSidePhotos(layout: VaultLayout, side: Int) {
     }
     twinless.forEach { photo -> writeRandomTwin(File(folder, photo.name), photo.length()) }
     try {
-        writeAtomically(layout.photoKeyFile(side), placeholderPhotoKey())
+        writeAtomically(layout.photoKeyFile(side), keyFile)
     } catch (e: IOException) {
         // The next unlock of the decoy would replace it anyway; the drop itself must not fail half way.
     }
