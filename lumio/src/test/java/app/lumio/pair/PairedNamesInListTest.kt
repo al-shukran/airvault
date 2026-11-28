@@ -99,6 +99,30 @@ class PairedNamesInListTest {
     }
 
     @Test
+    fun multiByteNamesAreCountedInBytesAndTheLastOneThatFillsTheRoomExactlyIsKept() {
+        val walletName = "W".repeat(PairingCodec.MAX_NAME_BYTES)
+        val base = "B".repeat(PairingCodec.MAX_NAME_BYTES)
+        val wide = "€".repeat(PairingCodec.MAX_NAME_BYTES / 3)
+        val room = PairRecords.MAX_NAME_ROOM - PairingCodec.MAX_NAME_BYTES - PairImport.MAX_SOLANA_ACCOUNTS
+        val whole = room / PairingCodec.MAX_NAME_BYTES
+        val left = room - whole * PairingCodec.MAX_NAME_BYTES
+        val last = "€".repeat(left / 3) + "x".repeat(left % 3)
+        assertEquals(left, last.toByteArray(Charsets.UTF_8).size)
+        val sent = PairFixtures.payloadOf(
+            (0 until PairImport.MAX_SOLANA_ACCOUNTS).map { PairFixtures.solanaAccount(it, if (it == whole) last else wide) },
+            name = walletName,
+            base = base,
+        )
+
+        PairedWallets.save(session, pairingOf(PairingCodec.urParts(sent, brotli = null)), nowMs = 1L)
+        val wallet = PairedWallets.list(session).single()
+
+        assertEquals(List(whole) { wide } + last, wallet.solanaNames.take(whole + 1))
+        assertTrue(wallet.solanaNames.drop(whole + 1).all { it == null })
+        assertEquals(PairImport.MAX_SOLANA_ACCOUNTS, wallet.solanaNames.size)
+    }
+
+    @Test
     fun aHundredAutoNamedSolanaAndAlgorandAccountsUnderALongBasePairAndShowTheirAutoNames() {
         val base = "My Long Wallet Name Of 22"
         val sent = PairFixtures.payloadOf(
