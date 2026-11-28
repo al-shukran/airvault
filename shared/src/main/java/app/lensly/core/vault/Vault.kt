@@ -10,6 +10,7 @@ import app.lensly.ui.camera.PhotoStore
 import app.lensly.ui.isEmulator
 import java.io.File
 import java.io.IOException
+import java.io.RandomAccessFile
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.GeneralSecurityException
@@ -687,6 +688,8 @@ class Vault constructor(
      */
     private fun openSessionLocked(vaultKey: ByteArray, side: Int, finishPromotion: Boolean): VaultSession {
         val session = VaultSession(layout, keys, vaultKey.copyOf(), side = side, pad = WalletPad(layout, keys, vaultKey, side))
+        // A promoted decoy that a kill left without record files takes spares over before anything writes a record, so none is added.
+        if (finishPromotion) bestEffort { if (isPromotedBy(session)) session.withKeyLocked { claimMissingRecords(it) } }
         // The Review Record pool gets its first batch back when it is missing.
         bestEffort { session.ensureReviewPool() }
         // The wallet folders and the free-slot list are brought to the layout on every unlock.
@@ -734,21 +737,29 @@ class Vault constructor(
      * @throws IOException or [VaultException] when a step fails, and then the marker stays.
      */
     private fun finishPromotionLocked(session: VaultSession) {
+        if (!isPromotedBy(session)) return
         val marker = layout.promotionMarker
-        if (!marker.isFile) return
-        val keyFile = readVaultFile(layout.vaultKey)
-        if (VaultKeyFile.digestOf(keyFile) != String(marker.readBytes(), Charsets.US_ASCII)) {
-            dropPromotionMarker()
-            return
-        }
-        // Only the vault that the promotion made opens this file, so no other key's files are ever taken for the old vault's.
-        if (!session.withKeyLocked { key -> VaultKeyFile.ownerIndex(VaultKeyFile.decode(keyFile), key) >= 0 }) return
         purgeOldVault(session)
         shredTwinlessPhotos(layout, session.side)
         // The commit dropped the old vault's sealed key already, so this is the backstop for a drop that failed. A sealed key newer than the marker
         // was made by the promoted vault's owner after the commit, and it stays.
         if (File(layout.root, BiometricUnlock.BLOB_FILE_NAME).lastModified() <= marker.lastModified()) dropBiometricUnlock()
         if (!marker.delete() && marker.exists()) throw VaultException("The promotion marker could not be removed.")
+    }
+
+    /**
+     * True when a promotion left its marker and the vault of [session] is the one it made. A marker that names another `unlock.bin` is
+     * dropped. Only the vault that the promotion made opens the file, so no other key's files are ever taken for the old vault's.
+     */
+    private fun isPromotedBy(session: VaultSession): Boolean {
+        val marker = layout.promotionMarker
+        if (!marker.isFile) return false
+        val keyFile = readVaultFile(layout.vaultKey)
+        if (VaultKeyFile.digestOf(keyFile) != String(marker.readBytes(), Charsets.US_ASCII)) {
+            dropPromotionMarker()
+            return false
+        }
+        return session.withKeyLocked { key -> VaultKeyFile.ownerIndex(VaultKeyFile.decode(keyFile), key) >= 0 }
     }
 
     /**
@@ -762,9 +773,11 @@ class Vault constructor(
     private fun purgeOldVault(session: VaultSession) {
         val side = session.side
         // A folder is checked and released under one hold of the lock, so a wallet that the session makes meanwhile is owned when it is checked.
+        // The promoted vault's own unused slots are left alone, since releasing one again would only churn its Keystore key. This relies on the
+        // lend-back in [installDecoy]: no slot is free in both the real and the decoy list, so a free slot here never holds an old wallet.
         layout.wallets.list().orEmpty().forEach { id ->
             session.withKeyLocked { key ->
-                if (layout.walletKeyFile(id).isFile && !ownsWallet(keys, layout, key, id)) withPadOf(key, side) { it.release(listOf(id)) }
+                if (layout.walletKeyFile(id).isFile && !ownsWallet(keys, layout, key, id)) withPadOf(key, side) { if (id !in it.freeSlots()) it.release(listOf(id)) }
             }
         }
         val records = session.withKeyLocked { key -> spareRecordFiles(listOf(key)) }
@@ -1109,11 +1122,11 @@ class Vault constructor(
         try {
             populate(decoy)
             if (decoy.listWallets().isEmpty()) {
-                withPadOf(vaultKey, side) { discard(decoyKey, it) }
+                withPadOf(vaultKey, side) { discard(decoyKey, decoySide, it) }
                 return DuressResult.DecoyEmpty
             }
         } catch (e: Exception) {
-            withPadOf(vaultKey, side) { discard(decoyKey, it) }
+            withPadOf(vaultKey, side) { discard(decoyKey, decoySide, it) }
             return DuressResult.Failed
         } finally {
             decoy.close()
@@ -1134,7 +1147,7 @@ class Vault constructor(
             false
         }
         if (!committed) {
-            withPadOf(vaultKey, side) { discard(decoyKey, it) }
+            withPadOf(vaultKey, side) { discard(decoyKey, decoySide, it) }
             return DuressResult.Failed
         }
         // The decoy takes the spare record files over only now, so a try that fails touches no record file of the old decoy, and writing a
@@ -1148,8 +1161,10 @@ class Vault constructor(
         }
         // The decoy is whole. A purge that fails leaves the old decoy's files for a later one.
         bestEffort {
+            // The slots that the decoy did not use go back to the real vault, so none is free in both lists and the real vault keeps its spares.
+            withPadOf(decoyKey, decoySide) { spare -> withPadOf(vaultKey, side) { spare.lend(it, Int.MAX_VALUE) } }
             purgeUnowned(listOf(vaultKey, decoyKey), side)
-            // The old decoy's photos go too, and the new decoy starts with none.
+            // The old decoy's photos go too, and the new decoy side holds a twin of each photo.
             dropSidePhotos(layout, decoySide)
         }
         return DuressResult.Enabled
@@ -1497,11 +1512,13 @@ class Vault constructor(
     }
 
     /**
-     * Deletes the wallets and vault records that [key] owns. This drops a decoy that was being set up. Its pool files are overwritten, and its
-     * folders go to [pad] as unused slots, which keeps the folder count. The record files stay as spares, so that folder's file count never
+     * Deletes the wallets and vault records that [key] owns. This drops a decoy that was being set up on [decoySide]. Its pool files are
+     * overwritten, and its folders go to [pad] as unused slots, which keeps the folder count. The record files stay as spares, so that folder's file count never
      * changes (see [VaultRecordNames]).
      */
-    private fun discard(key: ByteArray, pad: WalletPad) {
+    private fun discard(key: ByteArray, decoySide: Int, pad: WalletPad) {
+        // The slots that were lent and not used go back too, or the real vault's next wallet would grow the store.
+        withPadOf(key, decoySide) { it.lend(pad, Int.MAX_VALUE) }
         val owned = layout.wallets.list()?.filter { ownsWallet(keys, layout, key, it) }.orEmpty()
         ReviewPool(layout.reviewPool, key).use { pool -> pool.ownedNames().forEach { overwriteInPlace(File(layout.reviewPool, it)) } }
         pad.release(owned)
@@ -1539,20 +1556,40 @@ class Vault constructor(
      * size class and so on, so each record keeps the class of its placeholder. A rename keeps a file's size and time.
      */
     private fun claimSpareRecords(vaultKey: ByteArray, decoyKey: ByteArray) = VaultRecordNames.underFolderLock {
-        val spares = spareRecordFiles(listOf(vaultKey)).shuffled(random.asKotlinRandom()).sortedByDescending { it.length() }
+        val spares = spareRecordFiles(listOf(vaultKey))
         if (spares.size < VaultRecordNames.KNOWN.size) throw VaultException("The folder of vault records lacks spare files.")
-        VaultRecordNames.KNOWN.sortedByDescending { VaultRecordNames.fileBytesOf(it) }.zip(spares).forEach { (name, spare) ->
-            if (!spare.renameTo(File(layout.vaultRecords, VaultRecordNames.fileName(decoyKey, name)))) {
+        claimSpares(spares, decoyKey, VaultRecordNames.KNOWN)
+    }
+
+    /** Renames the largest of [spares], in random order among equals, to the names that [key] gives [names], the largest name first. */
+    private fun claimSpares(spares: List<File>, key: ByteArray, names: List<String>) {
+        val sorted = spares.shuffled(random.asKotlinRandom()).sortedByDescending { it.length() }
+        names.sortedByDescending { VaultRecordNames.fileBytesOf(it) }.zip(sorted).forEach { (name, spare) ->
+            if (!spare.renameTo(File(layout.vaultRecords, VaultRecordNames.fileName(key, name)))) {
                 throw VaultException("A spare record file could not be renamed.")
             }
         }
     }
 
+    /**
+     * Gives [key] a file for each record name it has none of, from the files that it does not name. A decoy that a kill left before its
+     * claim (see [installDecoy]) has none, and a promotion would otherwise add a file for each record the first time it is written. Only
+     * the vault that a promotion made takes files, since the other files of a vault with a Decoy Vault are the decoy's.
+     */
+    private fun claimMissingRecords(key: ByteArray) = VaultRecordNames.underFolderLock {
+        val missing = VaultRecordNames.KNOWN.filter { !File(layout.vaultRecords, VaultRecordNames.fileName(key, it)).isFile }
+        if (missing.isEmpty()) return@underFolderLock
+        claimSpares(spareRecordFiles(listOf(key)), key, missing)
+        resetRecords(key, missing)
+    }
+
     /** Each decoy record file, rewritten to hold no value under [decoyKey]. The files keep their names and sizes. */
-    private fun resetDecoyRecords(decoyKey: ByteArray) = VaultRecordNames.underFolderLock {
-        VaultRecordNames.KNOWN.forEach { name ->
-            val file = File(layout.vaultRecords, VaultRecordNames.fileName(decoyKey, name))
-            writeAtomically(file, VaultRecordNames.sealedUnset(decoyKey, name, sizeOf(file)))
+    private fun resetDecoyRecords(decoyKey: ByteArray) = VaultRecordNames.underFolderLock { resetRecords(decoyKey, VaultRecordNames.KNOWN) }
+
+    private fun resetRecords(key: ByteArray, names: List<String>) {
+        names.forEach { name ->
+            val file = File(layout.vaultRecords, VaultRecordNames.fileName(key, name))
+            if (file.isFile) writeAtomically(file, VaultRecordNames.sealedUnset(key, name, sizeOf(file)))
         }
         VaultRecordNames.rewriteAll(layout.vaultRecords)
     }
@@ -1585,13 +1622,14 @@ class Vault constructor(
      * Deletes what neither key in [keep] owns: wallet folders that hold a key file, vault record files, and pool files. A folder
      * without a key file is still being written, so it is left alone. This is how a dropped Decoy Vault's files go, and how a promotion
      * removes the old vault. A padded store keeps each dropped folder as an unused slot, so the folder count stays the same, and the pad of
-     * the first key in [keep], the real vault's, on [side] takes them over. A pool file that no kept key owns is overwritten and kept, so
+     * the first key in [keep], the real vault's, on [side] takes them over, except the ones it already lists as free. A pool file that no kept key owns is overwritten and kept, so
      * the pool keeps its size. The record files that no kept key names become spares again.
      */
     private fun purgeUnowned(keep: List<ByteArray>, side: Int) {
         withPadOf(keep.first(), side) { pad ->
+            val listed = pad.freeSlots()
             val dropped = layout.wallets.list()?.filter { id ->
-                layout.walletKeyFile(id).isFile && keep.none { ownsWallet(keys, layout, it, id) }
+                id !in listed && layout.walletKeyFile(id).isFile && keep.none { ownsWallet(keys, layout, it, id) }
             }.orEmpty()
             pad.release(dropped)
         }
@@ -1809,23 +1847,49 @@ private fun overwriteFiles(dir: File) {
     dir.walkTopDown().filter { it.isFile }.forEach { overwriteBestEffort(it) }
 }
 
-/** Overwrites the files in [dir], then deletes them. The folder stays, since both photo folders exist whether or not a decoy does. */
-private fun shredFolderContents(dir: File) {
-    overwriteFiles(dir)
-    dir.listFiles().orEmpty().forEach { it.deleteRecursively() }
-}
-
 /**
- * Removes the photos of the dropped Decoy Vault on [side], and puts placeholder bytes back in its key file, so the photo folder lists the
- * same files whether or not a decoy exists. A key file that cannot be written keeps its old bytes, which reveal nothing without the decoy's
- * password.
+ * Makes the photo folder of [side], the dropped Decoy Vault's, hold a file for each photo of the other side's folder, and nothing else, so a
+ * Duress Password that is set or removed changes nothing that a listing of the two folders shows. The cover saves each photo twice under
+ * one name, so each file of [side] is overwritten in place with random bytes of its size, which reads as a twin sealed to an unknown key.
+ * A file with no photo of the same name beside it is shredded, and a photo with no twin gets one of random bytes. The key file becomes a
+ * placeholder. A key file that cannot be written keeps its old bytes, which reveal nothing without the decoy's password.
  */
 private fun dropSidePhotos(layout: VaultLayout, side: Int) {
-    shredFolderContents(layout.photoDir(side))
+    val folder = layout.photoDir(side)
+    val (kept, twinless) = PhotoStore.whileNoSaveRuns {
+        val photos = layout.photoDir(1 - side).listFiles().orEmpty().filter { it.isFile }
+        val names = photos.map { it.name }.toSet()
+        val twins = folder.listFiles().orEmpty().partition { it.name in names }
+        twins.second.forEach(::shredPhotoFile)
+        twins.first to photos.filter { !File(folder, it.name).exists() }
+    }
+    // The cover clears the modification time of every photo it saves, so a file written here gets the same time.
+    kept.forEach {
+        overwriteBestEffort(it)
+        it.setLastModified(0L)
+    }
+    twinless.forEach { photo -> writeRandomTwin(File(folder, photo.name), photo.length()) }
     try {
         writeAtomically(layout.photoKeyFile(side), placeholderPhotoKey())
     } catch (e: IOException) {
         // The next unlock of the decoy would replace it anyway; the drop itself must not fail half way.
+    }
+}
+
+/**
+ * Writes [size] random bytes to a temp file beside [target], clears its modification time and renames it to [target], so a kill leaves no
+ * half-written twin. A twin that cannot be written is left for the next change of the Duress Password.
+ */
+private fun writeRandomTwin(target: File, size: Long) {
+    var temp: File? = null
+    try {
+        temp = File.createTempFile("${target.name}.", ".tmp", target.parentFile)
+        RandomAccessFile(temp, "rw").use { it.setLength(size) }
+        overwriteInPlace(temp)
+        temp.setLastModified(0L)
+        commitTemp(temp, target)
+    } catch (e: IOException) {
+        temp?.delete()
     }
 }
 
