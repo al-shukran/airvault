@@ -54,6 +54,9 @@ data class ActivityLine(
 object ActivityText {
     private val CLOCK = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH)
     private val DAY = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
+    private const val MINUTE_MS = 60_000L
+    private const val MINUTES_PER_HOUR = 60L
+    private const val MINUTES_PER_DAY = 24 * 60L
 
     /**
      * The section a row belongs to, by its day: "Today", "Yesterday", or the day, such as "18 Nov". [nowMs] is the time the list is read at, and
@@ -70,10 +73,24 @@ object ActivityText {
     }
 
     /**
+     * How long before [nowMs] [timestampMs] was: "5 min" under an hour, "2 h" under a day, and the day after that, such as "18 Nov". A row read
+     * without a day's section over it, as on the Asset page, says when by its age.
+     */
+    fun age(timestampMs: Long, nowMs: Long, zone: ZoneId): String {
+        val minutes = (nowMs - timestampMs).coerceAtLeast(0L) / MINUTE_MS
+        return when {
+            minutes < MINUTES_PER_HOUR -> "${minutes.coerceAtLeast(1L)} min"
+            minutes < MINUTES_PER_DAY -> "${minutes / MINUTES_PER_HOUR} h"
+            else -> DAY.format(Instant.ofEpochMilli(timestampMs).atZone(zone))
+        }
+    }
+
+    /**
      * The line of [tx]. [party] names the other side of a transfer, from the address book or the wallet's own accounts, or null when neither
      * knows it, and the line then carries the address, on a line of its own, after the direction word. [chain] is the network's name and [usd] the value in dollars, or null without a price.
+     * The line ends with the clock time, or with the [age] at [nowMs] when it is given.
      */
-    fun line(tx: LumioTx, chain: String, usd: Double?, party: String?, zone: ZoneId): ActivityLine {
+    fun line(tx: LumioTx, chain: String, usd: Double?, party: String?, zone: ZoneId, nowMs: Long? = null): ActivityLine {
         val incoming = tx.direction == TxDirection.IN
         val title = when {
             incoming -> "Received"
@@ -81,7 +98,7 @@ object ActivityText {
             else -> "Sent"
         }
         val address = tx.counterparty?.takeIf { party == null }
-        val time = CLOCK.format(Instant.ofEpochMilli(tx.timestampMs).atZone(zone))
+        val time = nowMs?.let { age(tx.timestampMs, it, zone) } ?: CLOCK.format(Instant.ofEpochMilli(tx.timestampMs).atZone(zone))
         val pending = tx.status == TxStatus.PENDING
         val word = if (incoming) "From" else "To"
         val direction = party?.let { "$word $it" }
