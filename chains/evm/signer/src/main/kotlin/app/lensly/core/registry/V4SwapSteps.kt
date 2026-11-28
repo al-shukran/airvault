@@ -24,6 +24,7 @@ import java.math.BigInteger
  */
 internal object V4SwapSteps {
     private const val V4 = "Uniswap v4"
+    private const val TAKES = "sends the swap output to"
 
     /** The most actions one command may hold. This is a Lensly bound: a longer list is shown as raw input. */
     private const val MAX_ACTIONS = 16
@@ -33,8 +34,6 @@ internal object V4SwapSteps {
 
     private const val SELECTOR_BYTES = 4
     private const val NO_HOOK = "0x0000000000000000000000000000000000000000"
-    private const val MSG_SENDER = "0x0000000000000000000000000000000000000001"
-    private const val ADDRESS_THIS = "0x0000000000000000000000000000000000000002"
 
     /** LPFeeLibrary.MAX_LP_FEE, in hundredths of a bip: 1,000,000 is 100%. */
     private val MAX_LP_FEE: BigInteger = BigInteger.valueOf(1_000_000)
@@ -80,12 +79,14 @@ internal object V4SwapSteps {
         if (actions.isEmpty()) return CallSteps(listOf("No actions: the router does nothing"), emptyList())
         val lines = ArrayList<String>()
         val warnings = ArrayList<String>()
+        val addresses = ArrayList<String>()
         actions.indices.forEach { index ->
             val steps = action(actions[index].toInt() and 0xff, params[index].bytes(), call) ?: return null
             lines += steps.lines
             warnings += steps.warnings
+            addresses += steps.addresses
         }
-        return CallSteps(lines, warnings)
+        return CallSteps(lines, warnings, addresses.distinct())
     }
 
     private fun action(id: Int, input: ByteArray, call: StepCall): CallSteps? {
@@ -178,7 +179,7 @@ internal object V4SwapSteps {
         }
         val payer = when {
             currency == NATIVE_COIN -> ""
-            v[2].word() == BigInteger.ONE -> " from you"
+            v[2].word() == BigInteger.ONE -> " from ${c.callerName}"
             else -> " from the router"
         }
         return CallSteps(listOf("Pay $what$payer to $V4"), emptyList())
@@ -192,17 +193,17 @@ internal object V4SwapSteps {
         val currency = v[0].address()
         val maximum = v[1].word()
         val limit = if (maximum == MAX_UINT256) " (no limit)" else " (at most ${c.amount(maximum, currency)})"
-        val payer = if (currency == NATIVE_COIN) "" else " from you"
+        val payer = if (currency == NATIVE_COIN) "" else " from ${c.callerName}"
         return CallSteps(listOf("Pay all ${c.symbolOf(currency)} the router owes$payer to $V4$limit"), emptyList())
     }
 
     /** Takes a stated amount, or the router's whole credit when zero, from the pool manager to [recipient]. */
     private fun take(c: StepCall, v: List<AbiValue>): CallSteps {
         val currency = v[0].address()
-        val recipient = recipientName(c, v[1].address())
+        val recipient = v[1].address()
         val amount = v[2].word()
         val what = if (amount.signum() == 0) "all ${c.symbolOf(currency)} owed to the router" else c.amount(amount, currency)
-        return CallSteps(listOf("Take $what from $V4 to $recipient"), emptyList())
+        return c.paying("Take $what from $V4 to ${c.recipientName(recipient)}", TAKES, recipient)
     }
 
     /** Takes the whole credit of [currency] to the signer, which must be at least the stated minimum. */
@@ -210,24 +211,19 @@ internal object V4SwapSteps {
         val currency = v[0].address()
         val minimum = v[1].word()
         val least = if (minimum.signum() == 0) "" else " (at least ${c.amount(minimum, currency)})"
-        return CallSteps(listOf("Take all ${c.symbolOf(currency)} owed to the router from $V4 to you$least"), emptyList())
+        val line = "Take all ${c.symbolOf(currency)} owed to the router from $V4 to ${c.callerName}$least"
+        return c.paying(line, TAKES, MSG_SENDER)
     }
 
     /** Takes a share, in basis points, of the whole credit of [currency] to [recipient]. A share above the whole is not read. */
     private fun takePortion(c: StepCall, v: List<AbiValue>): CallSteps? {
         val currency = v[0].address()
-        val recipient = recipientName(c, v[1].address())
+        val recipient = v[1].address()
         val bips = v[2].word()
         if (bips > BPS_DENOMINATOR) return null
         val share = percentOf(bips)
-        return CallSteps(listOf("Take $share of all ${c.symbolOf(currency)} owed to the router from $V4 to $recipient"), emptyList())
-    }
-
-    /** The recipient a take names: the signer for the flag 0x…01, the router for 0x…02, and the address otherwise. */
-    private fun recipientName(c: StepCall, address: String): String = when (address) {
-        MSG_SENDER -> "you"
-        ADDRESS_THIS -> "the router"
-        else -> c.who(address)
+        val line = "Take $share of all ${c.symbolOf(currency)} owed to the router from $V4 to ${c.recipientName(recipient)}"
+        return c.paying(line, "sends part of the swap output to", recipient)
     }
 
     /** The named fields of a call, in the order its layout lists them. */

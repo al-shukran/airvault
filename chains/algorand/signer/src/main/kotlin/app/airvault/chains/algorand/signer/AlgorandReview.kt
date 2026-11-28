@@ -113,13 +113,16 @@ private fun AlgorandRequestReview.warningOf(warning: AlgorandWarning): Warning =
  * their sentence, since the rest of the balance goes elsewhere.
  */
 private fun AlgorandRequestReview.sentence(): SummaryPart = when (val t = txn) {
-    is Payment -> when {
-        t.closeTo != null -> SummaryPart.Text("Sends ${algoAmount(t.amount).text()} to ${AlgoAddress.encode(t.receiver)}.")
-        else -> SummaryPart.Send(
+    is Payment -> when (val closeTo = t.closeTo) {
+        null -> SummaryPart.Send(
             trimmedAmount(t.amount.toBig(), MICRO_ALGO_DECIMALS),
             "ALGO",
             signerAddress,
             AlgoAddress.encode(t.receiver),
+        )
+        else -> SummaryPart.Text(
+            "Sends ${trimmedAmount(t.amount.toBig(), MICRO_ALGO_DECIMALS)} ALGO to ${AlgoAddress.encode(t.receiver)}. " +
+                "The rest goes to ${AlgoAddress.encode(closeTo)}, and the account is removed.",
         )
     }
     is AssetTransfer -> assetSummary(t, asset)

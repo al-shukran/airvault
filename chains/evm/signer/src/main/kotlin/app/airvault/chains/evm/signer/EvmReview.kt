@@ -184,7 +184,7 @@ class EvmReviewBuilder(
                 ?.let { checksum(it.bytes.toHex()) }
             // Typed data that names no chain is valid on every chain, so it is matched against the entries of all of them.
             val denyChains = if (domainChain == null) listOf<Long?>(null) else listOfNotNull(request.chainId, domainChain.longValueExact()).distinct()
-            val denied = denyChains.flatMap { registry.typedDenylistMatches(it, verifyingContract, typedData.primaryType, typedData.messageAddresses()) }
+            val denied = denyChains.flatMap { registry.typedDenylistMatches(it, verifyingContract, typedData.primaryType, typedData.parties(offChainDomainOf(typedData.domain))) }
             denied.firstOrNull { it.severity == DenylistSeverity.BLOCK }?.let { throw Refusal(it.reason) }
             denied.forEach { warnings += denylistWarning(it, field = null) }
             header += ReviewRow("Type", DisplayValue.Text(TYPED_DATA_TYPE), null)
@@ -404,7 +404,7 @@ class EvmReviewBuilder(
             multicall.deadline?.let { header += ReviewRow(DEADLINE_LABEL, DisplayValue.Number(it), decode("evm.data.deadline")) }
             valueRow(tx.value, always = false)
             val rows = ArrayList<ReviewRow>()
-            checkCalls(to, shape, multicall, tx.value, level = 1, parent = "evm.data", rows = rows)
+            checkCalls(to, shape, multicall, tx.value, caller = sender, level = 1, parent = "evm.data", rows = rows)
             if (rows.isNotEmpty()) sections += ReviewSection("Calls", rows)
             val summary = listOf(SummaryPart.Text("Runs ${multicall.callCount()} calls in one transaction."))
             return shape.function to summary
@@ -414,17 +414,21 @@ class EvmReviewBuilder(
          * Decides each call of [multicall], whose calldata has [shape], and lists it in [rows] at [level]. A nested batch is checked against its
          * own calldata, and its calls one level down. [value] is what the call that holds the batch sends. Each call is described with the
          * value it really receives: its own value in `aggregate3Value`, zero in the other Multicall3 shapes, and [value] in Uniswap's
-         * `multicall`, which delegates. A call that fails any check refuses the whole request.
+         * `multicall`, which delegates. [caller] is the address that calls [to]. A Multicall3 call is made by Multicall3, so its contract sees
+         * Multicall3 as its message sender, and a Uniswap `multicall` delegates and keeps its [caller]. A call that fails any check refuses the
+         * whole request.
          */
         private fun checkCalls(
             to: String,
             shape: MulticallShape,
             multicall: Multicall,
             value: BigInteger,
+            caller: String,
             level: Int,
             parent: String,
             rows: MutableList<ReviewRow>,
         ) {
+            val callerOfCalls = if (shape.hasTarget) to else caller
             if (shape.hasTarget && !shape.hasValue && value.signum() > 0) {
                 warnings += Warning(Danger.DANGER, CODE_STRANDED_VALUE, STRANDED_VALUE_WARNING, FieldPath("$parent.function"), ACK_STRANDED_VALUE)
             }
@@ -453,18 +457,18 @@ class EvmReviewBuilder(
                         val proxyRows = batchProxyRows(contract, inner.calldata, sent, FieldPath("$prefix.function"))
                         callRows(rows, prefix, index, level, nestedShape.function, target, flags + proxyRows, note = null)
                         nested.deadline?.let { rows += ReviewRow(DEADLINE_LABEL, DisplayValue.Number(it), decode("$prefix.deadline"), level) }
-                        checkCalls(contract, nestedShape, nested, sent, level + 1, prefix, rows)
+                        checkCalls(contract, nestedShape, nested, sent, callerOfCalls, level + 1, prefix, rows)
                     }
                     lone != null -> {
                         // The labels are shown only when the decoded call is exactly the calldata that gets signed.
                         if (lone.encode()?.contentEquals(inner.calldata) != true) throw Refusal(CANNOT_BE_READ)
-                        val part = callPart(lone, contract, registry.token(chainId, contract))
+                        val part = callPart(lone, contract, registry.token(chainId, contract), callerOfCalls)
                         callRows(rows, prefix, index, level, part.function, target, flags + part.params, part.note)
                         part.warnings.forEach { warnings += it.toWarning(prefix) }
                         if (part.unregistered) warnings += registryWarning(TOKEN_UNREGISTERED, FieldPath("$prefix.function"))
                         movesToHyperCore(lone, contract, FieldPath("$prefix.function"))
                     }
-                    else -> when (val gap = whitelisted(contract, inner.calldata, sent)) {
+                    else -> when (val gap = whitelisted(contract, inner.calldata, sent, callerOfCalls)) {
                         is Gap.Approved -> {
                             callRows(
                                 rows,
@@ -477,7 +481,7 @@ class EvmReviewBuilder(
                                 note = null,
                             )
                             gap.steps?.lines?.forEach { rows += ReviewRow(it, null, null, level) }
-                            warnings += approvedWarnings(gap, FieldPath("$prefix.function"))
+                            warnings += approvedWarnings(gap, FieldPath("$prefix.function"), batched = !callerOfCalls.equals(sender, ignoreCase = true))
                         }
                         is Gap.Unknown -> {
                             callRows(
@@ -505,9 +509,10 @@ class EvmReviewBuilder(
 
         /**
          * What the signed whitelist decides for an undecodable call to [contract] that sends [value]. An approved call carries its arguments,
-         * decoded and checked against the calldata before they are shown. A refusal names its reason and the call's raw data.
+         * decoded and checked against the calldata before they are shown. A refusal names its reason and the call's raw data. [caller] is the
+         * address the contract sees as its message sender: the signer, or the Multicall3 contract that calls it inside a batch.
          */
-        private fun whitelisted(contract: String, calldata: ByteArray, value: BigInteger): Gap {
+        private fun whitelisted(contract: String, calldata: ByteArray, value: BigInteger, caller: String = sender): Gap {
             val entry = whitelistEntry(contract, calldata)
             val proxy = entry?.takeIf { it.upgradeable }?.proxy
             val details = undecodedRows(contract, value, calldata, proxy)
@@ -525,7 +530,7 @@ class EvmReviewBuilder(
             // The labels are shown only when the decoded values are exactly the arguments that get signed.
             if (AbiDecoder.encode(arguments)?.contentEquals(argumentsOf(calldata)) != true) throw Refusal(CANNOT_BE_READ, details)
             val token = registry.token(chainId, contract)
-            val steps = CallSteps.describe(registry, chainId, contract, entry.selector, entry.signature, sender, value, arguments)
+            val steps = CallSteps.describe(registry, chainId, contract, entry.selector, entry.signature, sender, value, arguments, caller)
             val params = arguments.flatMapIndexed { index, argument ->
                 AbiRows.typed(argument) { amount ->
                     if (token != null && argument.param.name in AMOUNT_PARAMS) amountText(amount, token) else null
@@ -534,7 +539,7 @@ class EvmReviewBuilder(
                     val shown = if (row.isAddress) DisplayValue.Address(chain, row.text) else DisplayValue.Text(row.text)
                     ParamRow(row.label, shown, "arg[$index]")
                 }
-            }
+            } + steps?.addresses.orEmpty().map { ParamRow("Recipient", DisplayValue.Address(chain, checksum(it)), null) }
             return Gap.Approved(
                 signature = entry.signature,
                 function = entry.signature.substringBefore('('),
@@ -583,8 +588,12 @@ class EvmReviewBuilder(
             addAll(implementationRows(gap.proxy))
         }
 
-        /** The warnings an approved call earns: its signed meaning, a proxy under Warn and confirm, and any step Lensly cannot read. */
-        private fun approvedWarnings(gap: Gap.Approved, field: FieldPath): List<Warning> = buildList {
+        /**
+         * The warnings an approved call earns: its signed meaning, a proxy under Warn and confirm, and its step warnings. A step of a call made
+         * by a batch ([batched]) that pays an account other than the signer is a DANGER the owner must tick, since the payment does not
+         * reach the signer.
+         */
+        private fun approvedWarnings(gap: Gap.Approved, field: FieldPath, batched: Boolean = false): List<Warning> = buildList {
             add(
                 Warning(
                     Danger.CAUTION,
@@ -595,11 +604,14 @@ class EvmReviewBuilder(
                 ),
             )
             if (gap.proxy != null) add(Warning(Danger.DANGER, CODE_PROXY, PROXY_WARNING, field, ACK_UPGRADE))
-            gap.steps?.warnings?.forEach { add(Warning(Danger.CAUTION, CODE_STEPS, it, field)) }
+            val paysOther = batched && gap.steps?.addresses?.isNotEmpty() == true
+            gap.steps?.warnings?.forEach {
+                add(if (paysOther) Warning(Danger.DANGER, CODE_STEPS, it, field, ACK_STEP_PAYEE) else Warning(Danger.CAUTION, CODE_STEPS, it, field))
+            }
         }
 
         /** The review of one call, as the owner reads it: what it does, its arguments and the warnings it earns. */
-        private fun callPart(call: ContractCall, contract: String, token: TokenEntry?): CallPart {
+        private fun callPart(call: ContractCall, contract: String, token: TokenEntry?, caller: String = sender): CallPart {
             val symbol = token?.symbol
             val note = if (token == null) UNKNOWN_DECIMALS_NOTE else null
             val unregistered = token == null
@@ -634,7 +646,7 @@ class EvmReviewBuilder(
                             addressParam("to", call.to),
                             ParamRow("value", text(amountText(call.value, token)), "value"),
                         ),
-                        warnings = foreignFromWarnings(call.from),
+                        warnings = foreignFromWarnings(call.from, caller),
                         note = null,
                         unregistered = false,
                         sentence = listOf(
@@ -656,7 +668,7 @@ class EvmReviewBuilder(
                             addressParam("to", call.to),
                             ParamRow("amount or tokenId", DisplayValue.Number(call.value), "value"),
                         ),
-                        warnings = foreignFromWarnings(call.from),
+                        warnings = foreignFromWarnings(call.from, caller),
                         note = null,
                         unregistered = true,
                         sentence = listOf(plain("Moves a token or NFT from "), party(call.from), plain(" to "), party(call.to), plain(".")),
@@ -719,7 +731,7 @@ class EvmReviewBuilder(
                         addressParam("to", call.to),
                         ParamRow("tokenId", DisplayValue.Number(call.tokenId), "tokenId"),
                     ),
-                    warnings = foreignFromWarnings(call.from),
+                    warnings = foreignFromWarnings(call.from, caller),
                     note = null,
                     unregistered = unregistered,
                     sentence = listOf(
@@ -734,13 +746,17 @@ class EvmReviewBuilder(
         }
 
         /**
-         * The DANGER warning on a transfer that moves tokens out of [from], an account other than the signer. It spends an approval that
-         * account gave, so the owner must confirm it. No warning when [from] is the signer.
+         * The DANGER warning on a transfer that moves tokens out of [from], an account other than the one that calls it ([caller], the signer
+         * unless a batch makes the call). It spends an approval that account gave, so the owner must confirm it.
          */
-        private fun foreignFromWarnings(from: String): List<CallWarning> {
-            if (from.equals(sender, ignoreCase = true)) return emptyList()
-            val message =
+        private fun foreignFromWarnings(from: String, caller: String): List<CallWarning> {
+            if (from.equals(caller, ignoreCase = true)) return emptyList()
+            val message = if (from.equals(sender, ignoreCase = true)) {
+                "Moves tokens out of your account ${checksum(from)} through a batch contract that spends an approval you gave it. " +
+                    "Sign only if you meant that."
+            } else {
                 "Moves tokens out of ${checksum(from)}, which is not your account. Sign only if that account approved this transfer."
+            }
             return listOf(CallWarning(Danger.DANGER, CODE_FOREIGN_FROM, message, ACK_FOREIGN_FROM, "from"))
         }
 
@@ -1025,6 +1041,8 @@ private fun actionWarning(primaryType: String, message: TypedValue.StructValue, 
         Warning(Danger.DANGER, CODE_TYPED_ACTION, TOKEN_DELEGATE_TEXT, acknowledge = ACK_TOKEN_DELEGATE)
     primaryType.substringAfterLast(':') in setOf("Withdraw", "withdraw3") ->
         Warning(Danger.DANGER, CODE_TYPED_ACTION, WITHDRAW_TEXT, acknowledge = ACK_WITHDRAW)
+    primaryType.substringAfterLast(':') == "SendToEvmWithData" ->
+        Warning(Danger.DANGER, CODE_TYPED_ACTION, SEND_TO_EVM_TEXT, acknowledge = ACK_SEND_TO_EVM)
     primaryType.substringAfterLast(':') == "SendAsset" && (message.fields["fromSubAccount"] as? TypedValue.TextValue)?.value?.isNotEmpty() == true ->
         Warning(Danger.CAUTION, CODE_TYPED_ACTION, SUB_ACCOUNT_TEXT, acknowledge = ACK_SUB_ACCOUNT)
     else -> null
@@ -1176,6 +1194,9 @@ internal const val ACK_WHITELIST = "I have read what this call is approved to do
 /** The check the owner ticks for an operator grant over every token of a contract. */
 internal const val ACK_ALL_NFTS = "I understand this grants control of all NFTs in this collection."
 
+/** The check the owner ticks for a batch call whose router step pays an account other than the signer, by name. */
+internal const val ACK_STEP_PAYEE = "I understand this call pays an account other than mine."
+
 /** The check the owner ticks for a transfer that moves tokens out of an account other than the signer, by name. */
 internal const val ACK_FOREIGN_FROM = "I understand these tokens move out of another account."
 
@@ -1260,6 +1281,9 @@ private const val TOKEN_DELEGATE_TEXT = "This stakes HYPE with a validator, or t
     "Check the validator, the amount and whether it undelegates before you sign."
 private const val ACK_SUB_ACCOUNT = "I understand this sends from a sub-account."
 private const val SUB_ACCOUNT_TEXT = "This sends from a sub-account, not from the account that signs. Check the sub-account address before you sign."
+private const val ACK_SEND_TO_EVM = "I understand this sends funds to another chain, with data that the receiver runs."
+private const val SEND_TO_EVM_TEXT = "This sends funds from this account to a recipient on another chain, and passes the data to the receiving contract. " +
+    "The recipient may not be you. Check the recipient, the chain and the data before you sign."
 private const val WITHDRAW_TEXT = "This withdraws funds from this account. Check the destination and amount before you sign."
 
 /** The row that says a message carries a hash of its action, which Lensly cannot read. */
