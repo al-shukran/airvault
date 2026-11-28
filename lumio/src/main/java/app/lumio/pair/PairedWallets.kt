@@ -8,6 +8,7 @@ import app.lensly.app.export.PairingCodec
 import app.lensly.app.export.PairingPayload
 import app.lensly.app.plainName
 import app.lensly.core.algorand.AlgorandAccount
+import app.lensly.core.btc.BtcAccount
 import app.lensly.core.btc.BtcWatchOnlyAccount
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.core.vault.VaultException
@@ -90,9 +91,20 @@ fun sharedAddressBook(wallets: List<PairedWallet>): List<AddressBookEntry> =
     wallets.sortedBy { it.bookRank }.flatMap { it.addressBook }.associateBy { it.id }.values.toList()
 
 /**
+ * The key of each address that a transaction of this Bitcoin account may be stored under: its receive and its change address, as far as the scan's
+ * gap limit reaches. Read lazily, so a lookup stops at its first match.
+ */
+fun BtcWatchOnlyAccount.addressKeys(): Sequence<String> = sequence {
+    for (index in 0 until BtcAccount.GAP_LIMIT) {
+        yield(addressKeyOf(receiveAddress(index)))
+        yield(addressKeyOf(changeAddress(index)))
+    }
+}
+
+/**
  * The accounts of [wallets], each keyed by [addressKeyOf] its address, with the name and label the pairing sent for it: an Ethereum, Solana or
- * Algorand account by its address, and a Bitcoin account by its first receive address, the address the account list shows. An account with no
- * name keeps its Auto-Name, as Lensly names it.
+ * Algorand account by its address, and a Bitcoin account by each of its [addressKeys], since a transaction is stored under every address it touched.
+ * An account with no name keeps its Auto-Name, as Lensly names it.
  */
 fun ownAccountsOf(wallets: List<PairedWallet>): Map<String, InternalAccount> = buildMap {
     wallets.forEach { wallet ->
@@ -101,7 +113,8 @@ fun ownAccountsOf(wallets: List<PairedWallet>): Map<String, InternalAccount> = b
             put(addressKeyOf(account.address), InternalAccount(displayName = account.name, autoName = autoName, label = account.label))
         }
         wallet.bitcoin.forEachIndexed { index, account ->
-            put(addressKeyOf(account.receiveAddress(0)), InternalAccount(wallet.bitcoinNames.getOrNull(index), wallet.bitcoinAutoNameAt(index), null))
+            val named = InternalAccount(wallet.bitcoinNames.getOrNull(index), wallet.bitcoinAutoNameAt(index), null)
+            account.addressKeys().forEach { put(it, named) }
         }
         wallet.solana.forEachIndexed { index, key ->
             put(addressKeyOf(SolanaAccount.addressOf(key)), InternalAccount(wallet.solanaNames.getOrNull(index), autoAccountName(wallet.autoNameBase, index), null))

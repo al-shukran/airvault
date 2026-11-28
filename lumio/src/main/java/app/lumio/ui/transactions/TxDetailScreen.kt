@@ -41,7 +41,6 @@ import app.lensly.app.AddressBookEntry
 import app.lensly.app.addressKeyOf
 import app.lensly.app.plainName
 import app.lensly.core.algorand.AlgorandAccount
-import app.lensly.core.btc.BtcAccount
 import app.lensly.core.solana.SolanaAccount
 import app.lensly.ui.components.lumioPress
 import app.lensly.ui.theme.ClearAirMotion
@@ -55,6 +54,7 @@ import app.lumio.data.tx.TxStatus
 import app.lumio.data.net.Networks
 import app.lumio.home.Masking
 import app.lumio.pair.PairedWallet
+import app.lumio.pair.addressKeys
 import app.lumio.portfolio.PortfolioFormat
 import app.lumio.transactions.ActivityText
 import app.lumio.transactions.TxDetail
@@ -236,7 +236,7 @@ internal fun unnamedFaceOf(wallet: PairedWallet?, address: String): AccountFace 
     if (wallet == null) return AccountFace.UNKNOWN
     val key = addressKeyOf(address)
     val place = wallet.evmAccounts.firstOrNull { addressKeyOf(it.address) == key }?.let { Networks.EIP155 to it.index }
-        ?: wallet.bitcoin.indexOfFirst { btc -> (0 until BtcAccount.GAP_LIMIT).any { addressKeyOf(btc.receiveAddress(it)) == key || addressKeyOf(btc.changeAddress(it)) == key } }
+        ?: wallet.bitcoin.indexOfFirst { key in it.addressKeys() }
             .takeIf { it >= 0 }?.let { Networks.BIP122 to it }
         ?: wallet.solana.indexOfFirst { addressKeyOf(SolanaAccount.addressOf(it)) == key }.takeIf { it >= 0 }?.let { Networks.SOLANA to it }
         ?: wallet.algorand.indexOfFirst { addressKeyOf(AlgorandAccount.addressOf(it)) == key }.takeIf { it >= 0 }?.let { Networks.ALGORAND to it }
