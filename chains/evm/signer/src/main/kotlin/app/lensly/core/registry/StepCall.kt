@@ -33,6 +33,10 @@ internal const val WETH_MAINNET = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
 /** [address] for a sentence: its EIP-55 checksum as the first two and last two groups of 4, as the summary shows it. The full value is under Details. */
 internal fun shortAddress(address: String): String = AddressGroups.ends(Keys.toChecksumAddress(address))
 
+/** What a review calls the batch contract [address]: "Multicall3" for the real one, and its short address for any other, which must never wear a well-known name. */
+internal fun batchName(address: String): String =
+    if (address.equals(MULTICALL3_ADDRESS, ignoreCase = true)) "Multicall3" else shortAddress(address)
+
 /**
  * The warning of a step that pays or credits [address], or an empty list when [address] is the signer. [what] is the action that reaches
  * it, as the text "This <what> <address>, not you" reads: "withdraws to", "supplies for" or "repays the debt of".
@@ -140,16 +144,8 @@ internal class StepCall(
         else -> shortAddress(address)
     }
 
-    /**
-     * What the contract's message sender is in words: "you" for the signer, "Multicall3" for the real Multicall3 contract, and the short
-     * address of any other batch contract, which must never wear the name of a well-known one.
-     */
-    val callerName: String
-        get() = when {
-            caller == from -> "you"
-            caller == MULTICALL3_ADDRESS.lowercase() -> "Multicall3"
-            else -> shortAddress(caller)
-        }
+    /** What the contract's message sender is in words: "you" for the signer, and [batchName] for the batch contract that calls it. */
+    val callerName: String get() = if (caller == from) "you" else batchName(caller)
 
     /** [callerName] as a possessive before a noun: "your" for the signer, and "Multicall3's" or "<short address>'s" for the batch. */
     val callerOwn: String get() = if (caller == from) "your" else "${callerName}'s"
