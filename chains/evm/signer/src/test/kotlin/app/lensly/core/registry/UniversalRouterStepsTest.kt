@@ -34,8 +34,13 @@ private fun stepsOf(calldata: String, contract: String, from: String = SIGNER): 
     return CallSteps.describe(STEP_REGISTRY, 1, contract, EXECUTE, EXECUTE_SIGNATURE, from, BigInteger.ZERO, decoded)
 }
 
-/** The steps of a call built from its [commands] and their [inputs], for the cases a real router call does not show. */
-private fun stepsOfParts(contract: String, commands: ByteArray, inputs: List<ByteArray>): CallSteps? = CallSteps.describe(
+/** Multicall3, and a lookalike of [SIGNER]: the same first and last four hex characters, so a shortened address reads as the signer. */
+private const val MULTICALL3 = "0xca11bde05977b3631167028862be2a173976ca11"
+private const val OTHER = "0x00000000000000000000000000000000000000aa"
+private const val LOOKALIKE = "0x0bf9" + "00000000000000000000000000000000" + "777f"
+
+/** The steps of a call built from its [commands] and their [inputs], for the cases a real router call does not show. [caller] calls the router. */
+private fun stepsOfParts(contract: String, commands: ByteArray, inputs: List<ByteArray>, caller: String = SIGNER): CallSteps? = CallSteps.describe(
     STEP_REGISTRY,
     1,
     contract,
@@ -48,17 +53,40 @@ private fun stepsOfParts(contract: String, commands: ByteArray, inputs: List<Byt
         DecodedParam(EXECUTE_PARAMS[1], AbiValue.Items(inputs.map { AbiValue.Dynamic(it.toHex()) })),
         DecodedParam(EXECUTE_PARAMS[2], AbiValue.Word("00".repeat(ABI_WORD))),
     ),
+    caller,
 )
 
-/** The ABI encoding of V3_SWAP_EXACT_IN with [path], which is the input a router command holds. */
-private fun v3ExactInInput(path: ByteArray): ByteArray {
-    val head = abiWord(BigInteger.ZERO) + abiWord(BigInteger.TEN.pow(18)) + abiWord(BigInteger.ZERO) +
-        abiWord(BigInteger.valueOf(5L * ABI_WORD)) + abiWord(BigInteger.ONE)
+/** The ABI encoding of V3_SWAP_EXACT_IN with [path] to [recipient], which is the input a router command holds. */
+private fun v3ExactInInput(path: ByteArray, recipient: String = NATIVE_COIN, payerIsUser: Boolean = true): ByteArray {
+    val head = abiAddressWord(recipient) + abiWord(BigInteger.TEN.pow(18)) + abiWord(BigInteger.ZERO) +
+        abiWord(BigInteger.valueOf(5L * ABI_WORD)) + abiWord(if (payerIsUser) BigInteger.ONE else BigInteger.ZERO)
     val padded = path + ByteArray((ABI_WORD - path.size % ABI_WORD) % ABI_WORD)
     return head + abiWord(BigInteger.valueOf(path.size.toLong())) + padded
 }
 
 private const val FUZZ_ROUNDS = 3000
+
+/** A WETH to USDC path through the 0.05% pool. */
+private val WETH_TO_USDC = Numeric.hexStringToByteArray(WETH) + byteArrayOf(0, 1, 0xf4.toByte()) + Numeric.hexStringToByteArray(USDC)
+
+private const val SWAP_WARNING = "This pays the swap output to "
+private const val WRAP = 0x0b.toByte()
+private const val V3_SWAP = 0x00.toByte()
+private const val PERMIT2_TRANSFER_FROM = 0x02.toByte()
+private const val SWEEP = 0x04.toByte()
+private const val TRANSFER = 0x05.toByte()
+private const val PAY_PORTION = 0x06.toByte()
+private const val UNWRAP = 0x0c.toByte()
+
+/** One router command that pays a recipient, and the input that names [input]'s recipient. */
+private data class RouterStep(val name: String, val command: Byte, val input: (String) -> ByteArray)
+
+/** The input of WRAP_ETH to [recipient]. */
+private fun wrapInput(recipient: String): ByteArray = abiAddressWord(recipient) + abiWord(BigInteger.TEN.pow(18))
+
+/** The input of a command that takes (token, recipient, amount). */
+private fun tokenInput(recipient: String, amount: BigInteger = BigInteger.TEN): ByteArray =
+    abiAddressWord(USDC) + abiAddressWord(recipient) + abiWord(amount)
 
 class UniversalRouterStepsTest {
 
@@ -220,6 +248,90 @@ class UniversalRouterStepsTest {
 
         assertEquals(listOf("No commands: the router does nothing"), steps.lines)
         assertEquals(emptyList(), steps.warnings)
+    }
+
+    @Test
+    fun aSwapInsideABatchPaysTheBatchContractWhenItsRecipientIsTheMessageSenderFlag() {
+        // Multicall3 calls the router, so the router's message sender is Multicall3: WRAP_ETH to the router, then a swap of all of it
+        // to the flag 0x...01 leaves the output with Multicall3.
+        val commands = byteArrayOf(WRAP, V3_SWAP)
+        val inputs = listOf(wrapInput(ADDRESS_THIS), v3ExactInInput(WETH_TO_USDC, MSG_SENDER, payerIsUser = false))
+
+        val viaBatch = assertNotNull(stepsOfParts(UR_V2, commands, inputs, caller = MULTICALL3))
+        val direct = assertNotNull(stepsOfParts(UR_V2, commands, inputs))
+
+        assertEquals(
+            listOf(
+                "Wrap 1 ETH → WETH in the router",
+                "Swap exactly 1 WETH for ≥ 0 USDC via Uniswap v3 (0.05%), sent to Multicall3",
+            ),
+            viaBatch.lines,
+        )
+        assertEquals(listOf("This pays the swap output to 0xcA11…CA11, not you"), viaBatch.warnings)
+        assertEquals(listOf(MULTICALL3), viaBatch.addresses)
+        // The same call from the signer pays the signer: no note, no warning.
+        assertEquals(listOf("Wrap 1 ETH → WETH in the router", "Swap exactly 1 WETH for ≥ 0 USDC via Uniswap v3 (0.05%)"), direct.lines)
+        assertEquals(emptyList(), direct.warnings)
+        assertEquals(emptyList(), direct.addresses)
+    }
+
+    @Test
+    fun aBatchReadsEveryOtherMessageSenderWordingAsTheBatchContract() {
+        val permit = assertNotNull(
+            stepsOfParts(UR_V2, byteArrayOf(PERMIT2_TRANSFER_FROM), listOf(tokenInput(MSG_SENDER, BigInteger.valueOf(10_000_000_000))), MULTICALL3),
+        )
+        assertEquals(listOf("Transfer 10,000 USDC from Multicall3 to Multicall3 via Permit2"), permit.lines)
+        assertEquals(listOf(MULTICALL3), permit.addresses)
+
+        val wrap = assertNotNull(stepsOfParts(UR_V2, byteArrayOf(WRAP), listOf(wrapInput(MSG_SENDER)), MULTICALL3))
+        assertEquals(listOf("Wrap 1 ETH → WETH for Multicall3"), wrap.lines)
+        assertEquals(listOf("This wraps ETH for 0xcA11…CA11, not you"), wrap.warnings)
+
+        val unwrap = assertNotNull(stepsOfParts(UR_V2, byteArrayOf(UNWRAP), listOf(abiAddressWord(MSG_SENDER) + abiWord(BigInteger.ZERO)), MULTICALL3))
+        assertEquals(listOf("Unwrap all WETH the router holds → ETH for Multicall3"), unwrap.lines)
+        assertEquals(1, unwrap.warnings.size)
+
+        val payerIsUser = assertNotNull(
+            stepsOfParts(UR_V2, byteArrayOf(V3_SWAP), listOf(v3ExactInInput(WETH_TO_USDC, ADDRESS_THIS)), MULTICALL3),
+        )
+        assertTrue(payerIsUser.lines.single().endsWith(", paid by Multicall3, kept in the router"), payerIsUser.lines.single())
+        assertEquals(emptyList(), payerIsUser.warnings)
+    }
+
+    @Test
+    fun aSwapToALookalikeOfTheSignerWarnsAndNamesTheFullAddress() {
+        val steps = assertNotNull(stepsOfParts(UR_V2, byteArrayOf(V3_SWAP), listOf(v3ExactInInput(WETH_TO_USDC, LOOKALIKE))))
+
+        assertEquals(listOf(SWAP_WARNING + shortAddress(LOOKALIKE) + ", not you"), steps.warnings)
+        assertEquals(listOf(LOOKALIKE), steps.addresses)
+        assertTrue(steps.lines.single().endsWith(", sent to ${shortAddress(LOOKALIKE)}"), steps.lines.single())
+    }
+
+    @Test
+    fun everyRouterStepThatPaysAnotherAddressWarnsAndEveryOneThatPaysTheSignerOrTheRouterDoesNot() {
+        val steps = listOf(
+            RouterStep("permit2 transfer", PERMIT2_TRANSFER_FROM) { tokenInput(it) },
+            RouterStep("sweep", SWEEP) { tokenInput(it) },
+            RouterStep("transfer", TRANSFER) { tokenInput(it) },
+            RouterStep("pay portion", PAY_PORTION) { tokenInput(it, BigInteger.valueOf(50)) },
+            RouterStep("v3 swap", V3_SWAP) { v3ExactInInput(WETH_TO_USDC, it) },
+            RouterStep("wrap", WRAP) { wrapInput(it) },
+            RouterStep("unwrap", UNWRAP) { abiAddressWord(it) + abiWord(BigInteger.ZERO) },
+        )
+        steps.forEach { (name, command, input) ->
+            fun of(recipient: String) = assertNotNull(stepsOfParts(UR_V2, byteArrayOf(command), listOf(input(recipient))), name)
+
+            listOf(OTHER, LOOKALIKE).forEach { other ->
+                val paid = of(other)
+                assertEquals(1, paid.warnings.size, "$name to $other")
+                assertTrue(paid.warnings.single().endsWith("${shortAddress(other)}, not you"), paid.warnings.single())
+                assertEquals(listOf(other), paid.addresses, name)
+            }
+            listOf(SIGNER, MSG_SENDER, ADDRESS_THIS).forEach { own ->
+                assertEquals(emptyList(), of(own).warnings, "$name to $own")
+                assertEquals(emptyList(), of(own).addresses, "$name to $own")
+            }
+        }
     }
 
     @Test

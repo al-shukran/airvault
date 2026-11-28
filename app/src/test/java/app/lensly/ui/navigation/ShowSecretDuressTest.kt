@@ -12,6 +12,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import app.lensly.app.DecoyVault
 import app.lensly.app.VaultHolder
+import app.lensly.core.vault.Clock
 import app.lensly.core.vault.CreateResult
 import app.lensly.core.vault.DuressResult
 import app.lensly.core.vault.FailureDelay
@@ -24,6 +25,8 @@ import app.lensly.core.vault.VaultLayout
 import app.lensly.core.vault.VaultSession
 import app.lensly.ui.theme.LumenTheme
 import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -53,7 +56,7 @@ class ShowSecretDuressTest {
     @get:Rule
     val tmp = TemporaryFolder()
 
-    private val clock = FakeClock()
+    private val clock = HoldableClock()
     private lateinit var layout: VaultLayout
     private lateinit var vault: Vault
     private lateinit var holder: VaultHolder
@@ -163,14 +166,25 @@ class ShowSecretDuressTest {
         compose.waitUntil(WAIT_MS) { nav.currentDestination?.route == HiddenRoute.GATE }
     }
 
-    /** Types [password] at the password step and waits until the vault counted the try and the screen is asking again. */
+    /**
+     * Types [password] at the password step and waits until the check is over and the screen is asking again.
+     *
+     * The check runs off the main thread, so the test cannot tell by looking that the screen is busy: the busy state reaches the screen a
+     * few frames after the check has started, and a wait for "Checking" to be gone passes when it has not shown yet. The next password
+     * would then be typed into a screen that is still busy and dropped. So the check is held until the screen shows "Checking", and only
+     * then let go, which makes the end of "Checking" the end of this check and nothing else.
+     */
     private fun refused(password: String) {
         clock.advance(FailureDelay.MAX_CAP_MS + 1)
         val before = vault.failureCountForTesting()
+        val hold = clock.holdNextReading()
         type(password)
         pressDone()
-        compose.waitUntil(WAIT_MS) { vault.failureCountForTesting() > before }
+        compose.waitUntil(WAIT_MS) { hold.reached.count == 0L }
+        compose.waitUntil(WAIT_MS) { compose.onAllNodesWithText("Checking").fetchSemanticsNodes().isNotEmpty() }
+        hold.release.countDown()
         compose.waitUntil(WAIT_MS) { compose.onAllNodesWithText("Checking").fetchSemanticsNodes().isEmpty() }
+        assertEquals(before + 1, vault.failureCountForTesting())
         compose.onNodeWithText(PROMPT).assertExists()
         assertEquals(0, compose.onAllNodesWithText(WARNING).fetchSemanticsNodes().size)
         clock.advance(FailureDelay.MAX_CAP_MS + 1)
@@ -195,6 +209,34 @@ class ShowSecretDuressTest {
         val deadline = System.nanoTime() + 30_000_000_000L
         while (layout.promotionMarker.exists() && System.nanoTime() < deadline) Thread.sleep(50)
         assertFalse(layout.promotionMarker.exists(), "the cleanup of the promotion finished")
+    }
+
+    /**
+     * A [FakeClock] that can hold the next reading of the vault until the test lets go. Every check of a password reads the clock off the
+     * main thread, so a held reading keeps the check, and with it the busy screen, in place for as long as the test wants.
+     */
+    private class HoldableClock : Clock {
+        class Hold {
+            val reached = CountDownLatch(1)
+            val release = CountDownLatch(1)
+        }
+
+        private val fake = FakeClock()
+        private val pending = AtomicReference<Hold?>()
+
+        fun advance(ms: Long) = fake.advance(ms)
+
+        fun holdNextReading(): Hold = Hold().also { pending.set(it) }
+
+        override fun wallMillis(): Long = pass().let { fake.wallMillis() }
+
+        override fun elapsedMillis(): Long = pass().let { fake.elapsedMillis() }
+
+        private fun pass() {
+            val hold = pending.getAndSet(null) ?: return
+            hold.reached.countDown()
+            hold.release.await()
+        }
     }
 
     private companion object {

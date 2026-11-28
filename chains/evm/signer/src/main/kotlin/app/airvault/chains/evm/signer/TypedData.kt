@@ -3,6 +3,7 @@ package app.airvault.chains.evm.signer
 import java.io.ByteArrayOutputStream
 import java.math.BigInteger
 import java.nio.charset.StandardCharsets
+import app.lensly.core.registry.OffChainDomain
 import app.lensly.core.wallet.toHex
 import org.web3j.crypto.Hash
 
@@ -66,6 +67,17 @@ class TypedData(
             type in types -> types.getValue(type).forEach { addressesOf(it.type, (value as TypedValue.StructValue).fields.getValue(it.name), into) }
             type == "address" -> into += "0x" + (value as TypedValue.BytesValue).bytes.toHex()
         }
+    }
+
+    /**
+     * The addresses that a denylist entry's party can name in this message: every address value of the message, the domain's verifying contract,
+     * and, on a labelled domain, each top-level `string` member that holds an address, such as a Hyperliquid destination. All as lowercase 0x hex.
+     */
+    fun parties(offChain: OffChainDomain?): List<String> {
+        val contract = (domain.fields["verifyingContract"] as? TypedValue.BytesValue)?.let { "0x" + it.bytes.toHex() }
+        val strings = offChain?.stringAddressMembers.orEmpty().mapNotNull { (message.fields[it] as? TypedValue.TextValue)?.value }
+            .filter { STRING_ADDRESS.matches(it) }.map { it.lowercase() }
+        return messageAddresses() + listOfNotNull(contract) + strings
     }
 
     /** The digest that is signed: keccak256(0x1901 ‖ domainSeparator ‖ messageHash). */
